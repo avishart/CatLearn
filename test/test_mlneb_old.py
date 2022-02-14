@@ -1,4 +1,3 @@
-import sys
 from ase.io import read
 from ase.neb import NEB
 import numpy as np
@@ -24,11 +23,11 @@ final_structure.set_calculator(copy.deepcopy(ase_calculator))
 # 1.2. Optimize initial and final end-points.
 
 # Initial end-point:
-initial_opt = BFGS(initial_structure)
+initial_opt = BFGS(initial_structure, trajectory='initial_optimized.traj')
 initial_opt.run(fmax=0.01)
 
 # Final end-point:
-final_opt = BFGS(final_structure)
+final_opt = BFGS(final_structure, trajectory='final_optimized.traj')
 final_opt.run(fmax=0.01)
 
 
@@ -43,20 +42,20 @@ class TestMLNEB(unittest.TestCase):
             image.set_calculator(copy.deepcopy(ase_calculator))
             images.append(image)
         images.append(final_structure)
-        
+
         neb = NEB(images, climb=True)
         neb.interpolate(method='linear')
-        
+
         neb_catlearn = MLNEB(start=initial_structure,
                              end=final_structure,
                              interpolation=images,
                              ase_calc=ase_calculator,
                              restart=False
                              )
-        
-        neb_catlearn.run(fmax=0.05, max_step=0.2,
-                         full_output=False)
-        """
+
+        neb_catlearn.run(fmax=0.05, trajectory='ML-NEB.traj', max_step=0.2,
+                         full_output=True)
+
         atoms_catlearn = read('evaluated_structures.traj', ':')
         n_eval_catlearn = len(atoms_catlearn) - 2
 
@@ -67,8 +66,7 @@ class TestMLNEB(unittest.TestCase):
         unc_test = 0.0468
         print('Checking uncertainty on the path (8 images):')
         np.testing.assert_array_almost_equal(max_unc, unc_test, decimal=4)
-        """
-'''
+
     def test_restart(self):
         """ Here we test the restart flag, the mic, and the internal
             interpolation."""
@@ -187,6 +185,6 @@ class TestMLNEB(unittest.TestCase):
         max_unc = np.max(neb_catlearn.uncertainty_path)
         unc_test = 0.0128
         np.testing.assert_array_almost_equal(max_unc, unc_test, decimal=4)
-'''
+
 if __name__ == '__main__':
     unittest.main()

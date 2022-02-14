@@ -117,7 +117,7 @@ def print_info_neb(self):
         self.tab_neb = np.array([pre_tab_neb])
     if self.iter > 0:
         self.tab_neb = np.append(self.tab_neb, [pre_tab_neb], axis=0)
-
+    
     parprint('+--------+------+---------------------+---------------------+---'
              '------------------+--------------+--------------+----------+')
     parprint('| Method | Step |        Time         | Pred. barrier (-->) | '
