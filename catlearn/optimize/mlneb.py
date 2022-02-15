@@ -10,8 +10,6 @@ from ase.optimize import MDMin
 from ase.parallel import parprint, rank, parallel_function
 from scipy.spatial import distance
 import os
-from catlearn.regression.gp_bv.calculator import GPModel,GPCalculator
-from catlearn.optimize.acquisition import Acquisition
 from ase.calculators.calculator import Calculator, all_changes
 from ase.atoms import Atoms
 from catlearn import __version__
@@ -86,27 +84,30 @@ class MLNEB(object):
         self.version='ML-NEB ' + __version__
         self.interesting_point=None
         self.train_images=[]
-        self.list_gradients=[]
         # Settings for the NEB.
         self.neb_method=neb_method
-
-        # Start end-point and final end-point
-        self.save_prev_calculations(prev_calculations=None)
-        self.set_up_endpoints(start,end,prev_calculations)
-
+        # Load previous data
+        self.save_prev_calculations(prev_calculations=prev_calculations)
         # Set up the machine learning part
         if mlmodel is None:
-            mlmodel=GPModel(train_images=self.train_images)
+            from catlearn.regression.gp_bv.calculator import GPModel
+            mlmodel=GPModel()
         if mlcalc is None:
-            mlcalc=GPCalculator(mlmodel)
+            from catlearn.regression.gp_bv.calculator import GPCalculator
+            mlcalc=GPCalculator()
         if acq is None:
+            from catlearn.optimize.acquisition import Acquisition
             acq=Acquisition(mode='umucb',objective='max',kappa=2)
-        self.mlmodel=copy.deepcopy(mlmodel)
         self.mlcalc=copy.deepcopy(mlcalc)
+        self.mlcalc.model=copy.deepcopy(mlmodel)
         self.acq=copy.deepcopy(acq)
-
+        # Set up initial and final states
+        self.set_up_endpoints(start,end)
+        # Add training data to ML-Model
+        self.mlcalc.model.add_training_points(self.train_images)
+        self.mlcalc.model.train_model()
+        # Make initial path
         self.initial_interpolation(interpolation=interpolation,k=k)
-
         # Save files with all the paths that have been predicted:
         self.e_path,self.uncertainty_path=self.energy_and_uncertainty()
         write(self.trajectory, self.images)
@@ -151,25 +152,26 @@ class MLNEB(object):
         Minimum Energy Path from the initial to the final states.
 
         """
+        # Wheter to print everything
         self.fullout = full_output
+        # Define local optimizer
         if local_opt is None:
             local_opt=MDMin
             local_opt_kwargs={'dt':0.025}
+        # General setup
         stationary_point_found = False
         org_n_images = self.n_images
         self.acq.unc_convergence=unc_convergence
-
-        # Calculate a third point if only known initial & final structures.
+        # Calculate a third point if only initial and final structures are known.
         if len(self.train_images) == 2:
-            middle = int(self.n_images * (1./3.)) if self.energy_is >= self.energy_fs else int(self.n_images * (2./3.)) 
-            self.interesting_point = copy.deepcopy(self.images[middle])
+            middle = int(self.n_images * (1./3.)) if self.energy_is>=self.energy_fs else int(self.n_images * (2./3.)) 
+            self.interesting_point=copy.deepcopy(self.images[middle])
             self.evaluate_ase(self.interesting_point)
             self.mlcalc.model.add_training_points([self.interesting_point])
             self.print_neb()
-
+        # Use only one moving image
         if sequential is True:
             self.n_images = 3
-
         while True:
             # 1. Train Machine Learning process.
             self.mlcalc.model.train_model()
@@ -199,7 +201,6 @@ class MLNEB(object):
             parprint('\n')
             self.energy_forward = np.max(self.e_path) - self.e_path[0]
             self.energy_backward = np.max(self.e_path) - self.e_path[-1]
-            #self.max_abs_forces = self.list_gradients[-1]
             self.print_neb()
             write(self.trajectory, self.images)
 
@@ -218,8 +219,9 @@ class MLNEB(object):
 
     #def run_neb(self,)
 
-    def set_up_endpoints(self,start,end,prev_calculations=None):
-        # Initial state
+    def set_up_endpoints(self,start,end):
+        " Load and calculate the intial and final stats"
+        # Load and calculate initial state
         if isinstance(start, str):
             start=read(start, '-1:')
         try:
@@ -228,15 +230,16 @@ class MLNEB(object):
             raise Exception('Initial structure for the NEB was not provided')
         self.eval_and_append(self.start)
         self.energy_is=self.energy
-
-        self.num_atoms = len(self.start)
+        # Number of atoms and the constraint used
         self.constraints=self.start.constraints
-        if len(self.constraints) < 0:
-            self.constraints=None
-        if self.constraints is not None:
-            self.index_mask=create_mask(self.start, self.constraints)
+        self.index_mask=None
+        if len(self.constraints)>0:
+            from ase.constraints import FixAtoms
+            self.index_mask=[c.get_indices() for c in self.constraints if isinstance(c,FixAtoms)]
+            self.index_mask=sorted(list(set(self.index_mask)))
+            self.mlcalc.model.index_mask=copy.deepcopy(self.index_mask)
         
-        # Final state
+        # Load and calculate final state
         if isinstance(end, str):
             end=read(end, '-1:')
         try:
@@ -245,18 +248,20 @@ class MLNEB(object):
             raise Exception('Final structure for the NEB was not provided')
         self.eval_and_append(self.end)
         self.energy_fs=self.energy
-
+        # Calculate the direct distance between the initial and final states
         self.path_distance=np.linalg.norm(self.start.get_positions().flatten()-self.end.get_positions().flatten())
         pass
 
     def save_prev_calculations(self,prev_calculations=None):
-        # Store previous calculated data
+        " Store previous calculated data "
+        # Store previous calculated data given in prev_calculations
         if prev_calculations is not None:
             if isinstance(prev_calculations,str):
                 if os.path.exists(prev_calculations):
                     prev_calculations=read(prev_calculations,':')
                     for atoms in prev_calculations:
                         self.eval_and_append(atoms)
+        # Store previous calculated data given from trajectory file
         if self.restart and prev_calculations is None:
             if os.path.exists(self.trainingset):
                 prev_calculations=read(self.trainingset,':')
@@ -265,14 +270,16 @@ class MLNEB(object):
         pass
 
     def initial_interpolation(self,interpolation='linear',k=None):
+        " Make the first path used "
         path=None
+        # If the path is given then use it
         if interpolation not in ['idpp','linear']:
             if isinstance(interpolation,str):
                 if os.path.exists(interpolation):
                     path=read(interpolation,':')
             elif isinstance(interpolation,list):
                 path=[copy.deepcopy(atoms) for atoms in interpolation]
-        
+        # Calculate the number of images if a float is given
         if path is None:
             if isinstance(self.n_images,float):
                 self.n_images=int(self.path_distance/self.n_images)
@@ -280,12 +287,14 @@ class MLNEB(object):
                     self.n_images=3
         else:
             self.n_images=len(path)
-        # Set up NEB path
+        # Calculate the spring constant if it is not given
         self.spring = k if k is not None else np.sqrt((self.n_images-1) / self.path_distance)
+        # Set up NEB path
         self.images=self.make_interpolation(interpolation=interpolation,path=path)
         pass
 
     def make_interpolation(self,interpolation='linear',path=None):
+        " Make the NEB interpolation path "
         images=[copy.deepcopy(self.start)]
         for i in range(1,self.n_images-1):
             image=copy.deepcopy(self.start)
@@ -301,26 +310,29 @@ class MLNEB(object):
         return images
 
     def eval_and_append(self,atoms):
+        " Calculate the energy and forces with the ASE calculator and store it as training data "
         self.energy=atoms.get_potential_energy(force_consistent=self.fc)
         self.forces=atoms.get_forces()
         self.train_images.append(atoms)
         write(self.trainingset,self.train_images)
         self.max_abs_forces=np.max(np.linalg.norm(self.forces,axis=1))
-        self.list_gradients.append(self.max_abs_forces)
         pass
 
-    def energy_and_uncertainty(self):
-        energies=[img.get_potential_energy() for img in self.images]
-        uncertainties=[0]+[img.calc.results['uncertainty'] for img in self.images[1:-1]]+[0]
-        return np.array(energies),np.array(uncertainties)
-
     def evaluate_ase(self,atoms):
+        " Set the ASE calculator "
         atoms.set_calculator(self.ase_calc)
         self.eval_and_append(atoms)
         self.iter+=1
         pass
 
+    def energy_and_uncertainty(self):
+        " Calculate the energies and uncertainties with the ML calculator "
+        energies=[img.get_potential_energy() for img in self.images]
+        uncertainties=[0]+[img.calc.results['uncertainty'] for img in self.images[1:-1]]+[0]
+        return np.array(energies),np.array(uncertainties)
+
     def message_system(self,message,obj=None):
+        " Print output "
         if self.fullout is True:
             if obj is None:
                 parprint(message)
@@ -329,39 +341,36 @@ class MLNEB(object):
         pass
 
     def mlneb_opt(self,fmax,max_step,ml_steps,stationary_point_found,org_n_images,local_opt,local_opt_kwargs):
-        ml_cycles = 0
-        while True:
+        " Setup and run the ML-NEB: "
+        #ml_cycles = 0
+        #while True:
+        for ml_cycles in range(1,3):
             if stationary_point_found is True:
                 self.n_images = org_n_images
-
-            # Start from last path.
-            starting_path = self.images  
-
+            # Start from the last path
+            starting_path = self.images 
+            # Use the initial path
             if ml_cycles == 0:
                 self.message_system('Using initial path.')
                 starting_path=read(self.trajectory,'0:'+str(self.n_images))
-
+            # Use the last predicted path for the previous run
             if ml_cycles == 1:
                 self.message_system('Using last predicted path.')
-                starting_path = read('./all_predicted_paths.traj',str(-self.n_images)+':')
-
+                starting_path = read(self.trajectory,str(-self.n_images)+':')
+            # Make the path
             self.images=self.make_interpolation(interpolation=self.interpolation,path=starting_path)
-            
-            # Test before optimization:
+            # Check energy and uncertainty before optimization:
             self.e_path,self.uncertainty_path=self.energy_and_uncertainty()
             unc_ml=np.max(self.uncertainty_path)
             self.max_target=np.max(self.e_path)
-
             if unc_ml >= max_step:
                 self.message_system('Maximum uncertainty reach in initial path. Early stop.')
                 break
-
             # Perform NEB in the predicted landscape.
-            ml_neb = NEB(self.images, climb=True,method=self.neb_method,k=self.spring)
+            ml_neb=NEB(self.images, climb=True,method=self.neb_method,k=self.spring)
             neb_opt=local_opt(ml_neb,**local_opt_kwargs) if self.fullout else local_opt(ml_neb,logfile=None,**local_opt_kwargs)
-
-            #run
-            ml_neb,neb_opt,n_steps_performed=self.mlneb_opt_run(ml_neb,neb_opt,fmax,max_step,ml_steps)
+            # Run the NEB optimization
+            ml_neb,neb_opt,n_steps_performed,ml_converged=self.mlneb_opt_run(ml_neb,neb_opt,fmax,max_step,ml_steps)
 
             if n_steps_performed <= ml_steps-1:
                 self.message_system('Converged opt. in the predicted landscape.')
@@ -378,6 +387,7 @@ class MLNEB(object):
     def mlneb_opt_run(self,ml_neb,neb_opt,fmax,max_step,ml_steps):
         ml_converged = False
         n_steps_performed = 0
+        #for n_steps_performed in range(ml_steps):
         while ml_converged is False:
             # Save prev. positions:
             prev_save_positions = [img.get_positions() for img in self.images]
@@ -401,6 +411,7 @@ class MLNEB(object):
                     self.images[i].positions = prev_save_positions[i]
                 self.message_system('Maximum uncertainty reach. Early stop.')
                 ml_converged = True
+
             if neb_opt.converged():
                 ml_converged = True
 
@@ -413,7 +424,7 @@ class MLNEB(object):
             if n_steps_performed > ml_steps-1:
                 self.message_system('Not converged yet...')
                 ml_converged = True
-        return ml_neb,neb_opt,n_steps_performed
+        return ml_neb,neb_opt,n_steps_performed,ml_converged
 
     def check_convergence(self,fmax,unc_convergence,org_n_images,stationary_point_found):
         converged=False
@@ -430,7 +441,9 @@ class MLNEB(object):
 
     def print_neb(self):
         now=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        if self.iter<2:
+        try:
+            len(self.print_neb_list)
+        except:
             self.print_neb_list=['| Step |        Time         | Pred. barrier (-->) | Pred. barrier (<--) | Max. uncert. | Avg. uncert. |   fmax   |']
             self.energy_backward,self.energy_forward=0,0
 

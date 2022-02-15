@@ -9,6 +9,7 @@ from ase import Atoms
 from ase.optimize import BFGS
 import unittest
 
+np.random.seed(1)
 # 1. Structural relaxation.
 
 # Setup calculator:
@@ -55,7 +56,7 @@ class TestMLNEB(unittest.TestCase):
                              )
         
         neb_catlearn.run(fmax=0.05, max_step=0.2,
-                         full_output=False)
+                         full_output=True)
         """
         atoms_catlearn = read('evaluated_structures.traj', ':')
         n_eval_catlearn = len(atoms_catlearn) - 2
