@@ -15,6 +15,7 @@ from ase.atoms import Atoms
 from catlearn import __version__
 import copy
 import datetime
+from mpi4py import MPI
 
 
 class MLNEB(object):
@@ -162,50 +163,43 @@ class MLNEB(object):
         stationary_point_found = False
         org_n_images = self.n_images
         self.acq.unc_convergence=unc_convergence
+        # Set up parallel objects
+        self.comm = MPI.COMM_WORLD
+        self.rank,self.size=self.comm.Get_rank(),self.comm.Get_size()
+        print(self.rank,self.size)
         # Calculate a third point if only initial and final structures are known.
         if len(self.train_images) == 2:
             middle = int(self.n_images * (1./3.)) if self.energy_is>=self.energy_fs else int(self.n_images * (2./3.)) 
             self.interesting_point=copy.deepcopy(self.images[middle])
-            self.evaluate_ase(self.interesting_point)
+            self.evaluate_ase()
             self.mlcalc.model.add_training_points([self.interesting_point])
             self.print_neb()
         # Use only one moving image
         if sequential is True:
             self.n_images = 3
         while True:
-            # 1. Train Machine Learning process.
-            self.mlcalc.model.train_model()
-            
-            # 2. Setup and run ML NEB:
-            self.mlneb_opt(fmax,max_step,ml_steps,stationary_point_found,org_n_images,local_opt,local_opt_kwargs)
+            if self.rank==0:
+                # 1. Perform the ML-NEB inclusive finding the next point
+                self.mlneb_part(fmax,max_step,ml_steps,stationary_point_found,org_n_images,local_opt,local_opt_kwargs)
 
-            # 3. Get results from ML NEB using ASE NEB Tools:
-            # See https://wiki.fysik.dtu.dk/ase/ase/neb.html
-            self.interesting_point = []
-            # Get fit of the discrete path.
-            self.e_path,self.uncertainty_path=self.energy_and_uncertainty()
+                # 2. Calculate the next point 
+                self.evaluate_ase()            
 
-            # 4. Select next point to train (acquisition function):
-            self.acq.stationary_point_found=stationary_point_found
-            acq_values=self.acq.calculate(self.e_path[1:-1],self.uncertainty_path[1:-1])
-            argmax=self.acq.choose(acq_values)[0]
-            self.interesting_point=copy.deepcopy(self.images[1+argmax])
+                # 3. Store results and add training point.
+                self.mlcalc.model.add_training_points([self.interesting_point])
+                parprint('\n')
+                self.energy_forward = np.max(self.e_path) - self.e_path[0]
+                self.energy_backward = np.max(self.e_path) - self.e_path[-1]
+                self.print_neb()
+                write(self.trajectory, self.images)
 
-            # 5. Add a new training point and evaluate it.
-            self.message_system('Performing evaluation on the real landscape...')
-            self.evaluate_ase(self.interesting_point)
-            self.message_system('Single-point calculation finished.')
-            self.mlcalc.model.add_training_points([self.interesting_point])
+                # 4. Check convergence:
+                stationary_point_found,converged=self.check_convergence(fmax,unc_convergence,org_n_images,stationary_point_found)
+                self.broadcast_converged(converged=converged)
+            else:
+                self.evaluate_ase()
+                converged=self.broadcast_converged(converged=converged)
 
-            # 6. Store results.
-            parprint('\n')
-            self.energy_forward = np.max(self.e_path) - self.e_path[0]
-            self.energy_backward = np.max(self.e_path) - self.e_path[-1]
-            self.print_neb()
-            write(self.trajectory, self.images)
-
-            # 7. Check convergence:
-            stationary_point_found,converged=self.check_convergence(fmax,unc_convergence,org_n_images,stationary_point_found)
             if converged:
                 break
             # Break if reaches the max number of iterations set by the user.
@@ -216,8 +210,6 @@ class MLNEB(object):
         parprint('Number of steps performed in total:',self.iter)
         print_cite_mlneb()
         return self
-
-    #def run_neb(self,)
 
     def set_up_endpoints(self,start,end):
         " Load and calculate the intial and final stats"
@@ -307,10 +299,10 @@ class MLNEB(object):
         if path is None:
             neb_interpolation=NEB(images,k=self.spring)
             neb_interpolation.interpolate(method=interpolation,mic=self.mic)
-        return images
+        return images  
 
     def eval_and_append(self,atoms):
-        " Calculate the energy and forces with the ASE calculator and store it as training data "
+        " Recalculate the energy and forces with the ASE calculator and store it as training data "
         self.energy=atoms.get_potential_energy(force_consistent=self.fc)
         self.forces=atoms.get_forces()
         self.train_images.append(atoms)
@@ -318,12 +310,37 @@ class MLNEB(object):
         self.max_abs_forces=np.max(np.linalg.norm(self.forces,axis=1))
         pass
 
-    def evaluate_ase(self,atoms):
-        " Set the ASE calculator "
-        atoms.set_calculator(self.ase_calc)
-        self.eval_and_append(atoms)
+    def evaluate_ase(self):
+        " Set the ASE calculator evaluate the point of interest in parallel and add it as a new training point"
+        # Broadcast the system to other cpus
+        if self.rank==0:
+            self.message_system('Performing evaluation on the real landscape...')
+            self.interesting_point.set_calculator(self.ase_calc)
+            for r in range(1,self.size):
+                self.comm.send(self.interesting_point,dest=r,tag=1)
+        else:
+            self.interesting_point=self.comm.recv(source=0,tag=1)
+        self.comm.barrier()
+        # Evaluate the energy and forces
+        self.energy=self.interesting_point.get_potential_energy(force_consistent=self.fc)
+        self.forces=self.interesting_point.get_forces()
+        # Add the structure as training data
+        if rank==0:
+            self.message_system('Single-point calculation finished.')
+            self.eval_and_append(self.interesting_point)
         self.iter+=1
         pass
+
+    def broadcast_converged(self,converged=False):
+        " Broadcast the convergence statement to all CPUs"
+        if self.rank==0:
+            for r in range(1,self.size):
+                self.comm.send(converged,dest=r,tag=2)
+        else:
+            converged=self.comm.recv(source=0,tag=2)
+        self.comm.barrier()
+        return converged
+
 
     def energy_and_uncertainty(self):
         " Calculate the energies and uncertainties with the ML calculator "
@@ -340,7 +357,25 @@ class MLNEB(object):
                 parprint(message,obj)
         pass
 
+    def mlneb_part(self,fmax,max_step,ml_steps,stationary_point_found,org_n_images,local_opt,local_opt_kwargs):
+        " Run the ML-NEB part with training the ML, run ML-NEB, get results, and get next point "
+        # 1. Train Machine Learning process.
+        self.mlcalc.model.train_model()
+        
+        # 2. Setup and run ML NEB:
+        self.mlneb_opt(fmax,max_step,ml_steps,stationary_point_found,org_n_images,local_opt,local_opt_kwargs)
 
+        # 3. Get results from ML NEB using ASE NEB Tools (https://wiki.fysik.dtu.dk/ase/ase/neb.html)
+        self.interesting_point = []
+        # Get fit of the discrete path.
+        self.e_path,self.uncertainty_path=self.energy_and_uncertainty()
+
+        # 4. Select next point to train (acquisition function):
+        self.acq.stationary_point_found=stationary_point_found
+        acq_values=self.acq.calculate(self.e_path[1:-1],self.uncertainty_path[1:-1])
+        argmax=self.acq.choose(acq_values)[0]
+        self.interesting_point=copy.deepcopy(self.images[1+argmax])
+        pass
 
     def mlneb_opt(self,fmax,max_step,ml_steps,stationary_point_found,org_n_images,local_opt,local_opt_kwargs):
         " Setup and run the ML-NEB: "
@@ -441,19 +476,20 @@ class MLNEB(object):
 
     def print_neb(self):
         " Print the NEB process as a table "
-        now=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        try:
-            len(self.print_neb_list)
-        except:
-            self.print_neb_list=['| Step |        Time         | Pred. barrier (-->) | Pred. barrier (<--) | Max. uncert. | Avg. uncert. |   fmax   |']
-            self.energy_backward,self.energy_forward=0,0
+        if self.rank==0:
+            now=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            try:
+                len(self.print_neb_list)
+            except:
+                self.print_neb_list=['| Step |        Time         | Pred. barrier (-->) | Pred. barrier (<--) | Max. uncert. | Avg. uncert. |   fmax   |']
+                self.energy_backward,self.energy_forward=0,0
 
-        msg='|{0:6d}| '.format(self.iter)+'{} |'.format(now)
-        msg+='{0:21f}|'.format(self.energy_forward)+'{0:21f}|'.format(self.energy_backward)
-        msg+='{0:14f}|'.format(np.max(self.uncertainty_path[1:-1]))
-        msg+='{0:14f}|'.format(np.mean(self.uncertainty_path[1:-1]))+'{0:10f}|'.format(self.max_abs_forces)
-        self.print_neb_list.append(msg)
-        msg='\n'.join(self.print_neb_list)
-        parprint(msg)
+            msg='|{0:6d}| '.format(self.iter)+'{} |'.format(now)
+            msg+='{0:21f}|'.format(self.energy_forward)+'{0:21f}|'.format(self.energy_backward)
+            msg+='{0:14f}|'.format(np.max(self.uncertainty_path[1:-1]))
+            msg+='{0:14f}|'.format(np.mean(self.uncertainty_path[1:-1]))+'{0:10f}|'.format(self.max_abs_forces)
+            self.print_neb_list.append(msg)
+            msg='\n'.join(self.print_neb_list)
+            parprint(msg)
         pass
 
