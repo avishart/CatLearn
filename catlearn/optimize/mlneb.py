@@ -340,11 +340,12 @@ class MLNEB(object):
                 parprint(message,obj)
         pass
 
+
+
     def mlneb_opt(self,fmax,max_step,ml_steps,stationary_point_found,org_n_images,local_opt,local_opt_kwargs):
         " Setup and run the ML-NEB: "
-        #ml_cycles = 0
-        #while True:
-        for ml_cycles in range(1,3):
+        ml_cycles = 0
+        while True:
             if stationary_point_found is True:
                 self.n_images = org_n_images
             # Start from the last path
@@ -370,76 +371,76 @@ class MLNEB(object):
             ml_neb=NEB(self.images, climb=True,method=self.neb_method,k=self.spring)
             neb_opt=local_opt(ml_neb,**local_opt_kwargs) if self.fullout else local_opt(ml_neb,logfile=None,**local_opt_kwargs)
             # Run the NEB optimization
-            ml_neb,neb_opt,n_steps_performed,ml_converged=self.mlneb_opt_run(ml_neb,neb_opt,fmax,max_step,ml_steps)
-
-            if n_steps_performed <= ml_steps-1:
+            ml_converged=self.mlneb_opt_run(ml_neb,neb_opt,fmax,max_step,ml_steps)
+            # Check if it is converged
+            if ml_converged:
                 self.message_system('Converged opt. in the predicted landscape.')
                 break
-
             ml_cycles += 1
             self.message_system('ML cycles performed:', ml_cycles)
-
             if ml_cycles == 2:
                 self.message_system('ML process not optimized...not safe... \nChange interpolation or numb. of images.')
                 break
         return ml_cycles
 
     def mlneb_opt_run(self,ml_neb,neb_opt,fmax,max_step,ml_steps):
+        " Run the NEB on the predicted surface one step at the time. It is stopped if the energy or uncertainty is too large"
         ml_converged = False
-        n_steps_performed = 0
-        #for n_steps_performed in range(ml_steps):
-        while ml_converged is False:
+        for n_steps_performed in range(1,ml_steps):
             # Save prev. positions:
             prev_save_positions = [img.get_positions() for img in self.images]
-
+            # Run the NEB optimization one step
             neb_opt.run(fmax=(fmax * 0.85), steps=1)
             neb_opt.nsteps = 0
-
-            n_steps_performed += 1
+            # Calculate the maximum energies and uncertainties
             self.e_path,self.uncertainty_path=self.energy_and_uncertainty()
             e_ml=np.max(self.e_path[1:-1])
             unc_ml=np.max(self.uncertainty_path)
-
+            # If the energy barrier is too large
             if e_ml >= self.max_target + 0.2:
                 for i in range(1, self.n_images-1):
                     self.images[i].positions = prev_save_positions[i]
-                self.message_system('Pred. energy above max. energy. \nEarly stop.')
-                ml_converged = True
-
+                self.message_system('Pred. energy above max. energy. Early stop.')
+                break
+            # If the uncertainty is too large
             if unc_ml >= max_step:
                 for i in range(1, self.n_images-1):
                     self.images[i].positions = prev_save_positions[i]
                 self.message_system('Maximum uncertainty reach. Early stop.')
-                ml_converged = True
-
-            if neb_opt.converged():
-                ml_converged = True
-
+                break
+            # If the energy is a nan value (error)
             if np.isnan(ml_neb.emax):
                 self.images = read(self.trajectory, str(-self.n_images) + ':')
                 self.message_system('Not converged')
-                #n_steps_performed = 10000
                 break
-
+            # The NEB is converged 
+            if neb_opt.converged():
+                ml_converged = True
+                break
+            # Not converged within the steps given
             if n_steps_performed > ml_steps-1:
                 self.message_system('Not converged yet...')
-                ml_converged = True
-        return ml_neb,neb_opt,n_steps_performed,ml_converged
+                break
+        return ml_converged
 
     def check_convergence(self,fmax,unc_convergence,org_n_images,stationary_point_found):
+        " Check if the ML-NEB is converged to the final path with low uncertainty "
         converged=False
+        # Check whether the evaluated point is a stationary point.
         if self.max_abs_forces <= fmax:
             stationary_point_found = True
-        # Check whether the evaluated point is a stationary point.
-        if self.max_abs_forces <= fmax and self.n_images == org_n_images:
-            if np.max(self.uncertainty_path[1:-1]) < unc_convergence:
-                # Last path.
-                write(self.trajectory, self.images)
-                parprint("Congratulations! Your ML NEB is converged. See the final path in file {}".format(self.trajectory))
-                converged=True
+            # Check all images are used
+            if self.n_images == org_n_images:
+                # Check the maximum uncertainty is lower than the convergence criteria
+                if np.max(self.uncertainty_path[1:-1])<unc_convergence:
+                    # Write the Last path.
+                    write(self.trajectory, self.images)
+                    parprint("Congratulations! Your ML NEB is converged. See the final path in file {}".format(self.trajectory))
+                    converged=True
         return stationary_point_found,converged
 
     def print_neb(self):
+        " Print the NEB process as a table "
         now=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
             len(self.print_neb_list)
