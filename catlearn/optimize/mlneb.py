@@ -191,7 +191,7 @@ class MLNEB(object):
             else:
                 self.evaluate_ase()
                 converged=self.broadcast_converged(converged=converged)
-
+            # Check convergence criteria
             if converged:
                 break
             # Break if reaches the max number of iterations set by the user.
@@ -332,7 +332,6 @@ class MLNEB(object):
             converged=self.comm.recv(source=0,tag=2)
         self.comm.barrier()
         return converged
-
 
     def energy_and_uncertainty(self):
         " Calculate the energies and uncertainties with the ML calculator "
