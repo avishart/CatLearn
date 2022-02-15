@@ -1,17 +1,10 @@
 import numpy as np
-from catlearn.optimize.io import ase_to_catlearn, store_results_neb, \
-                                 print_version, store_trajectory_neb, \
-                                 print_info_neb, array_to_ase, print_cite_mlneb
-from catlearn.optimize.constraints import create_mask, apply_mask
+from catlearn.optimize.io import print_cite_mlneb
 from ase.neb import NEB
-from ase.neb import NEBTools
 from ase.io import read, write
 from ase.optimize import MDMin
-from ase.parallel import parprint, rank, parallel_function
-from scipy.spatial import distance
+from ase.parallel import parprint
 import os
-from ase.calculators.calculator import Calculator, all_changes
-from ase.atoms import Atoms
 from catlearn import __version__
 import copy
 import datetime
@@ -166,7 +159,6 @@ class MLNEB(object):
         # Set up parallel objects
         self.comm = MPI.COMM_WORLD
         self.rank,self.size=self.comm.Get_rank(),self.comm.Get_size()
-        print(self.rank,self.size)
         # Calculate a third point if only initial and final structures are known.
         if len(self.train_images) == 2:
             middle = int(self.n_images * (1./3.)) if self.energy_is>=self.energy_fs else int(self.n_images * (2./3.)) 
@@ -227,7 +219,7 @@ class MLNEB(object):
         self.index_mask=None
         if len(self.constraints)>0:
             from ase.constraints import FixAtoms
-            self.index_mask=[c.get_indices() for c in self.constraints if isinstance(c,FixAtoms)]
+            self.index_mask=np.array([c.get_indices() for c in self.constraints if isinstance(c,FixAtoms)]).flatten()
             self.index_mask=sorted(list(set(self.index_mask)))
             self.mlcalc.model.index_mask=copy.deepcopy(self.index_mask)
         
@@ -325,7 +317,7 @@ class MLNEB(object):
         self.energy=self.interesting_point.get_potential_energy(force_consistent=self.fc)
         self.forces=self.interesting_point.get_forces()
         # Add the structure as training data
-        if rank==0:
+        if self.rank==0:
             self.message_system('Single-point calculation finished.')
             self.eval_and_append(self.interesting_point)
         self.iter+=1

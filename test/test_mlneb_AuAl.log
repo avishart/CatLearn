@@ -1,0 +1,409 @@
+      Step     Time          Energy         fmax
+BFGS:    0 23:35:29        3.323870        0.2462
+BFGS:    1 23:35:29        3.323039        0.2266
+BFGS:    2 23:35:29        3.318324        0.0112
+BFGS:    3 23:35:29        3.318312        0.0003
+      Step     Time          Energy         fmax
+BFGS:    0 23:35:29        3.318312        0.0003
+Performing evaluation on the real landscape...
+Single-point calculation finished.
+| Step |        Time         | Pred. barrier (-->) | Pred. barrier (<--) | Max. uncert. | Avg. uncert. |   fmax   |
+|     1| 2022-02-15 23:35:31 |             0.000000|             0.000000|      0.000000|      0.000000|  2.318563|
+Using initial path.
+Maximum uncertainty reach in initial path. Early stop.
+Performing evaluation on the real landscape...
+Single-point calculation finished.
+
+
+| Step |        Time         | Pred. barrier (-->) | Pred. barrier (<--) | Max. uncert. | Avg. uncert. |   fmax   |
+|     1| 2022-02-15 23:35:31 |             0.000000|             0.000000|      0.000000|      0.000000|  2.318563|
+|     2| 2022-02-15 23:35:33 |             0.578444|             0.578444|      0.268438|      0.154780|  2.318563|
+Using initial path.
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:35        4.168792        2.7915
+MDMin:    1 23:35:35        4.166502        2.7919
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:35        4.166502        2.7919
+MDMin:    1 23:35:35        4.159624        2.7930
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:35        4.159624        2.7930
+MDMin:    1 23:35:35        4.148144        2.7947
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:35        4.148144        2.7947
+MDMin:    1 23:35:35        4.132036        2.7969
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:35        4.132036        2.7969
+MDMin:    1 23:35:35        4.111266        2.7994
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:35        4.111266        2.7994
+MDMin:    1 23:35:35        4.085796        2.8019
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:35        4.085796        2.8019
+MDMin:    1 23:35:35        4.055586        2.8042
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:35        4.055586        2.8042
+MDMin:    1 23:35:35        4.020599        2.8057
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:35        4.020599        2.8057
+MDMin:    1 23:35:35        3.980805        2.8061
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:35        3.980805        2.8061
+MDMin:    1 23:35:35        3.936188        2.8048
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:35        3.936188        2.8048
+MDMin:    1 23:35:35        3.886754        2.8013
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:35        3.886754        2.8013
+MDMin:    1 23:35:35        3.832532        2.7949
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:35        3.832532        2.7949
+MDMin:    1 23:35:36        3.773587        2.7848
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:36        3.773587        2.7848
+MDMin:    1 23:35:36        3.710026        2.7704
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:36        3.710026        2.7704
+MDMin:    1 23:35:36        3.642004        2.7508
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:36        3.642004        2.7508
+MDMin:    1 23:35:36        3.569734        2.7251
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:36        3.569734        2.7251
+MDMin:    1 23:35:36        3.493486        2.6926
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:36        3.493486        2.6926
+MDMin:    1 23:35:36        3.413594        2.6523
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:36        3.413594        2.6523
+MDMin:    1 23:35:36        3.338981        2.5954
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:36        3.338981        2.5954
+MDMin:    1 23:35:36        3.320867        2.5275
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:36        3.320867        2.5275
+MDMin:    1 23:35:36        3.307401        2.4487
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:36        3.307401        2.4487
+MDMin:    1 23:35:36        3.293951        2.3588
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:36        3.293951        2.3588
+MDMin:    1 23:35:36        3.280921        2.2565
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:36        3.280921        2.2565
+MDMin:    1 23:35:36        3.268757        2.1417
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:36        3.268757        2.1417
+MDMin:    1 23:35:36        3.257933        2.0145
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:36        3.257933        2.0145
+MDMin:    1 23:35:36        3.248920        1.8750
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:36        3.248920        1.8750
+MDMin:    1 23:35:36        3.242150        1.7239
+Maximum uncertainty reach. Early stop.
+ML cycles performed: 1
+Using last predicted path.
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:36        4.168792        2.7915
+MDMin:    1 23:35:37        4.166502        2.7919
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:37        4.166502        2.7919
+MDMin:    1 23:35:37        4.159624        2.7930
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:37        4.159624        2.7930
+MDMin:    1 23:35:37        4.148144        2.7947
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:37        4.148144        2.7947
+MDMin:    1 23:35:37        4.132036        2.7969
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:37        4.132036        2.7969
+MDMin:    1 23:35:37        4.111266        2.7994
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:37        4.111266        2.7994
+MDMin:    1 23:35:37        4.085796        2.8019
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:37        4.085796        2.8019
+MDMin:    1 23:35:37        4.055586        2.8042
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:37        4.055586        2.8042
+MDMin:    1 23:35:37        4.020599        2.8057
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:37        4.020599        2.8057
+MDMin:    1 23:35:37        3.980805        2.8061
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:37        3.980805        2.8061
+MDMin:    1 23:35:37        3.936188        2.8048
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:37        3.936188        2.8048
+MDMin:    1 23:35:37        3.886754        2.8013
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:37        3.886754        2.8013
+MDMin:    1 23:35:37        3.832532        2.7949
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:37        3.832532        2.7949
+MDMin:    1 23:35:37        3.773587        2.7848
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:37        3.773587        2.7848
+MDMin:    1 23:35:37        3.710026        2.7704
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:37        3.710026        2.7704
+MDMin:    1 23:35:37        3.642004        2.7508
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:38        3.642004        2.7508
+MDMin:    1 23:35:38        3.569734        2.7251
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:38        3.569734        2.7251
+MDMin:    1 23:35:38        3.493486        2.6926
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:38        3.493486        2.6926
+MDMin:    1 23:35:38        3.413594        2.6523
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:38        3.413594        2.6523
+MDMin:    1 23:35:38        3.338981        2.5954
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:38        3.338981        2.5954
+MDMin:    1 23:35:38        3.320867        2.5275
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:38        3.320867        2.5275
+MDMin:    1 23:35:38        3.307401        2.4487
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:38        3.307401        2.4487
+MDMin:    1 23:35:38        3.293951        2.3588
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:38        3.293951        2.3588
+MDMin:    1 23:35:38        3.280921        2.2565
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:38        3.280921        2.2565
+MDMin:    1 23:35:38        3.268757        2.1417
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:38        3.268757        2.1417
+MDMin:    1 23:35:38        3.257933        2.0145
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:38        3.257933        2.0145
+MDMin:    1 23:35:38        3.248920        1.8750
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:38        3.248920        1.8750
+MDMin:    1 23:35:38        3.242150        1.7239
+Maximum uncertainty reach. Early stop.
+ML cycles performed: 2
+ML process not optimized...not safe... 
+Change interpolation or numb. of images.
+Performing evaluation on the real landscape...
+Single-point calculation finished.
+
+
+| Step |        Time         | Pred. barrier (-->) | Pred. barrier (<--) | Max. uncert. | Avg. uncert. |   fmax   |
+|     1| 2022-02-15 23:35:31 |             0.000000|             0.000000|      0.000000|      0.000000|  2.318563|
+|     2| 2022-02-15 23:35:33 |             0.578444|             0.578444|      0.268438|      0.154780|  2.318563|
+|     3| 2022-02-15 23:35:38 |             0.000000|             0.000000|      0.195344|      0.112058|  1.269594|
+Using initial path.
+Maximum uncertainty reach in initial path. Early stop.
+Performing evaluation on the real landscape...
+Single-point calculation finished.
+
+
+| Step |        Time         | Pred. barrier (-->) | Pred. barrier (<--) | Max. uncert. | Avg. uncert. |   fmax   |
+|     1| 2022-02-15 23:35:31 |             0.000000|             0.000000|      0.000000|      0.000000|  2.318563|
+|     2| 2022-02-15 23:35:33 |             0.578444|             0.578444|      0.268438|      0.154780|  2.318563|
+|     3| 2022-02-15 23:35:38 |             0.000000|             0.000000|      0.195344|      0.112058|  1.269594|
+|     4| 2022-02-15 23:35:40 |             0.572253|             0.572253|      0.214279|      0.144775|  1.260979|
+Using initial path.
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:42        3.890565        1.2709
+MDMin:    1 23:35:42        3.890062        1.2684
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:42        3.890062        1.2684
+MDMin:    1 23:35:43        3.888556        1.2638
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:43        3.888556        1.2638
+MDMin:    1 23:35:43        3.886059        1.2565
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:43        3.886059        1.2565
+MDMin:    1 23:35:43        3.882592        1.2461
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:43        3.882592        1.2461
+MDMin:    1 23:35:43        3.878181        1.2327
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:43        3.878181        1.2327
+MDMin:    1 23:35:43        3.872861        1.2160
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:43        3.872861        1.2160
+MDMin:    1 23:35:43        3.866678        1.1960
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:43        3.866678        1.1960
+MDMin:    1 23:35:43        3.859686        1.1725
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:43        3.859686        1.1725
+MDMin:    1 23:35:43        3.851949        1.1452
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:43        3.851949        1.1452
+MDMin:    1 23:35:43        3.843544        1.1141
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:43        3.843544        1.1141
+MDMin:    1 23:35:43        3.834559        1.0788
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:43        3.834559        1.0788
+MDMin:    1 23:35:43        3.825097        1.0392
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:43        3.825097        1.0392
+MDMin:    1 23:35:43        3.815273        0.9951
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:43        3.815273        0.9951
+MDMin:    1 23:35:43        3.805220        0.9461
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:43        3.805220        0.9461
+MDMin:    1 23:35:43        3.795086        0.8922
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:43        3.795086        0.8922
+MDMin:    1 23:35:43        3.785036        0.8332
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:44        3.785036        0.8332
+MDMin:    1 23:35:44        3.775251        0.7689
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:44        3.775251        0.7689
+MDMin:    1 23:35:44        3.765934        0.6993
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:44        3.765934        0.6993
+MDMin:    1 23:35:44        3.757302        0.6246
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:44        3.757302        0.6246
+MDMin:    1 23:35:44        3.749597        0.5451
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:44        3.749597        0.5451
+MDMin:    1 23:35:44        3.743080        0.4616
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:44        3.743080        0.4616
+MDMin:    1 23:35:44        3.738045        0.3761
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:44        3.738045        0.3761
+MDMin:    1 23:35:44        3.734830        0.2924
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:44        3.734830        0.2924
+MDMin:    1 23:35:44        3.733830        0.2200
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:44        3.733830        0.2200
+MDMin:    1 23:35:44        3.735381        0.1753
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:44        3.735381        0.1753
+MDMin:    1 23:35:44        3.738593        0.1565
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:44        3.738593        0.1565
+MDMin:    1 23:35:44        3.741414        0.1396
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:44        3.741414        0.1396
+MDMin:    1 23:35:44        3.743683        0.1227
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:44        3.743683        0.1227
+MDMin:    1 23:35:44        3.745512        0.1070
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:44        3.745512        0.1070
+MDMin:    1 23:35:44        3.746984        0.0925
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:44        3.746984        0.0925
+MDMin:    1 23:35:44        3.748159        0.0791
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:44        3.748159        0.0791
+MDMin:    1 23:35:44        3.749085        0.0667
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:45        3.749085        0.0667
+MDMin:    1 23:35:45        3.749804        0.0573
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:45        3.749804        0.0573
+MDMin:    1 23:35:45        3.750348        0.0495
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:45        3.750348        0.0495
+MDMin:    1 23:35:45        3.750747        0.0414
+Converged opt. in the predicted landscape.
+Performing evaluation on the real landscape...
+Single-point calculation finished.
+
+
+| Step |        Time         | Pred. barrier (-->) | Pred. barrier (<--) | Max. uncert. | Avg. uncert. |   fmax   |
+|     1| 2022-02-15 23:35:31 |             0.000000|             0.000000|      0.000000|      0.000000|  2.318563|
+|     2| 2022-02-15 23:35:33 |             0.578444|             0.578444|      0.268438|      0.154780|  2.318563|
+|     3| 2022-02-15 23:35:38 |             0.000000|             0.000000|      0.195344|      0.112058|  1.269594|
+|     4| 2022-02-15 23:35:40 |             0.572253|             0.572253|      0.214279|      0.144775|  1.260979|
+|     5| 2022-02-15 23:35:45 |             0.432435|             0.432435|      0.006648|      0.004908|  0.140563|
+Using initial path.
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:47        3.720174        0.1406
+MDMin:    1 23:35:47        3.720168        0.1402
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:47        3.720168        0.1402
+MDMin:    1 23:35:47        3.720150        0.1393
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:47        3.720150        0.1393
+MDMin:    1 23:35:47        3.720120        0.1377
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:47        3.720120        0.1377
+MDMin:    1 23:35:47        3.720079        0.1355
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:47        3.720079        0.1355
+MDMin:    1 23:35:47        3.720028        0.1327
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:48        3.720028        0.1327
+MDMin:    1 23:35:48        3.719968        0.1293
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:48        3.719968        0.1293
+MDMin:    1 23:35:48        3.719899        0.1253
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:48        3.719899        0.1253
+MDMin:    1 23:35:48        3.719823        0.1208
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:48        3.719823        0.1208
+MDMin:    1 23:35:48        3.719743        0.1157
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:48        3.719743        0.1157
+MDMin:    1 23:35:48        3.719658        0.1101
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:48        3.719658        0.1101
+MDMin:    1 23:35:48        3.719571        0.1040
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:48        3.719571        0.1040
+MDMin:    1 23:35:48        3.719484        0.0976
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:48        3.719484        0.0976
+MDMin:    1 23:35:48        3.719399        0.0907
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:48        3.719399        0.0907
+MDMin:    1 23:35:48        3.719316        0.0835
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:48        3.719316        0.0835
+MDMin:    1 23:35:48        3.719239        0.0760
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:48        3.719239        0.0760
+MDMin:    1 23:35:48        3.719168        0.0684
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:48        3.719168        0.0684
+MDMin:    1 23:35:48        3.719104        0.0607
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:48        3.719104        0.0607
+MDMin:    1 23:35:48        3.719049        0.0551
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:48        3.719049        0.0551
+MDMin:    1 23:35:48        3.719004        0.0499
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:49        3.719004        0.0499
+MDMin:    1 23:35:49        3.718969        0.0451
+       Step     Time          Energy         fmax
+MDMin:    0 23:35:49        3.718969        0.0451
+MDMin:    1 23:35:49        3.718944        0.0407
+Converged opt. in the predicted landscape.
+Performing evaluation on the real landscape...
+Single-point calculation finished.
+
+
+| Step |        Time         | Pred. barrier (-->) | Pred. barrier (<--) | Max. uncert. | Avg. uncert. |   fmax   |
+|     1| 2022-02-15 23:35:31 |             0.000000|             0.000000|      0.000000|      0.000000|  2.318563|
+|     2| 2022-02-15 23:35:33 |             0.578444|             0.578444|      0.268438|      0.154780|  2.318563|
+|     3| 2022-02-15 23:35:38 |             0.000000|             0.000000|      0.195344|      0.112058|  1.269594|
+|     4| 2022-02-15 23:35:40 |             0.572253|             0.572253|      0.214279|      0.144775|  1.260979|
+|     5| 2022-02-15 23:35:45 |             0.432435|             0.432435|      0.006648|      0.004908|  0.140563|
+|     6| 2022-02-15 23:35:49 |             0.400632|             0.400632|      0.014188|      0.006999|  0.038354|
+Congratulations! Your ML NEB is converged. See the final path in file all_predicted_paths.traj
+Number of steps performed in total: 6
+----------------------------------------------------------------------------------------------------------------------
+You are using ML-NEB and CatLearn. Please cite: 
+[1] J. A. Garrido Torres, M. H. Hansen, P. C. Jennings, J. R. Boes and T. Bligaard. Phys. Rev. Lett. 122, 156001. https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.122.156001 
+[2] M. H. Hansen, J. A. Garrido Torres, P. C. Jennings, Z. Wang, J. R. Boes, O. G. Mamun and T. Bligaard. An Atomistic Machine Learning Packagefor Surface Science and Catalysis. https://arxiv.org/abs/1904.00904 
+----------------------------------------------------------------------------------------------------------------------
