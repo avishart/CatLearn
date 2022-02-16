@@ -1,11 +1,7 @@
 # Made by Jose A Garrido Torres, Estefanía Garijo del Rio, and Sami Juhani Kaappa
-import warnings
-from copy import copy
-
 import numpy as np
 from ase.calculators.calculator import Calculator, all_changes
 from ase.calculators.singlepoint import SinglePointCalculator
-
 
 def copy_image(atoms):
     """
@@ -13,21 +9,14 @@ def copy_image(atoms):
     It returns a copy of the atoms object with the single point
     calculator attached
     """
-    # Check if the input already has the desired format
-    if atoms.calc.__class__.__name__ == 'SinglePointCalculator':
-        # Return a copy of the atoms object
-        calc = copy(atoms.calc)
-        atoms0 = atoms.copy()
-    else:
-        # Check if the atoms object has energy and forces calculated for this position
-        # If not, compute them
-        atoms.get_forces()
-        # Initialize a SinglePointCalculator to store this results
-        calc = SinglePointCalculator(atoms, **atoms.calc.results)
+    # Check if the atoms object has energy and forces calculated for this position
+    # If not, compute them
+    atoms.get_forces()
+    # Initialize a SinglePointCalculator to store this results
+    calc = SinglePointCalculator(atoms, **atoms.calc.results)
     atoms0 = atoms.copy()
     atoms0.calc = calc
     return atoms0
-
 
 class GPModel:
     """

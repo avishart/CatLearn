@@ -3,6 +3,7 @@ from catlearn.optimize.io import print_cite_mlneb
 from ase.neb import NEB
 from ase.io import read, write
 from ase.optimize import MDMin
+from ase.calculators.singlepoint import SinglePointCalculator
 from ase.parallel import parprint
 import os
 from catlearn import __version__
@@ -24,11 +25,15 @@ class MLNEB(object):
         ----------
         start: Trajectory file (in ASE format) or Atoms object.
             Initial end-point of the NEB path or Atoms object.
-        end: Trajectory file (in ASE format).
+        end: Trajectory file (in ASE format) or Atoms object.
             Final end-point of the NEB path.
+        prev_calculations: Atoms list or Trajectory file (in ASE format).
+            (optional) The user can feed previously calculated data for the
+            same hypersurface. The previous calculations must be fed as an
+            Atoms list or Trajectory file.
         n_images: int or float
             Number of images of the path (if not included a path before).
-             The number of images include the 2 end-points of the NEB path.
+            The number of images include the 2 end-points of the NEB path.
         k: float or list
             Spring constant(s) in eV/Ang.
         interpolation: string or Atoms list or Trajectory
@@ -48,10 +53,6 @@ class MLNEB(object):
         ase_calc: ASE calculator Object.
             ASE calculator as implemented in ASE.
             See https://wiki.fysik.dtu.dk/ase/ase/calculators/calculators.html
-        prev_calculations: Atoms list or Trajectory file (in ASE format).
-            (optional) The user can feed previously calculated data for the
-            same hypersurface. The previous calculations must be fed as an
-            Atoms list or Trajectory file.
         restart: boolean
             Only useful if you want to continue your ML-NEB in the same
             directory. The file "evaluated_structures.traj" from the
@@ -162,7 +163,7 @@ class MLNEB(object):
         # Calculate a third point if only initial and final structures are known.
         if len(self.train_images) == 2:
             middle = int(self.n_images * (1./3.)) if self.energy_is>=self.energy_fs else int(self.n_images * (2./3.)) 
-            self.interesting_point=copy.deepcopy(self.images[middle])
+            self.interesting_point=self.copy_image(self.images[middle])
             self.evaluate_ase()
             self.mlcalc.model.add_training_points([self.interesting_point])
             self.print_neb()
@@ -209,7 +210,7 @@ class MLNEB(object):
         if isinstance(start, str):
             start=read(start, '-1:')
         try:
-            self.start=copy.deepcopy(start)
+            self.start=self.copy_image(start)
         except:
             raise Exception('Initial structure for the NEB was not provided')
         self.eval_and_append(self.start)
@@ -227,7 +228,7 @@ class MLNEB(object):
         if isinstance(end, str):
             end=read(end, '-1:')
         try:
-            self.end=copy.deepcopy(end)
+            self.end=self.copy_image(end)
         except:
             raise Exception('Final structure for the NEB was not provided')
         self.eval_and_append(self.end)
@@ -262,7 +263,7 @@ class MLNEB(object):
                 if os.path.exists(interpolation):
                     path=read(interpolation,':')
             elif isinstance(interpolation,list):
-                path=[copy.deepcopy(atoms) for atoms in interpolation]
+                path=[self.copy_image(atoms) for atoms in interpolation]
         # Calculate the number of images if a float is given
         if path is None:
             if isinstance(self.n_images,float):
@@ -279,15 +280,15 @@ class MLNEB(object):
 
     def make_interpolation(self,interpolation='linear',path=None):
         " Make the NEB interpolation path "
-        images=[copy.deepcopy(self.start)]
+        images=[self.copy_image(self.start)]
         for i in range(1,self.n_images-1):
-            image=copy.deepcopy(self.start)
+            image=self.copy_image(self.start)
             image.set_calculator(copy.deepcopy(self.mlcalc))
             if path is not None:
                 image.set_positions(path[i].get_positions())
             image.set_constraint(self.constraints)
             images.append(image)
-        images.append(copy.deepcopy(self.end))
+        images.append(self.copy_image(self.end))
         if path is None:
             neb_interpolation=NEB(images,k=self.spring)
             neb_interpolation.interpolate(method=interpolation,mic=self.mic)
@@ -307,11 +308,11 @@ class MLNEB(object):
         # Broadcast the system to other cpus
         if self.rank==0:
             self.message_system('Performing evaluation on the real landscape...')
-            self.interesting_point.set_calculator(self.ase_calc)
             for r in range(1,self.size):
                 self.comm.send(self.interesting_point,dest=r,tag=1)
         else:
             self.interesting_point=self.comm.recv(source=0,tag=1)
+        self.interesting_point.set_calculator(self.ase_calc)
         self.comm.barrier()
         # Evaluate the energy and forces
         self.energy=self.interesting_point.get_potential_energy(force_consistent=self.fc)
@@ -322,6 +323,20 @@ class MLNEB(object):
             self.eval_and_append(self.interesting_point)
         self.iter+=1
         pass
+
+    def copy_image(self,atoms):
+        """
+        Copy an image. It returns a copy of the atoms object with the single point
+        calculator attached
+        """
+        # Check if the atoms object has energy and forces calculated for this position
+        # If not, compute them
+        atoms.get_forces()
+        # Initialize a SinglePointCalculator to store this results
+        calc = SinglePointCalculator(atoms, **atoms.calc.results)
+        atoms0 = atoms.copy()
+        atoms0.calc = calc
+        return atoms0
 
     def broadcast_converged(self,converged=False):
         " Broadcast the convergence statement to all CPUs"
@@ -365,7 +380,7 @@ class MLNEB(object):
         self.acq.stationary_point_found=stationary_point_found
         acq_values=self.acq.calculate(self.e_path[1:-1],self.uncertainty_path[1:-1])
         argmax=self.acq.choose(acq_values)[0]
-        self.interesting_point=copy.deepcopy(self.images[1+argmax])
+        self.interesting_point=self.copy_image(self.images[1+argmax])
         pass
 
     def mlneb_opt(self,fmax,max_step,ml_steps,stationary_point_found,org_n_images,local_opt,local_opt_kwargs):
