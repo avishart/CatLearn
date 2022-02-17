@@ -9,6 +9,7 @@ import os
 from catlearn import __version__
 import copy
 import datetime
+from ase.parallel import parallel_function
 from mpi4py import MPI
 
 
@@ -157,41 +158,33 @@ class MLNEB(object):
         stationary_point_found = False
         org_n_images = self.n_images
         self.acq.unc_convergence=unc_convergence
+        converged=False
         # Set up parallel objects
         self.comm = MPI.COMM_WORLD
         self.rank,self.size=self.comm.Get_rank(),self.comm.Get_size()
         # Calculate a third point if only initial and final structures are known.
         if len(self.train_images) == 2:
             middle = int(self.n_images * (1./3.)) if self.energy_is>=self.energy_fs else int(self.n_images * (2./3.)) 
-            self.interesting_point=self.copy_image(self.images[middle])
+            self.interesting_point=copy.deepcopy(self.images[middle])
             self.evaluate_ase()
-            self.mlcalc.model.add_training_points([self.interesting_point])
             self.print_neb()
         # Use only one moving image
         if sequential is True:
             self.n_images = 3
         while True:
-            if self.rank==0:
-                # 1. Perform the ML-NEB inclusive finding the next point
-                self.mlneb_part(fmax,max_step,ml_steps,stationary_point_found,org_n_images,local_opt,local_opt_kwargs)
+            # 1. Perform the ML-NEB inclusive finding the next point
+            self.mlneb_part(fmax,max_step,ml_steps,stationary_point_found,org_n_images,local_opt,local_opt_kwargs)
 
-                # 2. Calculate the next point 
-                self.evaluate_ase()            
+            # 2. Calculate the next point 
+            self.evaluate_ase()            
 
-                # 3. Store results and add training point.
-                self.mlcalc.model.add_training_points([self.interesting_point])
-                parprint('\n')
-                self.energy_forward = np.max(self.e_path) - self.e_path[0]
-                self.energy_backward = np.max(self.e_path) - self.e_path[-1]
-                self.print_neb()
-                write(self.trajectory, self.images)
+            # 3. Store results.
+            self.store_results_mlneb()
 
-                # 4. Check convergence:
-                stationary_point_found,converged=self.check_convergence(fmax,unc_convergence,org_n_images,stationary_point_found)
-                self.broadcast_converged(converged=converged)
-            else:
-                self.evaluate_ase()
-                converged=self.broadcast_converged(converged=converged)
+            # 4. Check convergence:
+            stationary_point_found,converged=self.check_convergence(fmax,unc_convergence,org_n_images,stationary_point_found)
+            converged=self.broadcast_converged(converged=converged)
+
             # Check convergence criteria
             if converged:
                 break
@@ -308,19 +301,22 @@ class MLNEB(object):
         # Broadcast the system to other cpus
         if self.rank==0:
             self.message_system('Performing evaluation on the real landscape...')
+            interesting_point=self.interesting_point.copy()
             for r in range(1,self.size):
                 self.comm.send(self.interesting_point,dest=r,tag=1)
         else:
-            self.interesting_point=self.comm.recv(source=0,tag=1)
-        self.interesting_point.set_calculator(self.ase_calc)
+            interesting_point=self.comm.recv(source=0,tag=1)
         self.comm.barrier()
+        interesting_point.set_calculator(self.ase_calc)
         # Evaluate the energy and forces
-        self.energy=self.interesting_point.get_potential_energy(force_consistent=self.fc)
-        self.forces=self.interesting_point.get_forces()
+        self.energy=interesting_point.get_potential_energy(force_consistent=self.fc)
+        self.forces=interesting_point.get_forces()
         # Add the structure as training data
         if self.rank==0:
+            self.interesting_point=self.copy_image(interesting_point)
             self.message_system('Single-point calculation finished.')
             self.eval_and_append(self.interesting_point)
+            self.mlcalc.model.add_training_points([self.interesting_point])
         self.iter+=1
         pass
 
@@ -363,6 +359,7 @@ class MLNEB(object):
                 parprint(message,obj)
         pass
 
+    @parallel_function
     def mlneb_part(self,fmax,max_step,ml_steps,stationary_point_found,org_n_images,local_opt,local_opt_kwargs):
         " Run the ML-NEB part with training the ML, run ML-NEB, get results, and get next point "
         # 1. Train Machine Learning process.
@@ -380,7 +377,7 @@ class MLNEB(object):
         self.acq.stationary_point_found=stationary_point_found
         acq_values=self.acq.calculate(self.e_path[1:-1],self.uncertainty_path[1:-1])
         argmax=self.acq.choose(acq_values)[0]
-        self.interesting_point=self.copy_image(self.images[1+argmax])
+        self.interesting_point=copy.deepcopy(self.images[1+argmax])
         pass
 
     def mlneb_opt(self,fmax,max_step,ml_steps,stationary_point_found,org_n_images,local_opt,local_opt_kwargs):
@@ -464,6 +461,17 @@ class MLNEB(object):
                 break
         return ml_converged
 
+    @parallel_function
+    def store_results_mlneb(self):
+        " Store the forward and backwards energy and the neb path "
+        parprint('\n')
+        self.energy_forward = np.max(self.e_path) - self.e_path[0]
+        self.energy_backward = np.max(self.e_path) - self.e_path[-1]
+        self.print_neb()
+        write(self.trajectory, self.images)
+        pass
+
+    @parallel_function
     def check_convergence(self,fmax,unc_convergence,org_n_images,stationary_point_found):
         " Check if the ML-NEB is converged to the final path with low uncertainty "
         converged=False
