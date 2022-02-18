@@ -17,7 +17,7 @@ class MLNEB(object):
 
     def __init__(self, start, end, prev_calculations=None,
                  n_images=0.25, k=None, interpolation='linear', mic=False,
-                 neb_method='improvedtangent', ase_calc=None, restart=True,
+                 neb_method='improvedtangent', ase_calc=None, ase_calc_kwargs={}, restart=True,
                  force_consistent=None, mlmodel=None, mlcalc=None, acq=None,trainingset='evaluated_structures.traj',trajectory='all_predicted_paths.traj'):
 
         """ Nudged elastic band (NEB) setup.
@@ -75,6 +75,7 @@ class MLNEB(object):
         self.iter = 0
         self.ase_calc = ase_calc
         assert self.ase_calc, 'ASE calculator not provided (see "ase_calc" flag).'
+        self.ase_calc_kwargs = ase_calc_kwargs
         self.mic=mic
         self.restart=restart
         self.version='ML-NEB ' + __version__
@@ -99,14 +100,9 @@ class MLNEB(object):
         self.acq=copy.deepcopy(acq)
         # Set up initial and final states
         self.set_up_endpoints(start,end)
-        # Add training data to ML-Model
-        self.mlcalc.model.add_training_points(self.train_images)
-        self.mlcalc.model.train_model()
-        # Make initial path
+        # Make initial path and add training data to ML-Model
         self.initial_interpolation(interpolation=interpolation,k=k)
-        # Save files with all the paths that have been predicted:
-        self.e_path,self.uncertainty_path=self.energy_and_uncertainty()
-        write(self.trajectory, self.images)
+        
 
 
     def run(self, fmax=0.05, unc_convergence=0.050, steps=500,
@@ -163,11 +159,7 @@ class MLNEB(object):
         self.comm = MPI.COMM_WORLD
         self.rank,self.size=self.comm.Get_rank(),self.comm.Get_size()
         # Calculate a third point if only initial and final structures are known.
-        if len(self.train_images) == 2:
-            middle = int(self.n_images * (1./3.)) if self.energy_is>=self.energy_fs else int(self.n_images * (2./3.)) 
-            self.interesting_point=copy.deepcopy(self.images[middle])
-            self.evaluate_ase()
-            self.print_neb()
+        self.extra_data_point()
         # Use only one moving image
         if sequential is True:
             self.n_images = 3
@@ -247,8 +239,13 @@ class MLNEB(object):
                     self.eval_and_append(atoms)
         pass
 
+    @parallel_function
     def initial_interpolation(self,interpolation='linear',k=None):
-        " Make the first path used "
+        " Add training data to machine learning model and make the first path used "
+        # Add training data to ML-Model
+        self.mlcalc.model.add_training_points(self.train_images)
+        self.mlcalc.model.train_model()
+        # Make initial path
         path=None
         # If the path is given then use it
         if interpolation not in ['idpp','linear']:
@@ -269,6 +266,9 @@ class MLNEB(object):
         self.spring = k if k is not None else np.sqrt((self.n_images-1) / self.path_distance)
         # Set up NEB path
         self.images=self.make_interpolation(interpolation=interpolation,path=path)
+        # Save files with all the paths that have been predicted:
+        self.e_path,self.uncertainty_path=self.energy_and_uncertainty()
+        write(self.trajectory, self.images)
         pass
 
     def make_interpolation(self,interpolation='linear',path=None):
@@ -307,7 +307,7 @@ class MLNEB(object):
         else:
             interesting_point=self.comm.recv(source=0,tag=1)
         self.comm.barrier()
-        interesting_point.set_calculator(self.ase_calc)
+        interesting_point.set_calculator(self.ase_calc(**self.ase_calc_kwargs))
         # Evaluate the energy and forces
         self.energy=interesting_point.get_potential_energy(force_consistent=self.fc)
         self.forces=interesting_point.get_forces()
@@ -357,6 +357,16 @@ class MLNEB(object):
                 parprint(message)
             else:
                 parprint(message,obj)
+        pass
+
+    @parallel_function
+    def extra_data_point(self):
+        " Calculate a third point if only initial and final structures are known. "
+        if len(self.train_images) == 2:
+            middle = int(self.n_images * (1./3.)) if self.energy_is>=self.energy_fs else int(self.n_images * (2./3.)) 
+            self.interesting_point=copy.deepcopy(self.images[middle])
+            self.evaluate_ase()
+            self.print_neb()
         pass
 
     @parallel_function
