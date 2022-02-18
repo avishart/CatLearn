@@ -359,14 +359,20 @@ class MLNEB(object):
                 parprint(message,obj)
         pass
 
-    @parallel_function
+    
     def extra_data_point(self):
         " Calculate a third point if only initial and final structures are known. "
         if len(self.train_images) == 2:
-            middle = int(self.n_images * (1./3.)) if self.energy_is>=self.energy_fs else int(self.n_images * (2./3.)) 
-            self.interesting_point=copy.deepcopy(self.images[middle])
+            self.middle_extra_data()
             self.evaluate_ase()
             self.print_neb()
+        pass
+
+    @parallel_function
+    def middle_extra_data(self):
+        " What data point to calculate extra if only initial and final structures are known "
+        middle = int(self.n_images * (1./3.)) if self.energy_is>=self.energy_fs else int(self.n_images * (2./3.)) 
+        self.interesting_point=copy.deepcopy(self.images[middle])
         pass
 
     @parallel_function
