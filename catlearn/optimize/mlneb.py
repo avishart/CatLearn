@@ -303,9 +303,9 @@ class MLNEB(object):
             self.message_system('Performing evaluation on the real landscape...')
             self.interesting_point.set_calculator(None)
             for r in range(1,self.size):
-                self.comm.send(self.interesting_point,dest=r,tag=1)
+                self.comm.send(self.interesting_point,dest=r,tag=self.iter)
         else:
-            self.interesting_point=self.comm.recv(source=0,tag=1)
+            self.interesting_point=self.comm.recv(source=0,tag=self.iter)
         self.comm.barrier()
         self.interesting_point.set_calculator(self.ase_calc(**self.ase_calc_kwargs))
         # Evaluate the energy and forces
