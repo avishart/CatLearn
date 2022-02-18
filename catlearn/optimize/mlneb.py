@@ -301,19 +301,19 @@ class MLNEB(object):
         # Broadcast the system to other cpus
         if self.rank==0:
             self.message_system('Performing evaluation on the real landscape...')
-            interesting_point=self.interesting_point.copy()
+            self.interesting_point.set_calculator(None)
             for r in range(1,self.size):
                 self.comm.send(self.interesting_point,dest=r,tag=1)
         else:
-            interesting_point=self.comm.recv(source=0,tag=1)
+            self.interesting_point=self.comm.recv(source=0,tag=1)
         self.comm.barrier()
-        interesting_point.set_calculator(self.ase_calc(**self.ase_calc_kwargs))
+        self.interesting_point.set_calculator(self.ase_calc(**self.ase_calc_kwargs))
         # Evaluate the energy and forces
-        self.energy=interesting_point.get_potential_energy(force_consistent=self.fc)
-        self.forces=interesting_point.get_forces()
+        self.energy=self.interesting_point.get_potential_energy(force_consistent=self.fc)
+        self.forces=self.interesting_point.get_forces()
         # Add the structure as training data
         if self.rank==0:
-            self.interesting_point=self.copy_image(interesting_point)
+            self.interesting_point=self.copy_image(self.interesting_point)
             self.message_system('Single-point calculation finished.')
             self.eval_and_append(self.interesting_point)
             self.mlcalc.model.add_training_points([self.interesting_point])
