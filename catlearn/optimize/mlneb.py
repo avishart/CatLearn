@@ -268,7 +268,7 @@ class MLNEB(object):
         self.images=self.make_interpolation(interpolation=interpolation,path=path)
         # Save files with all the paths that have been predicted:
         self.e_path,self.uncertainty_path=self.energy_and_uncertainty()
-        write(self.trajectory, self.images)
+        write(self.trajectory,[self.copy_image(img) for img in self.images])
         pass
 
     def make_interpolation(self,interpolation='linear',path=None):
@@ -291,7 +291,7 @@ class MLNEB(object):
         " Recalculate the energy and forces with the ASE calculator and store it as training data "
         self.energy=atoms.get_potential_energy(force_consistent=self.fc)
         self.forces=atoms.get_forces()
-        self.train_images.append(atoms)
+        self.train_images.append(self.copy_image(atoms))
         write(self.trainingset,self.train_images)
         self.max_abs_forces=np.max(np.linalg.norm(self.forces,axis=1))
         pass
@@ -484,7 +484,7 @@ class MLNEB(object):
         self.energy_forward = np.max(self.e_path) - self.e_path[0]
         self.energy_backward = np.max(self.e_path) - self.e_path[-1]
         self.print_neb()
-        write(self.trajectory, self.images)
+        write(self.trajectory,[self.copy_image(img) for img in self.images])
         pass
 
     @parallel_function
@@ -499,7 +499,7 @@ class MLNEB(object):
                 # Check the maximum uncertainty is lower than the convergence criteria
                 if np.max(self.uncertainty_path[1:-1])<unc_convergence:
                     # Write the Last path.
-                    write(self.trajectory, self.images)
+                    write(self.trajectory,[self.copy_image(img) for img in self.images])
                     parprint("Congratulations! Your ML NEB is converged. See the final path in file {}".format(self.trajectory))
                     converged=True
         return stationary_point_found,converged
