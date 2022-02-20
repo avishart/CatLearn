@@ -332,7 +332,7 @@ class MLNEB(object):
         results=copy.deepcopy(atoms.calc.results)
         all_properties = ['energy', 'forces', 'stress', 'stresses', 'dipole',\
                   'charges', 'magmom', 'magmoms', 'free_energy', 'energies']
-        results={results[key] for key in results.keys() if key in all_properties}
+        results={key:results[key] for key in results.keys() if key in all_properties}
 
         # Initialize a SinglePointCalculator to store this results
         calc = SinglePointCalculator(atoms, **results)
