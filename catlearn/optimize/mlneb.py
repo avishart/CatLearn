@@ -332,7 +332,7 @@ class MLNEB(object):
         results=copy.deepcopy(atoms.calc.results)
         all_properties = ['energy', 'forces', 'stress', 'stresses', 'dipole',
                   'charges', 'magmom', 'magmoms', 'free_energy', 'energies']
-        for key in results.key():
+        for key in results.keys():
             if key not in all_properties:
                 del results[key]
 
