@@ -330,11 +330,9 @@ class MLNEB(object):
         atoms.get_forces()
         # Check that the atoms does not contain any unavailable properties
         results=copy.deepcopy(atoms.calc.results)
-        all_properties = ['energy', 'forces', 'stress', 'stresses', 'dipole',
+        all_properties = ['energy', 'forces', 'stress', 'stresses', 'dipole',\
                   'charges', 'magmom', 'magmoms', 'free_energy', 'energies']
-        for key in results.keys():
-            if key not in all_properties:
-                del results[key]
+        results={results[key] for key in results.keys() if key in all_properties}
 
         # Initialize a SinglePointCalculator to store this results
         calc = SinglePointCalculator(atoms, **results)
