@@ -216,7 +216,7 @@ class MLNEB(object):
         " Load and calculate the intial and final stats"
         # Load and calculate initial state
         if isinstance(start, str):
-            start=read(start, '-1:')
+            start=read(start, '-1')
         try:
             self.start=self.copy_image(start)
         except:
@@ -234,7 +234,7 @@ class MLNEB(object):
         
         # Load and calculate final state
         if isinstance(end, str):
-            end=read(end, '-1:')
+            end=read(end, '-1')
         try:
             self.end=self.copy_image(end)
         except:
