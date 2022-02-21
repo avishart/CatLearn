@@ -69,7 +69,7 @@ class MLNEB(object):
         """
         # General setup.
         self.trainingset=TrajectoryWriter(trainingset)
-        self.trajectory_filname=trajectory
+        self.trajectory_filename=trajectory
         self.trajectory=TrajectoryWriter(trajectory)
         self.n_images = n_images
         self.interpolation=interpolation
@@ -415,15 +415,19 @@ class MLNEB(object):
             if stationary_point_found is True:
                 self.n_images = org_n_images
             # Start from the last path
-            starting_path = self.images 
+            starting_path = [self.copy_image(img) for img in self.images] 
             # Use the initial path
             if ml_cycles == 0:
                 self.message_system('Using initial path.')
-                starting_path=TrajectoryReader(self.trajectory_filename)[0:self.n_images]
+                trajreader=TrajectoryReader(self.trajectory_filename)
+                starting_path=[img for img in trajreader[0:self.n_images]]
+                trajreader.close()
             # Use the last predicted path for the previous run
             if ml_cycles == 1:
                 self.message_system('Using last predicted path.')
-                starting_path=TrajectoryReader(self.trajectory_filename)[-self.n_images:]
+                trajreader=TrajectoryReader(self.trajectory_filename)
+                starting_path=[img for img in trajreader[-self.n_images:]]
+                trajreader.close()
             # Make the path
             self.images=self.make_interpolation(interpolation=self.interpolation,path=starting_path)
             # Check energy and uncertainty before optimization:
@@ -476,7 +480,9 @@ class MLNEB(object):
                 break
             # If the energy is a nan value (error)
             if np.isnan(ml_neb.emax):
-                self.images=TrajectoryReader(self.trajectory_filename)[-self.n_images:]
+                trajreader=TrajectoryReader(self.trajectory_filename)
+                self.images=[img for img in trajreader[-self.n_images:]]
+                trajreader.close()
                 self.message_system('Not converged')
                 break
             # The NEB is converged 
@@ -514,7 +520,7 @@ class MLNEB(object):
                     # Write the Last path.
                     for img in self.images:
                         self.trajectory.write(self.copy_image(img))
-                    parprint("Congratulations! Your ML NEB is converged. See the final path in file {}".format(self.trajectory_filname))
+                    parprint("Congratulations! Your ML NEB is converged. See the final path in file {}".format(self.trajectory_filename))
                     converged=True
         return stationary_point_found,converged
 

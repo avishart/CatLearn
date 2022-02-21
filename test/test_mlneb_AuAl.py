@@ -57,7 +57,7 @@ class TestMLNEB(unittest.TestCase):
         neb_catlearn = MLNEB(start=initial_structure,
                              end=final_structure,
                              interpolation=images,
-                             ase_calc=ase_calculator,
+                             ase_calc=EMT, ase_calc_kwargs={},
                              restart=False
                              )
         
