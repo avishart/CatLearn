@@ -20,7 +20,8 @@ class MLNEB(object):
     def __init__(self, start, end, prev_calculations=None,
                  n_images=0.25, k=None, interpolation='linear', mic=False,
                  neb_method='improvedtangent', ase_calc=None, ase_calc_kwargs={}, restart=True,
-                 force_consistent=None, mlmodel=None, mlcalc=None, acq=None,trainingset='evaluated_structures.traj',trajectory='all_predicted_paths.traj'):
+                 force_consistent=None, mlmodel=None, mlcalc=None, acq=None, local_opt=None, local_opt_kwargs={},
+                 trainingset='evaluated_structures.traj',trajectory='all_predicted_paths.traj'):
 
         """ Nudged elastic band (NEB) setup.
 
@@ -54,8 +55,10 @@ class MLNEB(object):
             or 'eb').
             See https://wiki.fysik.dtu.dk/ase/ase/neb.html.
         ase_calc: ASE calculator Object.
-            ASE calculator as implemented in ASE.
+            ASE calculator as implemented in ASE, but before it is called.
             See https://wiki.fysik.dtu.dk/ase/ase/calculators/calculators.html
+        ase_calc_kwargs: dict
+            Arguments for the ASE calculator when it is called.
         restart: boolean
             Only useful if you want to continue your ML-NEB in the same
             directory. The file "evaluated_structures.traj" from the
@@ -65,12 +68,27 @@ class MLNEB(object):
             extrapolated to 0 K). By default (force_consistent=None) uses
             force-consistent energies if available in the calculator, but
             falls back to force_consistent=False if not.
-
+        mlmodel: ML-model Object
+            ML-model object used in the ML-calculator. A default ML-model is used
+            if mlmodel is None.
+        mlcalc: ML-calculator Object
+            The ML-calculator object used as surrogate surface. A default ML-model is used
+            if mlcalc is None.
+        acq: Acquisition Object
+            The Acquisition object used for calculating the acq. function and choose a candidate
+            to calculate next. A default Acquisition object is used if acq is None.
+        local_opt: ASE local optimizer Object 
+            A local optimizer object from ASE. If None is given then MDMin is used
+        local_opt_kwargs: dict
+            Arguments used for the ASE local optimizer
+        trainingset: string
+            Trajectory filename to store the evaluated training data output.
+        trajectory: string
+            Trajectory filename to store the predicted NEB path.
         """
         # General setup.
-        self.trainingset=TrajectoryWriter(trainingset)
+        self.trainingset_filename=trainingset
         self.trajectory_filename=trajectory
-        self.trajectory=TrajectoryWriter(trajectory)
         self.n_images = n_images
         self.interpolation=interpolation
         self.feval = 0
@@ -86,8 +104,13 @@ class MLNEB(object):
         self.train_images=[]
         # Settings for the NEB.
         self.neb_method=neb_method
-        # Load previous data
+        # Load previous data into self.train_images
         self.save_prev_calculations(prev_calculations=prev_calculations)
+        # Make training and NEB-path trajectory files
+        self.trajectory=TrajectoryWriter(trajectory)
+        self.trainingset=TrajectoryWriter(trainingset)
+        for atoms in self.train_images:
+            self.trainingset.write(atoms)
         # Set up the machine learning part
         if mlmodel is None:
             from catlearn.regression.gp_bv.calculator import GPModel
@@ -101,6 +124,12 @@ class MLNEB(object):
         self.mlcalc=copy.deepcopy(mlcalc)
         self.mlcalc.model=copy.deepcopy(mlmodel)
         self.acq=copy.deepcopy(acq)
+        # Define local optimizer
+        if local_opt is None:
+            local_opt=MDMin
+            local_opt_kwargs={'dt':0.025}
+        self.local_opt=local_opt
+        self.local_opt_kwargs=local_opt_kwargs
         # Set up initial and final states
         self.set_up_endpoints(start,end)
         # Make initial path and add training data to ML-Model
@@ -109,8 +138,7 @@ class MLNEB(object):
 
 
     def run(self, fmax=0.05, unc_convergence=0.050, steps=500,
-            ml_steps=750, max_step=0.25, sequential=False,
-            full_output=False, local_opt=None, local_opt_kwargs={}):
+            ml_steps=750, max_step=0.25, sequential=False, full_output=False):
 
         """Executing run will start the NEB optimization process.
 
@@ -122,12 +150,6 @@ class MLNEB(object):
             Maximum uncertainty for convergence (in eV).
         steps : int
             Maximum number of iterations in the surrogate model.
-        trajectory: string
-            Filename to store the output.
-        acquisition : string
-            Acquisition function.
-        dt : float
-            dt parameter for MDMin.
         ml_steps: int
             Maximum number of steps for the NEB optimization on the
             predicted landscape.
@@ -149,10 +171,6 @@ class MLNEB(object):
         """
         # Wheter to print everything
         self.fullout = full_output
-        # Define local optimizer
-        if local_opt is None:
-            local_opt=MDMin
-            local_opt_kwargs={'dt':0.025}
         # General setup
         stationary_point_found = False
         org_n_images = self.n_images
@@ -168,7 +186,7 @@ class MLNEB(object):
             self.n_images = 3
         while True:
             # 1. Perform the ML-NEB inclusive finding the next point
-            self.mlneb_part(fmax,max_step,ml_steps,stationary_point_found,org_n_images,local_opt,local_opt_kwargs)
+            self.mlneb_part(fmax,max_step,ml_steps,stationary_point_found,org_n_images)
 
             # 2. Calculate the next point 
             self.evaluate_ase()            
@@ -233,16 +251,20 @@ class MLNEB(object):
         if prev_calculations is not None:
             if isinstance(prev_calculations,str):
                 if os.path.exists(prev_calculations):
-                    prev_calculations=read(prev_calculations,':')
-                    for atoms in prev_calculations:
-                        self.eval_and_append(atoms)
+                    trajreader=TrajectoryReader(prev_calculations)
+                    for atoms in trajreader:
+                        atoms.get_forces()
+                        self.train_images.append(self.copy_image(atoms))
+                    trajreader.close()
         # Store previous calculated data given from trajectory file
         if self.restart and prev_calculations is None:
-            if os.path.exists(self.trainingset):
-                prev_calculations=read(self.trainingset,':')
-                for atoms in prev_calculations:
-                    self.eval_and_append(atoms)
-        pass
+            if os.path.exists(self.trainingset_filename):
+                trajreader=TrajectoryReader(self.trainingset_filename)
+                for atoms in trajreader:
+                    atoms.get_forces()
+                    self.train_images.append(self.copy_image(atoms))
+                trajreader.close()
+    pass
 
     @parallel_function
     def initial_interpolation(self,interpolation='linear',k=None):
@@ -294,7 +316,7 @@ class MLNEB(object):
         return images  
 
     def eval_and_append(self,atoms):
-        " Recalculate the energy and forces with the ASE calculator and store it as training data "
+        " Recalculate the energy and forces with the ASE calculator if it is not stored and store it as training data "
         self.energy=atoms.get_potential_energy(force_consistent=self.fc)
         self.forces=atoms.get_forces()
         self.train_images.append(self.copy_image(atoms))
@@ -388,13 +410,13 @@ class MLNEB(object):
         pass
 
     @parallel_function
-    def mlneb_part(self,fmax,max_step,ml_steps,stationary_point_found,org_n_images,local_opt,local_opt_kwargs):
+    def mlneb_part(self,fmax,max_step,ml_steps,stationary_point_found,org_n_images):
         " Run the ML-NEB part with training the ML, run ML-NEB, get results, and get next point "
         # 1. Train Machine Learning process.
         self.mlcalc.model.train_model()
         
         # 2. Setup and run ML NEB:
-        self.mlneb_opt(fmax,max_step,ml_steps,stationary_point_found,org_n_images,local_opt,local_opt_kwargs)
+        self.mlneb_opt(fmax,max_step,ml_steps,stationary_point_found,org_n_images)
 
         # 3. Get results from ML NEB using ASE NEB Tools (https://wiki.fysik.dtu.dk/ase/ase/neb.html)
         self.interesting_point = []
@@ -408,7 +430,7 @@ class MLNEB(object):
         self.interesting_point=copy.deepcopy(self.images[1+argmax])
         pass
 
-    def mlneb_opt(self,fmax,max_step,ml_steps,stationary_point_found,org_n_images,local_opt,local_opt_kwargs):
+    def mlneb_opt(self,fmax,max_step,ml_steps,stationary_point_found,org_n_images):
         " Setup and run the ML-NEB: "
         ml_cycles = 0
         while True:
@@ -439,7 +461,10 @@ class MLNEB(object):
                 break
             # Perform NEB in the predicted landscape.
             ml_neb=NEB(self.images, climb=True,method=self.neb_method,k=self.spring)
-            neb_opt=local_opt(ml_neb,**local_opt_kwargs) if self.fullout else local_opt(ml_neb,logfile=None,**local_opt_kwargs)
+            if self.fullout:
+                neb_opt=self.local_opt(ml_neb,**self.local_opt_kwargs)
+            else:
+                neb_opt=self.local_opt(ml_neb,logfile=None,**self.local_opt_kwargs)
             # Run the NEB optimization
             ml_converged=self.mlneb_opt_run(ml_neb,neb_opt,fmax,max_step,ml_steps)
             # Check if it is converged

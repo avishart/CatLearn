@@ -3,6 +3,7 @@ from ase.io import read
 from ase.neb import NEB
 import numpy as np
 from catlearn.optimize.mlneb import MLNEB
+from catlearn.optimize.acquisition import Acquisition
 import copy
 from catlearn.optimize.functions_calc import MullerBrown
 from ase import Atoms
@@ -37,6 +38,7 @@ class TestMLNEB(unittest.TestCase):
     """ General test of the ML-NEB algorithm."""
     def test_path(self):
         """Test ML-NEB algorithm running with an interpolated path"""
+        np.random.seed(1)
         n_images = 8
         images = [initial_structure]
         for i in range(1, n_images-1):
@@ -47,147 +49,146 @@ class TestMLNEB(unittest.TestCase):
         
         neb = NEB(images, climb=True)
         neb.interpolate(method='linear')
-        
         neb_catlearn = MLNEB(start=initial_structure,
                              end=final_structure,
                              interpolation=images,
                              ase_calc=MullerBrown, ase_calc_kwargs={},
-                             restart=False
-                             )
+                             restart=False)
         
-        neb_catlearn.run(fmax=0.05, max_step=0.2,
-                         full_output=True)
-        """
+        neb_catlearn.run(fmax=0.05, max_step=0.2)
+        
         atoms_catlearn = read('evaluated_structures.traj', ':')
         n_eval_catlearn = len(atoms_catlearn) - 2
-
-        self.assertEqual(n_eval_catlearn, 13)
+        self.assertEqual(n_eval_catlearn, 12)
         print('Checking number of function calls using 8 images...')
-        np.testing.assert_array_equal(n_eval_catlearn, 13)
+        np.testing.assert_array_equal(n_eval_catlearn, 12)
         max_unc = np.max(neb_catlearn.uncertainty_path)
-        unc_test = 0.0468
+        unc_test = 0.03245814099892351
+        
         print('Checking uncertainty on the path (8 images):')
         np.testing.assert_array_almost_equal(max_unc, unc_test, decimal=4)
-        """
-'''
+        
     def test_restart(self):
         """ Here we test the restart flag, the mic, and the internal
             interpolation."""
-
+        np.random.seed(1)
         # Checking internal interpolation.
-
-        neb_catlearn = MLNEB(start='initial_optimized.traj',
-                             end='final_optimized.traj',
+        neb_catlearn = MLNEB(start=initial_structure,
+                             end=final_structure,
                              n_images=9,
-                             ase_calc=ase_calculator,
+                             ase_calc=MullerBrown, ase_calc_kwargs={},
                              interpolation='linear',
-                             restart=False
-                             )
-        neb_catlearn.run(fmax=0.05, trajectory='ML-NEB.traj', max_step=0.2)
+                             trajectory='ML-NEB.traj',
+                             restart=False)
+        neb_catlearn.run(fmax=0.05, max_step=0.2)
+        
         print('Checking number of iterations using 9 images...')
-        self.assertEqual(neb_catlearn.iter, 12)
+        self.assertEqual(neb_catlearn.iter, 13)
         max_unc = np.max(neb_catlearn.uncertainty_path)
-        unc_test = 0.0377
+        unc_test = 0.028897920744506096
         print('Checking uncertainty on the path (9 images):')
         np.testing.assert_array_almost_equal(max_unc, unc_test, decimal=4)
 
         # Reducing the uncertainty and fmax, varying num. images (restart):
         print("Checking restart flag...")
         print('Using tighter convergence criteria.')
-
-        neb_catlearn = MLNEB(start='initial_optimized.traj',
-                             end='final_optimized.traj',
+        neb_catlearn = MLNEB(start=initial_structure,
+                             end=final_structure,
                              n_images=11,
-                             ase_calc=ase_calculator,
-                             restart=True
-                             )
-        neb_catlearn.run(fmax=0.01, max_step=0.20,
-                         unc_convergence=0.010,
-                         trajectory='ML-NEB.traj')
+                             ase_calc=MullerBrown, ase_calc_kwargs={},
+                             trajectory='ML-NEB.traj',
+                             restart=True)
+        neb_catlearn.run(fmax=0.01, max_step=0.20,unc_convergence=0.010)
+        
         print('Checking number of iterations restarting with 11 images...')
-        self.assertEqual(neb_catlearn.iter, 5)
+        self.assertEqual(neb_catlearn.iter, 3)
         print('Checking uncertainty on the path (11 images).')
         max_unc = np.max(neb_catlearn.uncertainty_path)
-        unc_test = 0.0062
+        unc_test = 0.008099052829329361
         np.testing.assert_array_almost_equal(max_unc, unc_test, decimal=4)
-
+    
     def test_acquisition(self):
         """ Here we test the acquisition functions"""
-
+        np.random.seed(1)
         print('Checking acquisition function 1 using 6 images...')
-        neb_catlearn = MLNEB(start='initial_optimized.traj',
-                             end='final_optimized.traj',
+        acq=Acquisition(mode='ue',objective='max',kappa=2)
+        neb_catlearn = MLNEB(start=initial_structure,
+                             end=final_structure,
                              n_images=6,
-                             ase_calc=ase_calculator,
-                             restart=False
-                             )
-
-        neb_catlearn.run(fmax=0.05, trajectory='ML-NEB.traj', max_step=0.2,
-                         acquisition='acq_1')
-        self.assertEqual(neb_catlearn.iter, 16)
-        max_unc = np.max(neb_catlearn.uncertainty_path)
-        unc_test = 0.0028
-        np.testing.assert_array_almost_equal(max_unc, unc_test, decimal=4)
-
-        print('Checking acquisition function 2 using 6 images...')
-        neb_catlearn = MLNEB(start='initial_optimized.traj',
-                             end='final_optimized.traj',
-                             n_images=6,
-                             ase_calc=ase_calculator,
-                             restart=False
-                             )
-        neb_catlearn.run(fmax=0.05, trajectory='ML-NEB.traj', max_step=0.2,
-                         acquisition='acq_2')
-
-        self.assertEqual(neb_catlearn.iter, 13)
-        max_unc = np.max(neb_catlearn.uncertainty_path)
-        unc_test = 0.0128
-        np.testing.assert_array_almost_equal(max_unc, unc_test, decimal=4)
-
-        print('Checking acquisition function 3 using 6 images...')
-        neb_catlearn = MLNEB(start='initial_optimized.traj',
-                             end='final_optimized.traj',
-                             n_images=6,
-                             ase_calc=ase_calculator,
-                             restart=False
-                             )
-        neb_catlearn.run(fmax=0.05, trajectory='ML-NEB.traj', max_step=0.2,
-                         acquisition='acq_3')
+                             ase_calc=MullerBrown, ase_calc_kwargs={},
+                             trajectory='ML-NEB.traj',
+                             acq=acq,
+                             restart=False)
+        neb_catlearn.run(fmax=0.05, max_step=0.2)
 
         self.assertEqual(neb_catlearn.iter, 14)
         max_unc = np.max(neb_catlearn.uncertainty_path)
-        unc_test = 0.0036
+        unc_test = 0.002346
+        np.testing.assert_array_almost_equal(max_unc, unc_test, decimal=4)
+
+        print('Checking acquisition function 2 using 6 images...')
+        acq=Acquisition(mode='ume',objective='max',kappa=2)
+        neb_catlearn = MLNEB(start=initial_structure,
+                             end=final_structure,
+                             n_images=6,
+                             ase_calc=MullerBrown, ase_calc_kwargs={},
+                             trajectory='ML-NEB.traj',
+                             acq=acq,
+                             restart=False)
+        neb_catlearn.run(fmax=0.05, max_step=0.2)
+        print(neb_catlearn.iter,neb_catlearn.uncertainty_path)
+        self.assertEqual(neb_catlearn.iter, 12)
+        max_unc = np.max(neb_catlearn.uncertainty_path)
+        unc_test = 0.015781
+        np.testing.assert_array_almost_equal(max_unc, unc_test, decimal=4)
+
+        print('Checking acquisition function 3 using 6 images...')
+        acq=Acquisition(mode='umue',objective='max',kappa=2)
+        neb_catlearn = MLNEB(start=initial_structure,
+                             end=final_structure,
+                             n_images=6,
+                             ase_calc=MullerBrown, ase_calc_kwargs={},
+                             trajectory='ML-NEB.traj',
+                             acq=acq,
+                             restart=False)
+        neb_catlearn.run(fmax=0.05, max_step=0.2)
+
+        self.assertEqual(neb_catlearn.iter, 19)
+        max_unc = np.max(neb_catlearn.uncertainty_path)
+        unc_test = 0.000003
         np.testing.assert_array_almost_equal(max_unc, unc_test, decimal=4)
 
         print('Checking acquisition function 4 using 6 images...')
-        neb_catlearn = MLNEB(start='initial_optimized.traj',
-                             end='final_optimized.traj',
+        acq=Acquisition(mode='sume',objective='max',kappa=2)
+        neb_catlearn = MLNEB(start=initial_structure,
+                             end=final_structure,
                              n_images=6,
-                             ase_calc=ase_calculator,
-                             restart=False
-                             )
-        neb_catlearn.run(fmax=0.05, trajectory='ML-NEB.traj', max_step=0.2,
-                         acquisition='acq_4')
+                             ase_calc=MullerBrown, ase_calc_kwargs={},
+                             trajectory='ML-NEB.traj',
+                             acq=acq,
+                             restart=False)
+        neb_catlearn.run(fmax=0.05, max_step=0.2)
 
-        self.assertEqual(neb_catlearn.iter, 16)
+        self.assertEqual(neb_catlearn.iter, 14)
         max_unc = np.max(neb_catlearn.uncertainty_path)
-        unc_test = 0.0028
+        unc_test = 0.000828
         np.testing.assert_array_almost_equal(max_unc, unc_test, decimal=4)
 
         print('Checking acquisition function 5 using 6 images...')
-        neb_catlearn = MLNEB(start='initial_optimized.traj',
-                             end='final_optimized.traj',
+        acq=Acquisition(mode='umucb',objective='max',kappa=2)
+        neb_catlearn = MLNEB(start=initial_structure,
+                             end=final_structure,
                              n_images=6,
-                             ase_calc=ase_calculator,
-                             restart=False
-                             )
-        neb_catlearn.run(fmax=0.05, trajectory='ML-NEB.traj', max_step=0.2,
-                         acquisition='acq_5')
+                             ase_calc=MullerBrown, ase_calc_kwargs={},
+                             trajectory='ML-NEB.traj',
+                             acq=acq,
+                             restart=False)
+        neb_catlearn.run(fmax=0.05, max_step=0.2)
 
         self.assertEqual(neb_catlearn.iter, 13)
         max_unc = np.max(neb_catlearn.uncertainty_path)
-        unc_test = 0.0128
+        unc_test = 0.040405
         np.testing.assert_array_almost_equal(max_unc, unc_test, decimal=4)
-'''
+
 if __name__ == '__main__':
     unittest.main()

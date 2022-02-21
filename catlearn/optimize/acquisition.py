@@ -59,45 +59,55 @@ class Acquisition():
         return np.random.permutation(list(range(len(candidates))))
 
     def ener(self,energy,uncertainty=None):
+        " Predicted energy "
         return energy
 
     def unc(self,energy,uncertainty=None):
+        " Predicted uncertainty "
         return uncertainty
 
     def ucb(self,energy,uncertainty=None):
+        " Predicted energy plus uncertainty "
         kappa=np.random.uniform(0,5) if self.kappa=='random' else abs(self.kappa)
         return energy+kappa*uncertainty
 
     def lcb(self,energy,uncertainty=None):
+        " Predicted energy minus uncertainty "
         kappa=np.random.uniform(0,5) if self.kappa=='random' else abs(self.kappa)
         return energy-kappa*uncertainty
 
     def ue(self,energy,uncertainty=None):
+        " Predicted uncertainty every second time else predicted energy "
         if self.iter%2==0:
             return uncertainty
         return energy
 
     def ume(self,energy,uncertainty=None):
+        " Predicted uncertainty when it is is larger than unc_convergence else predicted energy "
         if np.max([uncertainty])<self.unc_convergence:
             return energy
         return uncertainty
 
     def umue(self,energy,uncertainty=None):
+        " Predicted uncertainty when it is is larger than unc_convergence else 'ue' "
         if np.max([uncertainty])<self.unc_convergence:
             return self.ue(energy,uncertainty)
         return uncertainty
 
     def sume(self,energy,uncertainty=None):
+        " 'ume' if stationary point is found else 'ue' "
         if self.stationary_point_found:
             return self.ume(energy,uncertainty)
         return self.ue(energy,uncertainty)
 
     def umucb(self,energy,uncertainty=None):
+        " Predicted uncertainty when it is is larger than unc_convergence else 'ucb' "
         if np.max([uncertainty])<self.unc_convergence:
             return self.ucb(energy,uncertainty)
         return uncertainty
 
     def umlcb(self,energy,uncertainty=None):
+        " Predicted uncertainty when it is is larger than unc_convergence else 'lcb' "
         if np.max([uncertainty])<self.unc_convergence:
             return self.ucb(energy,uncertainty)
         return uncertainty
