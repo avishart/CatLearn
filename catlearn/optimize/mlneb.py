@@ -1,7 +1,8 @@
 import numpy as np
 from catlearn.optimize.io import print_cite_mlneb
 from ase.neb import NEB
-from ase.io import read, write
+from ase.io import read
+from ase.io.trajectory import TrajectoryWriter,TrajectoryReader
 from ase.optimize import MDMin
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.parallel import parprint
@@ -11,6 +12,7 @@ import copy
 import datetime
 from ase.parallel import parallel_function
 from mpi4py import MPI
+
 
 
 class MLNEB(object):
@@ -66,8 +68,9 @@ class MLNEB(object):
 
         """
         # General setup.
-        self.trainingset=trainingset
-        self.trajectory=trajectory
+        self.trainingset=TrajectoryWriter(trainingset)
+        self.trajectory_filname=trajectory
+        self.trajectory=TrajectoryWriter(trajectory)
         self.n_images = n_images
         self.interpolation=interpolation
         self.feval = 0
@@ -187,6 +190,8 @@ class MLNEB(object):
 
         parprint('Number of steps performed in total:',self.iter)
         print_cite_mlneb()
+        self.trainingset.close()
+        self.trajectory.close()
         return self
 
     def set_up_endpoints(self,start,end):
@@ -268,7 +273,8 @@ class MLNEB(object):
         self.images=self.make_interpolation(interpolation=interpolation,path=path)
         # Save files with all the paths that have been predicted:
         self.e_path,self.uncertainty_path=self.energy_and_uncertainty()
-        write(self.trajectory,[self.copy_image(img) for img in self.images])
+        for img in self.images:
+            self.trajectory.write(self.copy_image(img))
         pass
 
     def make_interpolation(self,interpolation='linear',path=None):
@@ -292,7 +298,7 @@ class MLNEB(object):
         self.energy=atoms.get_potential_energy(force_consistent=self.fc)
         self.forces=atoms.get_forces()
         self.train_images.append(self.copy_image(atoms))
-        write(self.trainingset,self.train_images)
+        self.trainingset.write(self.copy_image(atoms))
         self.max_abs_forces=np.max(np.linalg.norm(self.forces,axis=1))
         pass
 
@@ -413,11 +419,11 @@ class MLNEB(object):
             # Use the initial path
             if ml_cycles == 0:
                 self.message_system('Using initial path.')
-                starting_path=read(self.trajectory,'0:'+str(self.n_images))
+                starting_path=TrajectoryReader(self.trajectory_filename)[0:self.n_images]
             # Use the last predicted path for the previous run
             if ml_cycles == 1:
                 self.message_system('Using last predicted path.')
-                starting_path = read(self.trajectory,str(-self.n_images)+':')
+                starting_path=TrajectoryReader(self.trajectory_filename)[-self.n_images:]
             # Make the path
             self.images=self.make_interpolation(interpolation=self.interpolation,path=starting_path)
             # Check energy and uncertainty before optimization:
@@ -470,7 +476,7 @@ class MLNEB(object):
                 break
             # If the energy is a nan value (error)
             if np.isnan(ml_neb.emax):
-                self.images = read(self.trajectory, str(-self.n_images) + ':')
+                self.images=TrajectoryReader(self.trajectory_filename)[-self.n_images:]
                 self.message_system('Not converged')
                 break
             # The NEB is converged 
@@ -490,7 +496,8 @@ class MLNEB(object):
         self.energy_forward = np.max(self.e_path) - self.e_path[0]
         self.energy_backward = np.max(self.e_path) - self.e_path[-1]
         self.print_neb()
-        write(self.trajectory,[self.copy_image(img) for img in self.images])
+        for img in self.images:
+            self.trajectory.write(self.copy_image(img))
         pass
 
     @parallel_function
@@ -505,8 +512,9 @@ class MLNEB(object):
                 # Check the maximum uncertainty is lower than the convergence criteria
                 if np.max(self.uncertainty_path[1:-1])<unc_convergence:
                     # Write the Last path.
-                    write(self.trajectory,[self.copy_image(img) for img in self.images])
-                    parprint("Congratulations! Your ML NEB is converged. See the final path in file {}".format(self.trajectory))
+                    for img in self.images:
+                        self.trajectory.write(self.copy_image(img))
+                    parprint("Congratulations! Your ML NEB is converged. See the final path in file {}".format(self.trajectory_filname))
                     converged=True
         return stationary_point_found,converged
 
