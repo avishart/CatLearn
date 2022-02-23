@@ -12,6 +12,7 @@ import copy
 import datetime
 from ase.parallel import parallel_function
 from mpi4py import MPI
+from scipy.spatial.distance import cdist
 
 
 
@@ -304,7 +305,7 @@ class MLNEB(object):
         images=[self.copy_image(self.start)]
         for i in range(1,self.n_images-1):
             image=self.copy_image(self.start)
-            image.set_calculator(copy.deepcopy(self.mlcalc))
+            image.calc=copy.deepcopy(self.mlcalc)
             if path is not None:
                 image.set_positions(path[i].get_positions())
             image.set_constraint(self.constraints)
@@ -329,13 +330,13 @@ class MLNEB(object):
         # Broadcast the system to other cpus
         if self.rank==0:
             self.message_system('Performing evaluation on the real landscape...')
-            self.interesting_point.set_calculator(None)
+            self.interesting_point.calc=None
             for r in range(1,self.size):
                 self.comm.send(self.interesting_point,dest=r,tag=self.iter)
         else:
             self.interesting_point=self.comm.recv(source=0,tag=self.iter)
         self.comm.barrier()
-        self.interesting_point.set_calculator(self.ase_calc(**self.ase_calc_kwargs))
+        self.interesting_point.calc=self.ase_calc(**self.ase_calc_kwargs)
         # Evaluate the energy and forces
         self.energy=self.interesting_point.get_potential_energy(force_consistent=self.fc)
         self.forces=self.interesting_point.get_forces()
@@ -424,10 +425,7 @@ class MLNEB(object):
         self.e_path,self.uncertainty_path=self.energy_and_uncertainty()
 
         # 4. Select next point to train (acquisition function):
-        self.acq.stationary_point_found=stationary_point_found
-        acq_values=self.acq.calculate(self.e_path[1:-1],self.uncertainty_path[1:-1])
-        argmax=self.acq.choose(acq_values)[0]
-        self.interesting_point=copy.deepcopy(self.images[1+argmax])
+        self.acq_next_point(stationary_point_found)
         pass
 
     def mlneb_opt(self,fmax,max_step,ml_steps,stationary_point_found,org_n_images):
@@ -506,8 +504,9 @@ class MLNEB(object):
             # If the energy is a nan value (error)
             if np.isnan(ml_neb.emax):
                 trajreader=TrajectoryReader(self.trajectory_filename)
-                self.images=[img for img in trajreader[-self.n_images:]]
+                starting_path=[img for img in trajreader[-self.n_images:]]
                 trajreader.close()
+                self.images=self.make_interpolation(interpolation=self.interpolation,path=starting_path)
                 self.message_system('Not converged')
                 break
             # The NEB is converged 
@@ -519,6 +518,25 @@ class MLNEB(object):
                 self.message_system('Not converged yet...')
                 break
         return ml_converged
+
+    def acq_next_point(self,stationary_point_found):
+        " Use acquisition functions to chose the next training point "
+        # Set if the stationary is found
+        self.acq.stationary_point_found=stationary_point_found
+        # Calculate the acquisition function for each image
+        acq_values=self.acq.calculate(self.e_path[1:-1],self.uncertainty_path[1:-1])
+        # Chose the maximum value given by the Acq. class
+        argmax=self.acq.choose(acq_values)[0]
+        # Check that the next training point is not in the training set by using fingerprints
+        fps=np.array([self.mlcalc.model.new_fingerprint(img) for img in self.images[1:-1]])
+        fps_dist=np.min(cdist(fps,np.array(self.mlcalc.model.train_features)),axis=1)
+        if np.isclose(fps_dist[argmax],0):
+            argmax=np.argmax(fps_dist)
+            if np.isclose(fps_dist[argmax],0):
+                raise Exception('The training point is already in training set')
+        # The next training point
+        self.interesting_point=copy.deepcopy(self.images[1+argmax])
+        pass
 
     @parallel_function
     def store_results_mlneb(self):

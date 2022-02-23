@@ -100,6 +100,8 @@ class Boundary_conditions:
                 else:
                     GP.prior.update(X,Y[:,0])
                     Y_std=np.sqrt(np.mean((Y[:,0]-GP.prior.get(X))**2))
+                    if Y_std==0.0:
+                        Y_std=1.0
                     bounds.append([eps_mach_lower,0.25*Y_std])
             else:
                 bounds.append([eps_mach_lower,1/eps_mach_lower])
