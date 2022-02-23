@@ -20,8 +20,8 @@ ase_calculator = MullerBrown()
 initial_structure = Atoms('C', positions=[(-0.55, 1.41, 0.0)])
 final_structure = Atoms('C', positions=[(0.626, 0.025, 0.0)])
 
-initial_structure.set_calculator(copy.deepcopy(ase_calculator))
-final_structure.set_calculator(copy.deepcopy(ase_calculator))
+initial_structure.calc=copy.deepcopy(ase_calculator)
+final_structure.calc=copy.deepcopy(ase_calculator)
 
 # 1.2. Optimize initial and final end-points.
 
@@ -43,7 +43,7 @@ class TestMLNEB(unittest.TestCase):
         images = [initial_structure]
         for i in range(1, n_images-1):
             image = initial_structure.copy()
-            image.set_calculator(copy.deepcopy(ase_calculator))
+            image.calc=copy.deepcopy(ase_calculator)
             images.append(image)
         images.append(final_structure)
         
@@ -60,6 +60,7 @@ class TestMLNEB(unittest.TestCase):
         atoms_catlearn = read('evaluated_structures.traj', ':')
         n_eval_catlearn = len(atoms_catlearn) - 2
         self.assertEqual(n_eval_catlearn, 12)
+
         print('Checking number of function calls using 8 images...')
         np.testing.assert_array_equal(n_eval_catlearn, 12)
         max_unc = np.max(neb_catlearn.uncertainty_path)
@@ -136,7 +137,7 @@ class TestMLNEB(unittest.TestCase):
                              acq=acq,
                              restart=False)
         neb_catlearn.run(fmax=0.05, max_step=0.2)
-        print(neb_catlearn.iter,neb_catlearn.uncertainty_path)
+
         self.assertEqual(neb_catlearn.iter, 12)
         max_unc = np.max(neb_catlearn.uncertainty_path)
         unc_test = 0.015781

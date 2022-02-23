@@ -452,8 +452,8 @@ class MLNEB(object):
             self.images=self.make_interpolation(interpolation=self.interpolation,path=starting_path)
             # Check energy and uncertainty before optimization:
             self.e_path,self.uncertainty_path=self.energy_and_uncertainty()
-            unc_ml=np.max(self.uncertainty_path)
-            self.max_target=np.max(self.e_path)
+            unc_ml=np.max(self.uncertainty_path[1:-1])
+            self.max_target=np.max(self.mlcalc.model.train_targets)
             if unc_ml >= max_step:
                 self.message_system('Maximum uncertainty reach in initial path. Early stop.')
                 break
@@ -527,16 +527,19 @@ class MLNEB(object):
         acq_values=self.acq.calculate(self.e_path[1:-1],self.uncertainty_path[1:-1])
         # Chose the maximum value given by the Acq. class
         argmax=self.acq.choose(acq_values)[0]
-        # Check that the next training point is not in the training set by using fingerprints
+        # The next training point
+        self.interesting_point=copy.deepcopy(self.images[1+argmax])
+        pass
+
+    def check_fp_distance(self,argmax):
+        " Check that the next training point is not in the training set by using fingerprints "
         fps=np.array([self.mlcalc.model.new_fingerprint(img) for img in self.images[1:-1]])
         fps_dist=np.min(cdist(fps,np.array(self.mlcalc.model.train_features)),axis=1)
         if np.isclose(fps_dist[argmax],0):
             argmax=np.argmax(fps_dist)
             if np.isclose(fps_dist[argmax],0):
                 raise Exception('The training point is already in training set')
-        # The next training point
-        self.interesting_point=copy.deepcopy(self.images[1+argmax])
-        pass
+        return argmax
 
     @parallel_function
     def store_results_mlneb(self):
