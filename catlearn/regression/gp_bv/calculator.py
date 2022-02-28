@@ -95,8 +95,15 @@ class GPModel:
             self.gp.train(np.array(self.train_features),np.array(self.train_targets))
         return self.gp
 
-    def optimize_model(self,retrain=True,hp=None,maxiter=None,prior=None,verbose=False):
+    def optimize_model(self,retrain=True,hp=None,maxiter=None,prior=None,verbose=False,update_prior_dist=False):
         " Optimize the hyperparameters of the GP "
+        # Update prior distributions
+        if update_prior_dist and prior is not None:
+            from catlearn.regression.gp_bv.prior_distribution import make_prior
+            prior_dist_ini={para:prior[para][0] for para in prior.keys()}
+            prior=make_prior(self.gp,sorted(list(set(prior.keys()))),np.array(self.train_features),\
+                        np.array(self.train_targets),prior_dis=prior_dist_ini,scale=1,fun_name=self.gp.hpfitter.func.fun_name)
+        # Optimize GP 
         self.gp.optimize(np.array(self.train_features),np.array(self.train_targets),retrain=retrain,\
                 hp=hp,maxiter=maxiter,prior=prior,verbose=verbose)
         return self.gp
