@@ -22,7 +22,7 @@ class MLNEB(object):
                  n_images=0.25, k=None, interpolation='linear', mic=False,
                  neb_method='improvedtangent', ase_calc=None, ase_calc_kwargs={}, restart=True,
                  force_consistent=None, mlmodel=None, mlcalc=None, acq=None, local_opt=None, local_opt_kwargs={},
-                 trainingset='evaluated_structures.traj',trajectory='all_predicted_paths.traj'):
+                 trainingset='evaluated_structures.traj',trajectory='all_predicted_paths.traj',full_output=False):
 
         """ Nudged elastic band (NEB) setup.
 
@@ -86,6 +86,8 @@ class MLNEB(object):
             Trajectory filename to store the evaluated training data output.
         trajectory: string
             Trajectory filename to store the predicted NEB path.
+        full_output: boolean
+            Whether to print on screen the full output (True) or not (False).
         """
         # General setup.
         self.trainingset_filename=trainingset
@@ -100,6 +102,7 @@ class MLNEB(object):
         self.ase_calc_kwargs = ase_calc_kwargs
         self.mic=mic
         self.restart=restart
+        self.fullout = full_output
         self.version='ML-NEB ' + __version__
         self.interesting_point=None
         self.train_images=[]
@@ -115,7 +118,7 @@ class MLNEB(object):
         # Set up the machine learning part
         if mlmodel is None:
             from catlearn.regression.gp_bv.calculator import GPModel
-            mlmodel=GPModel()
+            mlmodel=GPModel(verbose=self.fullout)
         if mlcalc is None:
             from catlearn.regression.gp_bv.calculator import GPCalculator
             mlcalc=GPCalculator()
@@ -139,7 +142,7 @@ class MLNEB(object):
 
 
     def run(self, fmax=0.05, unc_convergence=0.050, steps=500,
-            ml_steps=750, max_step=0.25, sequential=False, full_output=False):
+            ml_steps=750, max_step=0.25, sequential=False):
 
         """Executing run will start the NEB optimization process.
 
@@ -162,16 +165,11 @@ class MLNEB(object):
             with only one moving image. After finding a saddle point
             the algorithm adds all the images selected in the MLNEB class
             (the total number of NEB images is defined in the 'n_images' flag).
-        full_output: boolean
-            Whether to print on screen the full output (True) or not (False).
-
         Returns
         -------
         Minimum Energy Path from the initial to the final states.
 
         """
-        # Wheter to print everything
-        self.fullout = full_output
         # General setup
         stationary_point_found = False
         org_n_images = self.n_images
