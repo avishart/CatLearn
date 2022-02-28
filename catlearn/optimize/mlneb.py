@@ -153,7 +153,7 @@ class MLNEB(object):
         unc_convergence: float
             Maximum uncertainty for convergence (in eV).
         steps : int
-            Maximum number of iterations in the surrogate model.
+            Maximum number of evaluations.
         ml_steps: int
             Maximum number of steps for the NEB optimization on the
             predicted landscape.
