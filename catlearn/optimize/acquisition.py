@@ -110,7 +110,7 @@ class Acquisition():
         " Predicted uncertainty when it is is larger than unc_convergence else 'lcb' "
         if np.max([uncertainty])<self.unc_convergence:
             return self.lcb(energy,uncertainty)
-        return uncertainty
+        return -uncertainty
     
 
     
