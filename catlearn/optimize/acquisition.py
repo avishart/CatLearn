@@ -109,7 +109,7 @@ class Acquisition():
     def umlcb(self,energy,uncertainty=None):
         " Predicted uncertainty when it is is larger than unc_convergence else 'lcb' "
         if np.max([uncertainty])<self.unc_convergence:
-            return self.ucb(energy,uncertainty)
+            return self.lcb(energy,uncertainty)
         return uncertainty
     
 
