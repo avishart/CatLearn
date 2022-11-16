@@ -13,7 +13,7 @@ class MLModel:
 
     def add_training(self,atoms_list):
         " Add training ase Atoms data to the database. "
-        if isinstance(atoms_list,(list,np.array)):
+        if isinstance(atoms_list,(list,np.ndarray)):
             self.database.add_set(atoms_list)
         else:
             self.database.add(atoms_list)
