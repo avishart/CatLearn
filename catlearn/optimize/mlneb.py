@@ -1,18 +1,12 @@
 import numpy as np
-from catlearn.optimize.io import print_cite_mlneb
 from ase.neb import NEB
 from ase.io import read
-from ase.io.trajectory import TrajectoryWriter,TrajectoryReader
-
-from ase.calculators.singlepoint import SinglePointCalculator
+from ase.io.trajectory import TrajectoryWriter
 from ase.parallel import parprint
-import os
 from catlearn import __version__
 from copy import deepcopy
 import datetime
-from ase.parallel import parallel_function
 from mpi4py import MPI
-from scipy.spatial.distance import cdist
 
 
 
@@ -165,19 +159,18 @@ class MLNEB(object):
         self.start_energy=start.get_potential_energy()
         self.end_energy=end.get_potential_energy()
         self.start=start.copy()
-        print('start calculator',self.start.calc)
         self.end=end.copy()
-        pass
+        return 
 
     def use_prev_calculations(self,prev_calculations):
         " Use previous calculations to restart ML calculator."
         if prev_calculations is None:
-            pass
+            return
         if isinstance(prev_calculations,str):
             prev_calculations=read(prev_calculations,':')
         # Add calculations to the ML model
         self.mlcalc.model.add_training(prev_calculations)
-        pass
+        return
 
     def make_interpolation(self,interpolation='idpp'):
         " Make the NEB interpolation path "
@@ -204,7 +197,7 @@ class MLNEB(object):
         " Setup the parallelization. "
         self.comm = MPI.COMM_WORLD
         self.rank,self.size=self.comm.Get_rank(),self.comm.Get_size()
-        pass
+        return
 
     def message_system(self,message,obj=None):
         " Print output on rank=0. "
@@ -214,7 +207,7 @@ class MLNEB(object):
                     print(message)
                 else:
                     print(message,obj)
-        pass
+        return
 
     def evaluate(self,candidate):
         " Evaluate the ASE atoms with the ASE calculator. "
@@ -233,19 +226,19 @@ class MLNEB(object):
         self.add_training([candidate])
         self.mlcalc.model.database.save_data()
         self.step+=1
-        pass
+        return
 
     def add_training(self,atoms_list):
         " Add atoms_list data to ML model on rank=0. "
         if self.rank==0:
             self.mlcalc.model.add_training(atoms_list)
-        pass
+        return
 
     def ml_optimize(self):
         " Train the ML model "
         if self.rank==0:
             self.mlcalc.model.train_model()
-        pass
+        return
 
     def extra_initial_data(self):
         " If only initial and final state is given then a third data point is calculated. "
@@ -258,7 +251,7 @@ class MLNEB(object):
         print('extra point',self.rank)
         if candidate is not None:
             self.evaluate(candidate)
-        pass
+        return candidate
 
     def run_mlneb(self,fmax=0.05,ml_steps=750,max_unc=0.25):
         " Run the NEB on the ML surrogate surface"
@@ -319,7 +312,7 @@ class MLNEB(object):
         " Save the ML NEB result in the trajectory. "
         for image in images:
             self.trajectory.write(self.mlcalc.model.database.copy_atoms(image))
-        pass
+        return 
 
     def print_neb(self):
         " Print the NEB process as a table "
@@ -335,8 +328,8 @@ class MLNEB(object):
             msg+='{0:14f}|'.format(np.mean(self.umean_ml))+'{0:10f}|'.format(self.max_abs_forces)
             self.print_neb_list.append(msg)
             msg='\n'.join(self.print_neb_list)
-            parprint(msg)
-        pass
+            self.message_system(msg)
+        return
 
     def check_convergence(self,fmax,unc_convergence):
         " Check if the ML-NEB is converged to the final path with low uncertainty "
@@ -364,5 +357,5 @@ class MLNEB(object):
         msg += "https://doi.org/10.1103/PhysRevB.100.104103. \n"
         msg += "-" * 79 + '\n'
         self.message_system(msg)
-        pass
+        return 
 

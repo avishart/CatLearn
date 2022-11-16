@@ -32,13 +32,13 @@ class Database:
     def add(self,atoms):
         " Add an atoms object to the database. "
         self.append(atoms)
-        return copy.deepcopy(self)
+        return self
     
     def add_set(self,atoms_list):
         " Add a set of atoms objects to the database. "
         for atoms in atoms_list:
             self.append(atoms)
-        return copy.deepcopy(self)
+        return self
     
     def append(self,atoms):
         " Append the atoms object, the fingerprint, and target to lists. "
@@ -49,7 +49,7 @@ class Database:
         else:
             self.features.append(self.fingerprint(atoms).get_vector())
         self.targets.append(self.get_target(atoms,use_forces=self.use_forces,negative_forces=self.negative_forces))
-        pass
+        return self
         
     def get_target(self,atoms,use_forces=True,negative_forces=True):
         " Calculate the target as the energy and forces if selected. "
@@ -108,7 +108,7 @@ class Database:
         " Save the ASE atoms data to a trajectory. "
         from ase.io import write
         write(trajectory,self.get_atoms())
-        pass
+        return self
     
     def copy(self):
         " Copy the database. "
