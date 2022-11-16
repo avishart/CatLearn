@@ -103,6 +103,12 @@ class Database:
         if self.use_fingerprint:
             return self.fingerprint(atoms)
         return self.fingerprint(atoms).get_vector()
+
+    def save_data(self,trajectory='data.traj'):
+        " Save the ASE atoms data to a trajectory. "
+        from ase.io import write
+        write(trajectory,self.get_atoms())
+        pass
     
     def copy(self):
         " Copy the database. "
