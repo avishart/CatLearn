@@ -201,7 +201,7 @@ class MLNEB(object):
 
     def message_system(self,message,obj=None):
         " Print output on rank=0. "
-        if self.fullout is True:
+        if self.full_output is True:
             if self.rank==0:
                 if obj is None:
                     print(message)
