@@ -126,12 +126,13 @@ class MLNEB(object):
         # Active learning parameters
         candidate=None
         self.acq.unc_convergence=unc_convergence
+        self.steps=0
         self.trajectory_neb=TrajectoryWriter(self.trajectory,mode='a')
         # Calculate a extra data point if only start and end is given
         self.extra_initial_data()
         # Run the active learning
-        self.steps=0
         while True:
+            self.steps+=1
             # Train and optimize ML model
             self.ml_optimize()
             # Perform NEB on ML surrogate surface
@@ -237,7 +238,6 @@ class MLNEB(object):
         # Store the data
         self.add_training([candidate])
         self.mlcalc.mlmodel.database.save_data()
-        self.steps+=1
         return
 
     def add_training(self,atoms_list):
