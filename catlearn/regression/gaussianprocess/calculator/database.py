@@ -3,15 +3,15 @@ import copy
 from ase.calculators.singlepoint import SinglePointCalculator
 
 class Database:
-    def __init__(self,fingerprint=None,reduce_dimensions=True,use_forces=True,negative_forces=True,use_fingerprint=True):
+    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,negative_forces=True,use_fingerprint=True):
         """ Database of ASE atoms objects that are converted into fingerprints and targets. 
             Parameters:
                 fingerprint : Fingerprint object
                     An object as a fingerprint class that convert atoms to fingerprint.
                 reduce_dimensions: bool
                     Whether to reduce the fingerprint space if constrains are used.
-                use_forces : bool
-                    Whether to use forces in the targets.
+                use_derivatives : bool
+                    Whether to use derivatives/forces in the targets.
                 negative_forces : bool
                     Whether derivatives (True) or forces (False) are used.
                 use_fingerprint : bool
@@ -19,10 +19,11 @@ class Database:
         """
         if fingerprint is None:
             from ..fingerprint.cartesian import Cartesian
-            fingerprint=Cartesian(reduce_dimensions=reduce_dimensions,use_derivatives=use_forces)
+            fingerprint=Cartesian(reduce_dimensions=reduce_dimensions,use_derivatives=use_derivatives,mic=True)
         self.fingerprint=copy.deepcopy(fingerprint)
         self.reduce_dimensions=reduce_dimensions
-        self.use_forces=use_forces
+        self.use_derivatives=use_derivatives
+        self.check_attributes()
         self.negative_forces=negative_forces
         self.use_fingerprint=use_fingerprint
         self.atoms_list=[]
@@ -48,13 +49,13 @@ class Database:
             self.features.append(self.fingerprint(atoms))
         else:
             self.features.append(self.fingerprint(atoms).get_vector())
-        self.targets.append(self.get_target(atoms,use_forces=self.use_forces,negative_forces=self.negative_forces))
+        self.targets.append(self.get_target(atoms,use_derivatives=self.use_derivatives,negative_forces=self.negative_forces))
         return self
         
-    def get_target(self,atoms,use_forces=True,negative_forces=True):
+    def get_target(self,atoms,use_derivatives=True,negative_forces=True):
         " Calculate the target as the energy and forces if selected. "
         e=atoms.get_potential_energy()
-        if use_forces:
+        if use_derivatives:
             not_masked=self.get_constrains(atoms)
             f=(atoms.get_forces()[not_masked]).reshape(-1)
             if negative_forces:
@@ -108,7 +109,17 @@ class Database:
         " Save the ASE atoms data to a trajectory. "
         from ase.io import write
         write(trajectory,self.get_atoms())
-        return self
+        return self 
+
+    def check_attributes(self):
+        " Check if all attributes agree between the class and subclasses. "
+        if self.reduce_dimensions!=self.fingerprint.reduce_dimensions:
+            raise Exception('Database and Fingerprint do not agree whether to reduce dimensions!')
+        if self.use_derivatives!=self.fingerprint.use_derivatives:
+            raise Exception('Database and Fingerprint do not agree whether to use derivatives!')
+        # Copy attributes from fingerprint
+        self.mic=self.fingerprint.mic
+        return
     
     def copy(self):
         " Copy the database. "
@@ -119,7 +130,7 @@ class Database:
         return len(self.atoms_list)
     
     def __repr__(self):
-        if self.use_forces:
+        if self.use_derivatives:
             return "Database({} Atoms objects without forces)".format(len(self.atoms_list))
         return "Database({} Atoms objects with forces)".format(len(self.atoms_list))
     

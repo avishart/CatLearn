@@ -4,6 +4,7 @@ from scipy.spatial.distance import pdist,cdist
 class Distance_matrix:
     def __init__(self,use_fingerprint=False):
         """ The absolute distance matrix from a matrix """
+        self.use_derivatives=False
         self.use_fingerprint=use_fingerprint
         
     def __call__(self,features,features2=None,scale=False,**kwargs):
@@ -45,6 +46,7 @@ class Distance_matrix:
 class Distance_matrix_per_dimension(Distance_matrix):
     def __init__(self,use_fingerprint=False):
         """ The absolute distance matrix from a matrix """
+        self.use_derivatives=True
         self.use_fingerprint=use_fingerprint
         
     def __call__(self,features,features2=None,scale=False,**kwargs):

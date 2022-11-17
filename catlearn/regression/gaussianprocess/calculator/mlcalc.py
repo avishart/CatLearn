@@ -7,13 +7,13 @@ class MLCalculator(Calculator):
     implemented_properties = ['energy', 'forces', 'uncertainty']
     nolabel = True
 
-    def __init__(self,model=None,calculate_uncertainty=True):
+    def __init__(self,mlmodel=None,calculate_uncertainty=True):
         " A ML calculator object applicable in ASE "
         Calculator.__init__(self)
-        if model is None:
+        if mlmodel is None:
             from .mlmodel import MLModel
-            model=MLModel(model=None,database=None,optimize=True,optimize_kwargs={},baseline=None)
-        self.model=deepcopy(model)
+            mlmodel=MLModel(model=None,database=None,optimize=True,optimize_kwargs={},baseline=None)
+        self.mlmodel=deepcopy(mlmodel)
         self.calculate_uncertainty=calculate_uncertainty
 
     def get_uncertainty(self):
@@ -34,14 +34,14 @@ class MLCalculator(Calculator):
         Calculator.calculate(self, atoms, properties, system_changes)
         if 'forces' in properties:
             # Obtain energy and forces for the given geometry from predictions:
-            energy,forces,uncertainty=self.model.calculate(atoms,get_variance=self.calculate_uncertainty,get_forces=True)
+            energy,forces,uncertainty=self.mlmodel.calculate(atoms,get_variance=self.calculate_uncertainty,get_forces=True)
             # Results:
             self.results['energy']=energy
             self.results['forces']=forces
             self.results['uncertainty']=uncertainty
         else:
             # Obtain energy for the given geometry from predictions:
-            energy,uncertainty=self.model.calculate(atoms,get_variance=self.calculate_uncertainty,get_forces=False)
+            energy,uncertainty=self.mlmodel.calculate(atoms,get_variance=self.calculate_uncertainty,get_forces=False)
             # Results:
             self.results['energy']=energy
             self.results['uncertainty']=uncertainty

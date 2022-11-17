@@ -20,15 +20,13 @@ class GaussianProcess:
         #Kernel
         if kernel is None:
             from ..kernel import SE,SE_Derivative
-            self.kernel=copy.deepcopy(SE_Derivative()) if use_derivatives else copy.deepcopy(SE())
-        else:
-            self.kernel=copy.deepcopy(kernel)
+            kernel=SE_Derivative(use_fingerprint=False) if use_derivatives else SE(use_fingerprint=False)
+        self.kernel=copy.deepcopy(kernel)
         #Prior
         if prior is None:
             from ..means.mean import Prior_mean
-            self.prior=copy.deepcopy(Prior_mean())
-        else:
-            self.prior=copy.deepcopy(prior)
+            prior=Prior_mean()
+        self.prior=copy.deepcopy(prior)
         #Whether to use derivatives or not for the target
         self.use_derivatives=use_derivatives
         # Use noise correction
@@ -39,6 +37,8 @@ class GaussianProcess:
             from ..objectfunctions import LogLikelihood
             hpfitter=copy.deepcopy(HyperparameterFitter(LogLikelihood()))
         self.set_hpfitter(hpfitter)
+        # Check if the attributes agree
+        self.check_attributes()
         #Set hyperparameters
         self.hp={}
         self.set_hyperparams(hp)
@@ -69,6 +69,8 @@ class GaussianProcess:
         if self.use_derivatives:
             targets=targets.T.reshape(-1,1)
             targets[len(features):,0]*=self.kernel.get_scaling(features,length=True)
+        else:
+            targets=targets[:,0:1].copy()
         #Calculate the coefficients
         self.coef=cho_solve((self.L,self.low),targets,check_finite=False)
         return copy.deepcopy(self)
@@ -175,6 +177,8 @@ class GaussianProcess:
                 Print the optimized hyperparameters and the object function value
         """
         GP=copy.deepcopy(self)
+        if not self.use_derivatives:
+            targets=targets[:,0:1].copy()
         sol=self.hpfitter.fit(features,targets,GP,hp=hp,prior=prior)
         if verbose:
             print(sol)
@@ -260,6 +264,16 @@ class GaussianProcess:
             hp_deriv['noise_deriv']=np.diag(np.array([0.0]*n_data+[2*np.exp(2*self.hp['noise_deriv'].item(0))]*(m_data-n_data)).reshape(-1))
         hp_deriv.update(self.kernel.get_gradients(X,hp,KXX=KXX,dis_m=dis_m))
         return hp_deriv
+
+    def check_attributes(self):
+        " Check if all attributes agree between the class and subclasses. "
+        if self.use_derivatives!=self.kernel.use_derivatives:
+            raise Exception('GP and Kernel do not agree whether to use derivatives!')
+        return
+
+    def copy(self):
+        " Copy the GP. "
+        return copy.deepcopy(self)
 
     def __repr__(self):
         return "GP({} ; use_derivatives={})".format(self.hp,self.use_derivatives)

@@ -209,7 +209,7 @@ class SE_Derivative(Kernel_Derivative):
                 if d1!=d2:
                     Kext[nd1*d2:nd1*(d2+1),nd1*d1:nd1*(d1+1)]=Kext[nd1*d1:nd1*(d1+1),nd1*d2:nd1*(d2+1)].copy().T
         # Get the scaling
-        if self.distances.use_fingerprint:
+        if self.use_fingerprint:
             scaling=np.array([self.get_scaling(features,length=False)])
             #print(Kext[:,nd1:],scaling)
             Kext[:,nd1:]=Kext[:,nd1:]*scaling
@@ -253,7 +253,7 @@ class SE_Derivative(Kernel_Derivative):
                     if d1!=d2:
                         Kext[nd1*d2:nd1*(d2+1),nd2*d1:nd2*(d1+1)]=self.get_hessian_K(features,features2,dis_m,K,d2,d1)
         # Get the scaling
-        if self.distances.use_fingerprint:
+        if self.use_fingerprint:
             if get_derivatives:
                 scaling=self.get_scaling(features,length=False).reshape(-1,1)
                 Kext[nd1:,:]=Kext[nd1:,:]*scaling

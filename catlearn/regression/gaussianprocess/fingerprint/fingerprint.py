@@ -58,5 +58,8 @@ class Fingerprint:
         return len(self.g[0])
     
     def __repr__(self):
-        return str(self.vector)
+        try:
+            return str(self.vector)
+        except:
+            return "Fingerprint"
         

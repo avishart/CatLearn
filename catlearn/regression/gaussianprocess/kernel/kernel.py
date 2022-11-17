@@ -13,9 +13,12 @@ class Kernel:
                 hp : dict
                     A dictionary of hyperparameters.
         """
+        self.use_derivatives=False
         if distances is None:
             distances=Distance_matrix(use_fingerprint=use_fingerprint)
         self.distances=copy.deepcopy(distances)
+        self.use_fingerprint=use_fingerprint
+        self.check_attributes()
         self.hp=hp.copy()
         self.set_hyperparams(hp)
     
@@ -77,6 +80,14 @@ class Kernel:
                     Already calculated distance matrix.
         """
         raise NotImplementedError()
+
+    def check_attributes(self):
+        " Check if all attributes agree between the class and subclasses. "
+        if self.use_fingerprint!=self.distances.use_fingerprint:
+            raise Exception('Kernel and Distances do not agree whether to use fingerprints!')
+        if self.use_derivatives!=self.distances.use_derivatives:
+            raise Exception('Kernel and Distances do not agree whether to use derivatives!')
+        return
     
     def get_dimension(self,features):
         " Get the dimension of the length-scale hyperparameter "
@@ -105,9 +116,12 @@ class Kernel_Derivative:
                 hp : dict
                     A dictionary of hyperparameters.
         """
+        self.use_derivatives=True
         if distances is None:
             distances=Distance_matrix_per_dimension(use_fingerprint=use_fingerprint)
         self.distances=copy.deepcopy(distances)
+        self.use_fingerprint=use_fingerprint
+        self.check_attributes()
         self.hp=hp.copy()
         self.set_hyperparams(hp)
         
@@ -228,6 +242,14 @@ class Kernel_Derivative:
                     Whether the noise correction is used.
         """
         raise NotImplementedError()
+
+    def check_attributes(self):
+        " Check if all attributes agree between the class and subclasses. "
+        if self.use_fingerprint!=self.distances.use_fingerprint:
+            raise Exception('Kernel and Distances do not agree whether to use fingerprints!')
+        if self.use_derivatives!=self.distances.use_derivatives:
+            raise Exception('Kernel and Distances do not agree whether to use derivatives!')
+        return
     
     def get_dimension(self,features):
         " Get the dimension of the length-scale hyperparameter "
