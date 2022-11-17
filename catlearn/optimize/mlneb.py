@@ -189,8 +189,16 @@ class MLNEB(object):
             else:
                 images=read(interpolation,':')
         # Attach the ML calculator to all images
-        for image in images:
+        images=self.attach_mlcalc(images)
+        return images
+
+    def attach_mlcalc(self,imgs):
+        " Attach the ML calculator to the given images. "
+        images=[]
+        for img in imgs:
+            image=img.copy()
             image.calc=deepcopy(self.mlcalc)
+            images.append(image)
         return images
 
     def parallel_setup(self):
@@ -310,6 +318,7 @@ class MLNEB(object):
 
     def save_mlneb(self,images):
         " Save the ML NEB result in the trajectory. "
+        self.images=deepcopy(images)
         for image in images:
             self.trajectory.write(self.mlcalc.model.database.copy_atoms(image))
         return 
