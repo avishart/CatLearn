@@ -71,10 +71,17 @@ class MLNEB(object):
         """
         # Setup parallelization
         self.parallel_setup()
+        # NEB parameters
+        self.interpolation=interpolation
+        self.interpolation_kwargs=interpolation_kwargs.copy()
+        self.n_images=n_images
+        self.mic=mic
+        self.neb_kwargs=neb_kwargs.copy()
+        # Whether to have the full output
+        self.full_output=full_output  
         # Setup the ML calculator
         if mlcalc is None:
-            from ..regression.gaussianprocess.calculator.mlcalc import MLCalculator
-            mlcalc=MLCalculator(model=None,calculate_uncertainty=True)
+            mlcalc=self.get_default_mlcalc(self)
         self.mlcalc=deepcopy(mlcalc)
         # Select an acquisition function 
         if acq is None:
@@ -86,12 +93,6 @@ class MLNEB(object):
         # Save the ASE calculator
         self.ase_calc=ase_calc
         self.force_consistent=force_consistent
-        # NEB parameters
-        self.interpolation=interpolation
-        self.interpolation_kwargs=interpolation_kwargs.copy()
-        self.n_images=n_images
-        self.mic=mic
-        self.neb_kwargs=neb_kwargs.copy()
         ## Save local optimizer
         if local_opt is None:
             from ase.optimize import MDMin
@@ -104,8 +105,7 @@ class MLNEB(object):
         self.trajectory=TrajectoryWriter(trajectory)
         # Load previous calculations to the ML model
         self.use_prev_calculations(prev_calculations)
-        # Whether to have the full output
-        self.full_output=full_output        
+              
 
     def run(self,fmax=0.05,unc_convergence=0.025,steps=500,ml_steps=750,max_unc=0.25):
         """ Run the active learning NEB process. 
@@ -368,3 +368,32 @@ class MLNEB(object):
         self.message_system(msg)
         return 
 
+    def get_default_mlcalc(self):
+        " Get a default ML calculator if a calculator is not given. This is a recommended ML calculator."
+        from ..regression.gaussianprocess.calculator.mlcalc import MLCalculator
+        from ..regression.gaussianprocess.calculator.mlmodel import MLModel
+        from ..regression.gaussianprocess.gp.gp import GaussianProcess
+        from ..regression.gaussianprocess.kernel.se import SE,SE_Derivative
+        from ..regression.gaussianprocess.means.median import Prior_median
+        from ..regression.gaussianprocess.hpfitter import HyperparameterFitter
+        from ..regression.gaussianprocess.objectfunctions.factorized_likelihood import FactorizedLogLikelihood
+        from ..regression.gaussianprocess.optimizers import run_golden,line_search_scale
+        from ..regression.gaussianprocess.calculator.database import Database
+        from ..regression.gaussianprocess.fingerprint.cartesian import Cartesian
+        use_derivatives=True
+        use_fingerprint=False
+        # Use a GP as the model 
+        local_kwargs=dict(tol=1e-5,optimize=True,multiple_max=True)
+        kwargs_optimize=dict(local_run=run_golden,maxiter=5000,jac=False,bounds=None,ngrid=80,use_bounds=True,local_kwargs=local_kwargs)
+        hpfitter=HyperparameterFitter(FactorizedLogLikelihood(),optimization_method=line_search_scale,opt_kwargs=kwargs_optimize,distance_matrix=True)
+        kernel=SE_Derivative(use_fingerprint=use_fingerprint) if use_derivatives else SE(use_fingerprint=use_fingerprint)
+        model=GaussianProcess(prior=Prior_median(),kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter)
+        # Use cartesian coordinates and make the database ready
+        fp=Cartesian(reduce_dimensions=True,use_derivatives=use_derivatives,mic=self.mic)
+        database=Database(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,negative_forces=True,use_fingerprint=use_fingerprint)
+        # Make the ML model with model and database
+        ml_opt_kwargs=dict(retrain=True,verbose=self.full_output)
+        mlmodel=MLModel(model=model,database=database,baseline=None,optimize=True,optimize_kwargs=ml_opt_kwargs)
+        # Finally make the calculator
+        mlcalc=MLCalculator(mlmodel=mlmodel,calculate_uncertainty=True)
+        return mlcalc
