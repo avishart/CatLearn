@@ -126,11 +126,11 @@ class MLNEB(object):
         # Active learning parameters
         candidate=None
         self.acq.unc_convergence=unc_convergence
-        self.steps=0
         self.trajectory_neb=TrajectoryWriter(self.trajectory,mode='a')
         # Calculate a extra data point if only start and end is given
         self.extra_initial_data()
         # Run the active learning
+        self.steps=0
         while True:
             # Train and optimize ML model
             self.ml_optimize()
