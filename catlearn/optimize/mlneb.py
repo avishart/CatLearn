@@ -81,7 +81,7 @@ class MLNEB(object):
         self.full_output=full_output  
         # Setup the ML calculator
         if mlcalc is None:
-            mlcalc=self.get_default_mlcalc(self)
+            mlcalc=self.get_default_mlcalc()
         self.mlcalc=deepcopy(mlcalc)
         # Select an acquisition function 
         if acq is None:
@@ -169,7 +169,7 @@ class MLNEB(object):
         if isinstance(prev_calculations,str):
             prev_calculations=read(prev_calculations,':')
         # Add calculations to the ML model
-        self.mlcalc.model.add_training(prev_calculations)
+        self.add_training(prev_calculations)
         return
 
     def make_interpolation(self,interpolation='idpp'):
@@ -232,27 +232,27 @@ class MLNEB(object):
         self.message_system('Single-point calculation finished.')
         # Store the data
         self.add_training([candidate])
-        self.mlcalc.model.database.save_data()
+        self.mlcalc.mlmodel.database.save_data()
         self.step+=1
         return
 
     def add_training(self,atoms_list):
         " Add atoms_list data to ML model on rank=0. "
         if self.rank==0:
-            self.mlcalc.model.add_training(atoms_list)
+            self.mlcalc.mlmodel.add_training(atoms_list)
         return
 
     def ml_optimize(self):
         " Train the ML model "
         if self.rank==0:
-            self.mlcalc.model.train_model()
+            self.mlcalc.mlmodel.train_model()
         return
 
     def extra_initial_data(self):
         " If only initial and final state is given then a third data point is calculated. "
         candidate=None
         if self.rank==0:
-            if len(self.mlcalc.model.database)==2:
+            if len(self.mlcalc.mlmodel.database)==2:
                 images=self.make_interpolation(interpolation=self.interpolation)
                 candidate=images[1+int((self.n_images-2)/3.0)].copy()
         candidate=self.comm.bcast(candidate,root=0)
@@ -320,7 +320,7 @@ class MLNEB(object):
         " Save the ML NEB result in the trajectory. "
         self.images=deepcopy(images)
         for image in images:
-            self.trajectory.write(self.mlcalc.model.database.copy_atoms(image))
+            self.trajectory.write(self.mlcalc.mlmodel.database.copy_atoms(image))
         return 
 
     def print_neb(self):
