@@ -78,7 +78,7 @@ class MLModel:
                 forces=-y[1:].reshape(-1,3)
             else:
                 forces=-self.derivatives_fd(atoms,not_masked=not_masked).reshape(-1,3)
-            forces=np.array([forces[self.not_masked.index(i)] if i in self.not_masked else [0.0]*3 for i in range(len(atoms))])
+            forces=np.array([forces[not_masked.index(i)] if i in not_masked else [0.0]*3 for i in range(len(atoms))])
             return energy,forces,uncertainty
         return energy,uncertainty
 
