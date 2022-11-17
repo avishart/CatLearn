@@ -1,6 +1,6 @@
 import numpy as np
 from ase.neb import NEB
-from ase.io import read
+from ase.io import read,write
 from ase.io.trajectory import TrajectoryWriter
 from ase.parallel import parprint
 from catlearn import __version__
@@ -102,7 +102,7 @@ class MLNEB(object):
         self.local_opt_kwargs=local_opt_kwargs
         # Trajectories
         self.trainingset=trainingset
-        self.trajectory=TrajectoryWriter(trajectory)
+        self.trajectory=trajectory
         # Load previous calculations to the ML model
         self.use_prev_calculations(prev_calculations)
               
@@ -126,7 +126,8 @@ class MLNEB(object):
         # Active learning parameters
         candidate=None
         self.acq.unc_convergence=unc_convergence
-        self.step=0
+        self.steps=0
+        self.trajectory_neb=TrajectoryWriter(self.trajectory,mode='a')
         # Calculate a extra data point if only start and end is given
         self.extra_initial_data()
         # Run the active learning
@@ -140,10 +141,13 @@ class MLNEB(object):
             # Print the results for this iteration
             self.print_neb()
             # Check convergence
-            self.check_convergence(self,fmax,unc_convergence)
+            converged=self.check_convergence(fmax,unc_convergence)
+            if converged:
+                break
             if self.steps>=steps:
                 self.message_system('MLNEB did not converge!')
                 break
+        self.trajectory_neb.close()
         return self
 
     def set_up_endpoints(self,start,end):
@@ -180,7 +184,7 @@ class MLNEB(object):
         else:
             if interpolation in ['linear','idpp']:
                 # Make path by the NEB methods interpolation
-                images=[self.start]*(self.n_images-1)+[self.end]
+                images=[self.start.copy() for i in range(self.n_images-1)]+[self.end.copy()]
                 neb=NEB(images,**self.neb_kwargs)
                 if interpolation=='linear':
                     neb.interpolate(mic=self.mic,**self.interpolation_kwargs)
@@ -233,7 +237,7 @@ class MLNEB(object):
         # Store the data
         self.add_training([candidate])
         self.mlcalc.mlmodel.database.save_data()
-        self.step+=1
+        self.steps+=1
         return
 
     def add_training(self,atoms_list):
@@ -245,7 +249,7 @@ class MLNEB(object):
     def ml_optimize(self):
         " Train the ML model "
         if self.rank==0:
-            self.mlcalc.mlmodel.train_model()
+            self.mlcalc.mlmodel.train_model(verbose=self.full_output)
         return
 
     def extra_initial_data(self):
@@ -311,16 +315,22 @@ class MLNEB(object):
             #neb_opt.nsteps = 0
             energy_path,unc_path=self.get_predictions(images)
             if np.max(unc_path)>=max_unc:
+                self.message_system('NEB on surrogate surface stopped due to high uncertainty!')
+                break
+            if np.isnan(energy_path).any():
+                images=self.make_interpolation(interpolation=self.interpolation)
+                self.message_system('Stopped due to NaN value in prediction!')
                 break
             if neb_opt.converged():
+                self.message_system('NEB on surrogate surface converged!')
                 break
         return images
 
     def save_mlneb(self,images):
         " Save the ML NEB result in the trajectory. "
-        self.images=deepcopy(images)
         for image in images:
-            self.trajectory.write(self.mlcalc.mlmodel.database.copy_atoms(image))
+            self.trajectory_neb.write(self.mlcalc.mlmodel.database.copy_atoms(image))
+        self.images=deepcopy(images)
         return 
 
     def print_neb(self):
@@ -331,7 +341,7 @@ class MLNEB(object):
                 len(self.print_neb_list)
             except:
                 self.print_neb_list=['| Step |        Time         | Pred. barrier (-->) | Pred. barrier (<--) | Max. uncert. | Avg. uncert. |   fmax   |']
-            msg='|{0:6d}| '.format(self.step)+'{} |'.format(now)
+            msg='|{0:6d}| '.format(self.steps)+'{} |'.format(now)
             msg+='{0:21f}|'.format(self.emax_ml-self.start_energy)+'{0:21f}|'.format(self.emax_ml-self.end_energy)
             msg+='{0:14f}|'.format(self.umax_ml)
             msg+='{0:14f}|'.format(np.mean(self.umean_ml))+'{0:10f}|'.format(self.max_abs_forces)
@@ -350,6 +360,7 @@ class MLNEB(object):
                     self.message_system("Congratulations! Your ML NEB is converged.") 
                     self.print_cite()
                     converged=True
+        converged=self.comm.bcast(converged,root=0)
         return converged
 
     def print_cite(self):
@@ -392,7 +403,7 @@ class MLNEB(object):
         fp=Cartesian(reduce_dimensions=True,use_derivatives=use_derivatives,mic=self.mic)
         database=Database(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,negative_forces=True,use_fingerprint=use_fingerprint)
         # Make the ML model with model and database
-        ml_opt_kwargs=dict(retrain=True,verbose=self.full_output)
+        ml_opt_kwargs=dict(retrain=True)
         mlmodel=MLModel(model=model,database=database,baseline=None,optimize=True,optimize_kwargs=ml_opt_kwargs)
         # Finally make the calculator
         mlcalc=MLCalculator(mlmodel=mlmodel,calculate_uncertainty=True)

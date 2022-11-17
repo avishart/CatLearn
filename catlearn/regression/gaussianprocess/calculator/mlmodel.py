@@ -18,14 +18,14 @@ class MLModel:
             self.database.add(atoms_list)
         return self
 
-    def train_model(self):
+    def train_model(self,verbose=False):
         " Train the ML model. "
         features=self.database.get_features()
         targets=self.database.get_targets()
         if self.use_baseline:
             targets=self.baseline_correction(targets,None,add=False,use_forces=self.database.use_forces,negative_forces=self.database.negative_forces)
         if self.optimize:
-            return self.optimize_model(features,targets,**self.optimize_kwargs)
+            return self.optimize_model(features,targets,verbose=verbose,**self.optimize_kwargs)
         self.model.train(features,targets)
         return self.model
 

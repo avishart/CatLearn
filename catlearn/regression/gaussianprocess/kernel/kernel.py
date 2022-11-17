@@ -93,10 +93,6 @@ class Kernel:
         " Get the dimension of the length-scale hyperparameter "
         return 1
 
-    def get_scaling(self,features):
-        " Get the scaling of the hessian part of covariance matrix or the derivatives "
-        return 1.0
-
     def copy(self):
         " Deepcopy the object "
         return copy.deepcopy(self)
@@ -254,10 +250,6 @@ class Kernel_Derivative:
     def get_dimension(self,features):
         " Get the dimension of the length-scale hyperparameter "
         return 1
-
-    def get_scaling(self,features,length=True):
-        " Get the scaling of the hessian part of covariance matrix or the derivatives "
-        return 1.0
 
     def copy(self):
         " Deepcopy the object "

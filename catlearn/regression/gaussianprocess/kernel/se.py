@@ -85,7 +85,7 @@ class SE_Derivative(Kernel_Derivative):
                 dis_m : (N,M) or (N*(N-1)/2) array
                     Already calculated distance matrix.
         """
-        D=self.distances.get_absolute_distances(dis_m)
+        D=self.distances.get_absolute_distances(dis_m)*np.exp(-2*self.hp['length'])
         K=np.exp(-0.5*D)
         return K
     
@@ -115,7 +115,7 @@ class SE_Derivative(Kernel_Derivative):
                 axis : int
                     If it is the first or second term in the distance matrix.
         """
-        return K*(-0.5)*self.distances.get_derivative(features,dis_m,d1-1,axis)
+        return K*(-0.5*np.exp(-2*self.hp['length']))*self.distances.get_derivative(features,dis_m,d1-1,axis)
     
     def get_hessian_K1(self,features,features2,dis_m,K,d1,d2):
         """Make the first part hessian of the kernel matrix wrt. to two dimension of the fingerprint.
@@ -135,7 +135,7 @@ class SE_Derivative(Kernel_Derivative):
         """
         dis_d1=self.distances.get_derivative(features,dis_m,d1-1)
         dis_d2=self.distances.get_derivative(features2,dis_m,d2-1,axis=1)
-        Kdd1=K*(0.25)*dis_d1*dis_d2
+        Kdd1=K*(0.25*np.exp(-4*self.hp['length']))*dis_d1*dis_d2
         return Kdd1
     
     def get_hessian_K2(self,features,features2,dis_m,K,d1,d2):
@@ -157,7 +157,7 @@ class SE_Derivative(Kernel_Derivative):
         dis_h=self.distances.get_hessian(features,features2,dis_m,d1-1,d2-1)
         if isinstance(dis_h,int):
             return None
-        return K*((-0.5)*dis_h)
+        return K*((-0.5*np.exp(-2*self.hp['length']))*dis_h)
     
     def get_hessian_K(self,features,features2,dis_m,K,d1,d2):
         """Make the hessian of the kernel matrix wrt. to two dimension of the fingerprint.
@@ -194,9 +194,7 @@ class SE_Derivative(Kernel_Derivative):
         nd1=len(features)
         # Calculate the distances, distance matrix, and kernel matrix
         if dis_m is None:
-            dis_m=self.distances(features,scale=np.exp(-self.hp['length']))
-        else:
-            dis_m=dis_m*np.exp(-self.hp['length'])
+            dis_m=self.distances(features)
         K=self.get_K(dis_m,**kwargs)
         # Calculate the full symmetric kernel matrix
         Kext=np.zeros((nd1*(dim+1),nd1*(dim+1)))
@@ -208,12 +206,6 @@ class SE_Derivative(Kernel_Derivative):
                 Kext[nd1*d1:nd1*(d1+1),nd1*d2:nd1*(d2+1)]=self.get_hessian_K(features,features,dis_m,K,d1,d2)
                 if d1!=d2:
                     Kext[nd1*d2:nd1*(d2+1),nd1*d1:nd1*(d1+1)]=Kext[nd1*d1:nd1*(d1+1),nd1*d2:nd1*(d2+1)].copy().T
-        # Get the scaling
-        if self.use_fingerprint:
-            scaling=np.array([self.get_scaling(features,length=False)])
-            #print(Kext[:,nd1:],scaling)
-            Kext[:,nd1:]=Kext[:,nd1:]*scaling
-            Kext[nd1:,:]=Kext[nd1:,:]*scaling.T
         return Kext
     
     def get_KQX(self,features,features2=None,get_derivatives=False,dis_m=None,**kwargs):
@@ -233,11 +225,9 @@ class SE_Derivative(Kernel_Derivative):
         nd1=len(features)
         # Calculate the distances, distance matrix, and kernel matrix
         if dis_m is None:
-            dis_m=self.distances(features,features2,scale=np.exp(-self.hp['length']))
-        else:
-            dis_m=dis_m*np.exp(-self.hp['length'])
+            dis_m=self.distances(features,features2)
         K=self.get_K(dis_m,**kwargs)
-        nd2=len(features2)
+        nd2=len(features2)        
         # Calculate the kernel matrix
         if get_derivatives:
             Kext=np.zeros((nd1*(dim+1),nd2*(dim+1)))
@@ -252,13 +242,6 @@ class SE_Derivative(Kernel_Derivative):
                     Kext[nd1*d1:nd1*(d1+1),nd2*d2:nd2*(d2+1)]=self.get_hessian_K(features,features2,dis_m,K,d1,d2)
                     if d1!=d2:
                         Kext[nd1*d2:nd1*(d2+1),nd2*d1:nd2*(d1+1)]=self.get_hessian_K(features,features2,dis_m,K,d2,d1)
-        # Get the scaling
-        if self.use_fingerprint:
-            if get_derivatives:
-                scaling=self.get_scaling(features,length=False).reshape(-1,1)
-                Kext[nd1:,:]=Kext[nd1:,:]*scaling
-            scaling=np.array([self.get_scaling(features2,length=False)])
-            Kext[:,nd1:]=Kext[:,nd1:]*np.array([scaling])
         return Kext
 
     def diag(self,features,get_derivatives=True):
@@ -271,7 +254,7 @@ class SE_Derivative(Kernel_Derivative):
         """
         k_diag=np.array([1.0]*len(features))
         if get_derivatives:
-            k_hes_diag=(-0.5)*self.distances.get_hessian_diag(features)
+            k_hes_diag=(-0.5*np.exp(-2*self.hp['length']).item(0))*self.distances.get_hessian_diag(features)
             return np.append(k_diag,k_hes_diag)
         return k_diag
         
@@ -295,32 +278,25 @@ class SE_Derivative(Kernel_Derivative):
             dim=int(len(KXX)/nd1)-1
             Kd=KXX.copy()
             if dis_m is None:
-                dis_m=self.distances(features,scale=np.exp(-self.hp['length']))
-            else:
-                dis_m=dis_m*np.exp(-self.hp['length'])
-            D=self.distances.get_absolute_distances(dis_m)
-            scaling=self.get_scaling(features,length=False)
+                dis_m=self.distances(features)
+            D=self.distances.get_absolute_distances(dis_m)*np.exp(-2*self.hp['length']).item(0)
             Kd[:nd1,:nd1]=KXX[:nd1,:nd1]*D
             for d1 in range(1,dim+1):
-                Kd[nd1*d1:nd1*(d1+1),:nd1]=KXX[nd1*d1:nd1*(d1+1),:nd1]*(D-1)
-                Kd[:nd1,nd1*d1:nd1*(d1+1)]=Kd[nd1*d1:nd1*(d1+1),:nd1].copy().T
+                Kd[:nd1,nd1*d1:nd1*(d1+1)]=KXX[:nd1,nd1*d1:nd1*(d1+1)]*(D-2)
+                Kd[nd1*d1:nd1*(d1+1),:nd1]=Kd[:nd1,nd1*d1:nd1*(d1+1)].copy().T
                 for d2 in range(d1,dim+1):
                     Kdd1=self.get_hessian_K1(features,features,dis_m,KXX[:nd1,:nd1],d1,d2)
-                    Kdd1=scaling[nd1*(d1-1):nd1*d1].reshape(-1,1)*Kdd1*np.array([scaling[nd1*(d2-1):nd1*d2]])
-                    Kd[nd1*d1:nd1*(d1+1),nd1*d2:nd1*(d2+1)]=KXX[nd1*d1:nd1*(d1+1),nd1*d2:nd1*(d2+1)]*D-(2*Kdd1)
+                    Kd[nd1*d1:nd1*(d1+1),nd1*d2:nd1*(d2+1)]=KXX[nd1*d1:nd1*(d1+1),nd1*d2:nd1*(d2+1)]*(D-2)-(2*Kdd1)
                     if d1!=d2:
                         Kd[nd1*d2:nd1*(d2+1),nd1*d1:nd1*(d1+1)]=Kd[nd1*d1:nd1*(d1+1),nd1*d2:nd1*(d2+1)].copy().T
+            if correction:
+                Kd[range(nd1*dim),range(nd1*dim)]+=(-2*nd1*dim*np.exp(-2*self.hp['length']).item(0))*(1/(1/(4e-14)-(nd1*dim)))
             hp_deriv['length']=Kd
         return hp_deriv
     
     def get_dimension(self,features):
         " Get the dimension of the length-scale hyperparameter "
         return 1
-
-    def get_scaling(self,features,length=True):
-        " Get the scaling of the hessian part of covariance matrix or the derivatives "
-        l=np.exp(self.hp['length'].item(0)) if length else 1.0
-        return np.array([l/x if x!=0.0 else 0.0 for x in np.sqrt((-0.5)*self.distances.get_hessian_diag(features))])
     
     def __repr__(self):
         return 'SE(hp={})'.format(self.hp)

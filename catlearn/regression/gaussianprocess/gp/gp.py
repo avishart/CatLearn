@@ -68,7 +68,6 @@ class GaussianProcess:
         #Rearrange targets if derivatives are used
         if self.use_derivatives:
             targets=targets.T.reshape(-1,1)
-            targets[len(features):,0]*=self.kernel.get_scaling(features,length=True)
         else:
             targets=targets[:,0:1].copy()
         #Calculate the coefficients
@@ -106,21 +105,15 @@ class GaussianProcess:
         #Check if the derivatives are calculated
         if len(Y_predict)==n_data:
             get_derivatives=False
-        # Calculate and use the scaling
-        if get_derivatives and self.use_derivatives: 
-            scaling=self.kernel.get_scaling(features,length=True)
-            Y_predict[n_data:,0]*=scaling
-        else:
-            scaling=None
         Y_predict=Y_predict.reshape(n_data,-1,order='F')
         Y_predict=Y_predict+self.prior.get(features,get_derivatives=get_derivatives)
         #Calculate the predicted variance
         if get_variance:
-            var=self.calculate_variance(features,KQX,get_derivatives=get_derivatives,include_noise=include_noise,scaling=scaling)
+            var=self.calculate_variance(features,KQX,get_derivatives=get_derivatives,include_noise=include_noise)
             return Y_predict,var
         return Y_predict
 
-    def calculate_variance(self,features,KQX,get_derivatives=False,include_noise=False,scaling=None):
+    def calculate_variance(self,features,KQX,get_derivatives=False,include_noise=False):
         """Calculate the predicted variance
         Parameters:
             features : (M,D) array
@@ -130,9 +123,7 @@ class GaussianProcess:
             get_derivatives : bool
                 Whether to predict the derivative uncertainty.
             include_noise : bool
-                Whether to include the noise of data in the predicted variance.
-            scaling : (M) array
-                The scaling used to transform variance from scaled space to unscaled space.
+                Whether to include the noise of data in the predicted variance
         Returns:
             var : (M,1) array
                 The predicted variance of values.
@@ -153,9 +144,7 @@ class GaussianProcess:
         var=(k-np.einsum('ij,ji->i',KQX,cho_solve((self.L,self.low),KQX.T,check_finite=False))).reshape(-1,1)
         var=var*np.exp(2*self.hp['prefactor'].item(0))
         if get_derivatives and self.use_derivatives:
-            if scaling is not None:
-                var[n_data:,0]*=(scaling**2)
-            var=var.reshape(n_data,-1,order='F')
+            return var.reshape(n_data,-1,order='F')
         return var
     
     def optimize(self,features,targets,retrain=True,hp=None,prior=None,verbose=False):

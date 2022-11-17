@@ -49,7 +49,6 @@ class Object_functions:
         Y_p=Y_p-GP.prior.get(X)
         if GP.use_derivatives:
             Y_p=Y_p.T.reshape(-1,1)
-            Y_p[len(X):,0]*=GP.kernel.get_scaling(X,length=True)
         return Y_p,GP
     
     def coef_cholesky(self,GP,X,Y,dis_m):
@@ -108,13 +107,6 @@ class Object_functions:
         else:
             K_deriv_cho=np.einsum('ij,ji->',KXX_inv,K_deriv)
         return K_deriv_cho
-
-    def Y_l_transform(self,X,Y):
-        " Derivative of target y wrt. length is zero for energies "
-        n_tr=len(X)
-        Y_t=Y.copy()
-        Y_t[:n_tr]=np.array([[0.0]]*n_tr)
-        return Y_t
     
     def get_solution(self,sol,GP,parameters,X,Y,prior,jac=False,dis_m=None):
         " Get the solution of the optimization in terms of hyperparameters and GP "

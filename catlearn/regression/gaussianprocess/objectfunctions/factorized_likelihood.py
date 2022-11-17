@@ -37,12 +37,7 @@ class FactorizedLogLikelihood(Object_functions):
             K_deriv=GP.get_gradients(X,[para],KXX=KXX,dis_m=dis_m)[para]
             multiple_para=len(GP.hp[para])>1
             K_deriv_cho=self.get_K_inv_deriv(K_deriv,KXX_inv,multiple_para)
-            Kdc=np.matmul(K_deriv,coef)
-            if para=='length':
-                Y_t=self.Y_l_transform(X,Y_p)
-                nlp_deriv=np.append(nlp_deriv,-0.5*(-2*np.matmul(Y_t.T,coef)+np.matmul(coef.T,Kdc))/prefactor2.reshape(-1)+0.5*K_deriv_cho)
-            else:
-                nlp_deriv=np.append(nlp_deriv,-0.5*np.matmul(coef.T,Kdc).reshape(-1)/prefactor2+0.5*K_deriv_cho)
+            nlp_deriv=np.append(nlp_deriv,-(0.5*np.matmul(coef.T,np.matmul(K_deriv,coef)).reshape(-1))/prefactor2+0.5*K_deriv_cho)
         nlp_deriv=nlp_deriv-self.logpriors(hp,parameters_set,parameters,prior,jac=True)
         return nlp,nlp_deriv
     
