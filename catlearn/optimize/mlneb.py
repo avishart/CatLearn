@@ -13,7 +13,7 @@ from mpi4py import MPI
 class MLNEB(object):
 
     def __init__(self,start,end,mlcalc=None,ase_calc=None,acq=None,interpolation='idpp',interpolation_kwargs={},
-                neb_kwargs=dict(k=0.1,climb=False,method='improvedtangent',remove_rotation_and_translation=False), 
+                climb=True,neb_kwargs=dict(k=0.1,method='improvedtangent',remove_rotation_and_translation=False), 
                 n_images=15,mic=False,prev_calculations=None,
                 force_consistent=None,local_opt=None,local_opt_kwargs={},
                 trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',full_output=False):
@@ -40,8 +40,11 @@ class MLNEB(object):
                 interpolation_kwargs: dict.
                     A dictionary with the arguments used in the interpolation.
                     See https://wiki.fysik.dtu.dk/ase/ase/neb.html. 
+                climb : bool
+                    Whether to use climbing image in the ML-NEB. It is strongly recommended to have climb=True. 
+                    It is only activated when the uncertainty is low and a NEB without climbing image can converge.
                 neb_kwargs: dict.
-                    A dictionary with the arguments used in the NEB method.
+                    A dictionary with the arguments used in the NEB method. climb can not be included.
                     See https://wiki.fysik.dtu.dk/ase/ase/neb.html. 
                 n_images: int.
                     Number of images of the path (if not included a path before).
@@ -76,6 +79,7 @@ class MLNEB(object):
         self.interpolation_kwargs=interpolation_kwargs.copy()
         self.n_images=n_images
         self.mic=mic
+        self.climb=climb
         self.neb_kwargs=neb_kwargs.copy()
         # Whether to have the full output
         self.full_output=full_output  
@@ -212,21 +216,12 @@ class MLNEB(object):
         self.rank,self.size=self.comm.Get_rank(),self.comm.Get_size()
         return
 
-    def message_system(self,message,obj=None):
-        " Print output on rank=0. "
-        if self.full_output is True:
-            if self.rank==0:
-                if obj is None:
-                    print(message)
-                else:
-                    print(message,obj)
-        return
-
     def evaluate(self,candidate):
         " Evaluate the ASE atoms with the ASE calculator. "
-        self.message_system('Performing evaluation.')
+        self.message_system('Performing evaluation.',end='\r')
         # Broadcast the system to all cpus
-        candidate=candidate.copy()
+        if self.rank==0:
+            candidate=candidate.copy()
         candidate=self.comm.bcast(candidate,root=0)
         self.comm.barrier()
         # Calculate the energies and forces
@@ -270,16 +265,16 @@ class MLNEB(object):
         if self.rank==0:
             # Make the interpolation from the initial points
             images=self.make_interpolation(interpolation=self.interpolation)
+            if self.get_fmax_predictions(images)<1e-14:
+                self.message_system('Too low forces on initial path!')
+                candidate=self.choose_candidate(images)
+                return candidate
             # Run the NEB on the surrogate surface
-            images=self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc)
+            self.message_system('Starting NEB without climbing image on surrogate surface.')
+            images=self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc,climb=False)
             self.save_mlneb(images)
-            # Get the energies and uncertainties
-            energy_path,unc_path=self.get_predictions(images)
-            self.emax_ml=np.nanmax(energy_path)
-            self.umax_ml=np.nanmax(unc_path)
-            self.umean_ml=np.mean(unc_path)
             # Get the candidate
-            candidate=self.choose_candidate(images,energy_path,unc_path)
+            candidate=self.choose_candidate(images)
             return candidate
         return None
 
@@ -289,8 +284,18 @@ class MLNEB(object):
         uncertainties=[image.calc.results['uncertainty'] for image in images]
         return np.array(energies),np.array(uncertainties)
 
-    def choose_candidate(self,images,energy_path,unc_path):
+    def get_fmax_predictions(self,images):
+        " Calculate the maximum force with the ML calculator "
+        forces=np.array([image.get_forces() for image in images])
+        return np.nanmax(np.linalg.norm(forces,axis=1))
+
+    def choose_candidate(self,images):
         " Use acquisition functions to chose the next training point "
+        # Get the energies and uncertainties
+        energy_path,unc_path=self.get_predictions(images)
+        self.emax_ml=np.nanmax(energy_path)
+        self.umax_ml=np.nanmax(unc_path)
+        self.umean_ml=np.mean(unc_path)
         # Calculate the acquisition function for each image
         acq_values=self.acq.calculate(energy_path[1:-1],unc_path[1:-1])
         # Chose the maximum value given by the Acq. class
@@ -300,9 +305,9 @@ class MLNEB(object):
         self.energy_pred=image.get_potential_energy()
         return image.copy()
 
-    def mlneb_opt(self,images,fmax=0.05,ml_steps=750,max_unc=0.25):
+    def mlneb_opt(self,images,fmax=0.05,ml_steps=750,max_unc=0.25,climb=False):
         " Run the ML NEB with checking uncertainties if selected. "
-        neb=NEB(images,**self.neb_kwargs)
+        neb=NEB(images,climb=climb,**self.neb_kwargs)
         neb_opt=self.local_opt(neb,**self.local_opt_kwargs)
         # Run the ML NEB fully without consider the uncertainty
         if max_unc==False:
@@ -322,8 +327,14 @@ class MLNEB(object):
                 self.message_system('Stopped due to NaN value in prediction!')
                 break
             if neb_opt.converged():
-                self.message_system('NEB on surrogate surface converged!')
+                self.message_system('NEB on surrogate surface converged!',end='\r')
                 break
+        # Activate climbing when the model has low uncertainty and it is converged
+        if neb_opt.converged():
+            if climb==False and self.climb==True:
+                self.message_system('Starting NEB with climbing image on surrogate surface.')
+                return self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps-neb_opt.nsteps,max_unc=max_unc,climb=True)
+            self.message_system('NEB on surrogate surface converged!')
         return images
 
     def save_mlneb(self,images):
@@ -332,6 +343,16 @@ class MLNEB(object):
             self.trajectory_neb.write(self.mlcalc.mlmodel.database.copy_atoms(image))
         self.images=deepcopy(images)
         return 
+
+    def message_system(self,message,obj=None,end='\n'):
+        " Print output on rank=0. "
+        if self.full_output is True:
+            if self.rank==0:
+                if obj is None:
+                    print(message,end=end)
+                else:
+                    print(message,obj,end=end)
+        return
 
     def print_neb(self):
         " Print the NEB process as a table "
