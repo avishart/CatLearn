@@ -412,6 +412,7 @@ class MLNEB(object):
         from ..regression.gaussianprocess.optimizers import run_golden,line_search_scale
         from ..regression.gaussianprocess.calculator.database import Database
         from ..regression.gaussianprocess.fingerprint.cartesian import Cartesian
+        from ..regression.gaussianprocess.pdistributions import Normal_prior
         use_derivatives=True
         use_fingerprint=False
         # Use a GP as the model 
@@ -423,8 +424,10 @@ class MLNEB(object):
         # Use cartesian coordinates and make the database ready
         fp=Cartesian(reduce_dimensions=True,use_derivatives=use_derivatives,mic=self.mic)
         database=Database(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,negative_forces=True,use_fingerprint=use_fingerprint)
+        # Make prior distributions for hyperparameters
+        prior=dict(length=np.array([Normal_prior(0.0,8.0)]),noise=np.array([Normal_prior(-14.0,14.0)]))
         # Make the ML model with model and database
-        ml_opt_kwargs=dict(retrain=True)
+        ml_opt_kwargs=dict(retrain=True,prior=prior)
         mlmodel=MLModel(model=model,database=database,baseline=None,optimize=True,optimize_kwargs=ml_opt_kwargs)
         # Finally make the calculator
         mlcalc=MLCalculator(mlmodel=mlmodel,calculate_uncertainty=True)
