@@ -266,6 +266,7 @@ class MLNEB(object):
             # Make the interpolation from the initial points
             if self.reuse_path and self.steps>3:
                 images=[image.copy() for image in self.images]
+                images=self.attach_mlcalc(images)
             else:
                 images=self.make_interpolation(interpolation=self.interpolation)
             if self.get_fmax_predictions(images)<1e-14:
