@@ -2,12 +2,10 @@ import numpy as np
 from ase.neb import NEB
 from ase.io import read,write
 from ase.io.trajectory import TrajectoryWriter
-from ase.parallel import parprint
 from catlearn import __version__
 from copy import deepcopy
 import datetime
 from mpi4py import MPI
-
 
 
 class MLNEB(object):
@@ -194,7 +192,7 @@ class MLNEB(object):
                 if interpolation=='linear':
                     neb.interpolate(mic=self.mic,**self.interpolation_kwargs)
                 elif interpolation=='idpp':
-                    neb.idpp_interpolate(mic=self.mic,**self.interpolation_kwargs)
+                    neb.interpolate(method='idpp',mic=self.mic,**self.interpolation_kwargs)
             else:
                 images=read(interpolation,':')
         # Attach the ML calculator to all images
@@ -255,7 +253,6 @@ class MLNEB(object):
                 images=self.make_interpolation(interpolation=self.interpolation)
                 candidate=images[1+int((self.n_images-2)/3.0)].copy()
         candidate=self.comm.bcast(candidate,root=0)
-        print('extra point',self.rank)
         if candidate is not None:
             self.evaluate(candidate)
         return candidate

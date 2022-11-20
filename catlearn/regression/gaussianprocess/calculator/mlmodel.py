@@ -99,7 +99,11 @@ class MLModel:
         " Calculate the finite difference part "
         # Make the first finite difference
         pos_fd[range(len(pos_fd)),range(len(pos_fd))]+=sign*d_step
-        atoms_list=[atoms_c.set_positions(pos.reshape(-1,3)) for p,pos in enumerate(pos_fd) if int(np.ceil(p/3)) not in not_masked]
+        atoms_list=[]
+        for p,pos in enumerate(pos_fd):
+            if int(np.ceil(p/3)) not in not_masked:
+                atoms_c.set_positions(pos.reshape(-1,3))
+                atoms_list.append(atoms_c)
         fps=np.array([self.database.get_atoms_feature(atoms_c2) for atoms_c2 in atoms_list])
         pred_fd=self.model.predict(fps,get_variance=False,get_derivatives=False)
         if self.use_baseline:
