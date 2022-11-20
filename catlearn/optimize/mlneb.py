@@ -12,7 +12,7 @@ class MLNEB(object):
 
     def __init__(self,start,end,mlcalc=None,ase_calc=None,acq=None,interpolation='idpp',interpolation_kwargs={},
                 climb=True,neb_kwargs=dict(k=0.1,method='improvedtangent',remove_rotation_and_translation=False), 
-                n_images=15,mic=False,prev_calculations=None,reuse_path=False,
+                n_images=15,mic=False,prev_calculations=None,
                 force_consistent=None,local_opt=None,local_opt_kwargs={},
                 trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',full_output=False):
         """ Nudged elastic band (NEB) with Machine Learning as active learning.
@@ -54,8 +54,6 @@ class MLNEB(object):
                     (optional) The user can feed previously calculated data for the
                     same hypersurface. The previous calculations must be fed as an
                     Atoms list or Trajectory file.
-                reuse_path: boolean.
-                    Whether to reuse previous ML-NEB path as the initial path.
                 force_consistent: boolean or None.
                     Use force-consistent energy calls (as opposed to the energy
                     extrapolated to 0 K). By default (force_consistent=None) uses
@@ -81,7 +79,6 @@ class MLNEB(object):
         self.mic=mic
         self.climb=climb
         self.neb_kwargs=neb_kwargs.copy()
-        self.reuse_path=reuse_path
         # Whether to have the full output
         self.full_output=full_output  
         # Setup the ML calculator
@@ -264,11 +261,7 @@ class MLNEB(object):
         " Run the NEB on the ML surrogate surface"
         if self.rank==0:
             # Make the interpolation from the initial points
-            if self.reuse_path and self.steps>3:
-                images=[image.copy() for image in self.images]
-                images=self.attach_mlcalc(images)
-            else:
-                images=self.make_interpolation(interpolation=self.interpolation)
+            images=self.make_interpolation(interpolation=self.interpolation)
             if self.get_fmax_predictions(images)<1e-14:
                 self.message_system('Too low forces on initial path!')
                 candidate=self.choose_candidate(images)
