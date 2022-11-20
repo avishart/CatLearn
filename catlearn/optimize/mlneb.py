@@ -132,7 +132,7 @@ class MLNEB(object):
         candidate=None
         self.acq.unc_convergence=unc_convergence
         self.steps=0
-        self.trajectory_neb=TrajectoryWriter(self.trajectory,mode='a')
+        self.trajectory_neb=TrajectoryWriter(self.trajectory,mode='w')
         # Calculate a extra data point if only start and end is given
         self.extra_initial_data()
         # Run the active learning
