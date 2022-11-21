@@ -262,7 +262,8 @@ class MLNEB(object):
         if self.rank==0:
             # Make the interpolation from the initial points
             images=self.make_interpolation(interpolation=self.interpolation)
-            if self.get_fmax_predictions(images)<1e-14:
+            # Check whether the predicted fmax for each image are lower than the NEB convergence fmax
+            if self.get_fmax_predictions(images)<fmax:
                 self.message_system('Too low forces on initial path!')
                 candidate=self.choose_candidate(images)
                 return candidate
