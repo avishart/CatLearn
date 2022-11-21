@@ -129,7 +129,7 @@ class MLNEB(object):
         candidate=None
         self.acq.unc_convergence=unc_convergence
         self.steps=0
-        self.trajectory_neb=TrajectoryWriter(self.trajectory,mode='w')
+        self.trajectory_neb=TrajectoryWriter(self.trajectory,mode='w',properties=['energy','forces'])
         # Calculate a extra data point if only start and end is given
         self.extra_initial_data()
         # Run the active learning
@@ -400,17 +400,17 @@ class MLNEB(object):
 
     def get_default_mlcalc(self):
         " Get a default ML calculator if a calculator is not given. This is a recommended ML calculator."
-        from ..regression.gaussianprocess_scaled.calculator.mlcalc import MLCalculator
-        from ..regression.gaussianprocess_scaled.calculator.mlmodel import MLModel
-        from ..regression.gaussianprocess_scaled.gp.gp import GaussianProcess
-        from ..regression.gaussianprocess_scaled.kernel.se import SE,SE_Derivative
-        from ..regression.gaussianprocess_scaled.means.median import Prior_median
-        from ..regression.gaussianprocess_scaled.hpfitter import HyperparameterFitter
-        from ..regression.gaussianprocess_scaled.objectfunctions.factorized_likelihood import FactorizedLogLikelihood
-        from ..regression.gaussianprocess_scaled.optimizers import run_golden,line_search_scale
-        from ..regression.gaussianprocess_scaled.calculator.database import Database
-        from ..regression.gaussianprocess_scaled.fingerprint.cartesian import Cartesian
-        from ..regression.gaussianprocess_scaled.pdistributions import Normal_prior
+        from ..regression.gaussianprocess.calculator.mlcalc import MLCalculator
+        from ..regression.gaussianprocess.calculator.mlmodel import MLModel
+        from ..regression.gaussianprocess.gp.gp import GaussianProcess
+        from ..regression.gaussianprocess.kernel.se import SE,SE_Derivative
+        from ..regression.gaussianprocess.means.median import Prior_median
+        from ..regression.gaussianprocess.hpfitter import HyperparameterFitter
+        from ..regression.gaussianprocess.objectfunctions.factorized_likelihood import FactorizedLogLikelihood
+        from ..regression.gaussianprocess.optimizers import run_golden,line_search_scale
+        from ..regression.gaussianprocess.calculator.database import Database
+        from ..regression.gaussianprocess.fingerprint.cartesian import Cartesian
+        from ..regression.gaussianprocess.pdistributions import Normal_prior
         use_derivatives=True
         use_fingerprint=False
         # Use a GP as the model 

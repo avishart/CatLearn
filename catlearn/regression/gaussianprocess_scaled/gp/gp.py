@@ -109,7 +109,6 @@ class GaussianProcess:
         # Calculate and use the scaling
         if get_derivatives and self.use_derivatives: 
             scaling=self.kernel.get_scaling(features,length=True)
-            print(Y_predict[n_data:,0],scaling)
             Y_predict[n_data:,0]*=scaling
         else:
             scaling=None
