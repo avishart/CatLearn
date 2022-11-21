@@ -11,7 +11,7 @@ from mpi4py import MPI
 class MLNEB(object):
 
     def __init__(self,start,end,mlcalc=None,ase_calc=None,acq=None,interpolation='idpp',interpolation_kwargs={},
-                climb=True,neb_kwargs=dict(k=0.1,method='improvedtangent',remove_rotation_and_translation=False), 
+                climb=True,neb_kwargs=dict(k=None,method='improvedtangent',remove_rotation_and_translation=False), 
                 n_images=15,mic=False,prev_calculations=None,
                 force_consistent=None,local_opt=None,local_opt_kwargs={},
                 trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',full_output=False):
@@ -102,6 +102,10 @@ class MLNEB(object):
             local_opt_kwargs=dict(dt=0.025,trajectory='surrogate_neb.traj')
         self.local_opt=local_opt
         self.local_opt_kwargs=local_opt_kwargs
+        # Set spring constant if it is not given
+        if 'k' not in self.neb_kwargs.keys() or self.neb_kwargs['k']==None:
+            d_start_end=np.linalg.norm((self.end.get_positions()-self.start.get_positions()))
+            self.neb_kwargs['k']=2.0*np.sqrt(self.n_images-1)/d_start_end
         # Trajectories
         self.trainingset=trainingset
         self.trajectory=trajectory
@@ -310,6 +314,7 @@ class MLNEB(object):
         # Run the ML NEB fully without consider the uncertainty
         if max_unc==False:
             neb_opt.run(fmax=fmax*0.8,steps=ml_steps)
+            self.message_system('NEB on surrogate surface converged!')
             return images
         # Stop the ML NEB if the uncertainty becomes too large
         for i in range(1,ml_steps+1):
@@ -325,14 +330,13 @@ class MLNEB(object):
                 self.message_system('Stopped due to NaN value in prediction!')
                 break
             if neb_opt.converged():
-                self.message_system('NEB on surrogate surface converged!',end='\r')
+                self.message_system('NEB on surrogate surface converged!')
                 break
         # Activate climbing when the model has low uncertainty and it is converged
         if neb_opt.converged():
             if climb==False and self.climb==True:
                 self.message_system('Starting NEB with climbing image on surrogate surface.')
                 return self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps-neb_opt.nsteps,max_unc=max_unc,climb=True)
-            self.message_system('NEB on surrogate surface converged!')
         return images
 
     def save_mlneb(self,images):
