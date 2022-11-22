@@ -104,7 +104,7 @@ class MLNEB(object):
         self.local_opt_kwargs=local_opt_kwargs
         # Set spring constant if it is not given
         if 'k' not in self.neb_kwargs.keys() or self.neb_kwargs['k']==None:
-            d_start_end=np.linalg.norm((self.end.get_positions()-self.start.get_positions()))
+            d_start_end=np.linalg.norm(self.end.get_positions()-self.start.get_positions())
             self.neb_kwargs['k']=2.0*np.sqrt(self.n_images-1)/d_start_end
         # Trajectories
         self.trainingset=trainingset
