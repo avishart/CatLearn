@@ -1,574 +1,364 @@
 import numpy as np
-from catlearn.optimize.io import print_cite_mlneb
 from ase.neb import NEB
-from ase.io import read
-from ase.io.trajectory import TrajectoryWriter,TrajectoryReader
-from ase.optimize import MDMin
-from ase.calculators.singlepoint import SinglePointCalculator
-from ase.parallel import parprint
-import os
-from catlearn import __version__
-import copy
+from ase.io import read,write
+from ase.io.trajectory import TrajectoryWriter
+from copy import deepcopy
 import datetime
-from ase.parallel import parallel_function
 from mpi4py import MPI
-from scipy.spatial.distance import cdist
-
 
 
 class MLNEB(object):
 
-    def __init__(self, start, end, prev_calculations=None,
-                 n_images=0.25, k=None, interpolation='linear', mic=False,
-                 neb_method='improvedtangent', ase_calc=None, ase_calc_kwargs={}, restart=True,
-                 force_consistent=None, mlmodel=None, mlcalc=None, acq=None, local_opt=None, local_opt_kwargs={},
-                 trainingset='evaluated_structures.traj',trajectory='all_predicted_paths.traj',full_output=False):
-
-        """ Nudged elastic band (NEB) setup.
-
-        Parameters
-        ----------
-        start: Trajectory file (in ASE format) or Atoms object.
-            Initial end-point of the NEB path or Atoms object.
-        end: Trajectory file (in ASE format) or Atoms object.
-            Final end-point of the NEB path.
-        prev_calculations: Atoms list or Trajectory file (in ASE format).
-            (optional) The user can feed previously calculated data for the
-            same hypersurface. The previous calculations must be fed as an
-            Atoms list or Trajectory file.
-        n_images: int or float
-            Number of images of the path (if not included a path before).
-            The number of images include the 2 end-points of the NEB path.
-        k: float or list
-            Spring constant(s) in eV/Ang.
-        interpolation: string or Atoms list or Trajectory
-            Automatic interpolation can be done ('idpp' and 'linear' as
-            implemented in ASE).
-            See https://wiki.fysik.dtu.dk/ase/ase/neb.html.
-            Manual: Trajectory file (in ASE format) or list of Atoms.
-            Atoms trajectory or list of Atoms containing the images along the
-            path.
-        mic: boolean
-            Use mic=True to use the Minimum Image Convention and calculate the
-            interpolation considering periodic boundary conditions.
-        neb_method: string
-            NEB method as implemented in ASE. ('aseneb', 'improvedtangent'
-            or 'eb').
-            See https://wiki.fysik.dtu.dk/ase/ase/neb.html.
-        ase_calc: ASE calculator Object.
-            ASE calculator as implemented in ASE, but before it is called.
-            See https://wiki.fysik.dtu.dk/ase/ase/calculators/calculators.html
-        ase_calc_kwargs: dict
-            Arguments for the ASE calculator when it is called.
-        restart: boolean
-            Only useful if you want to continue your ML-NEB in the same
-            directory. The file "evaluated_structures.traj" from the
-            previous run, must be located in the same run directory.
-        force_consistent: boolean or None
-            Use force-consistent energy calls (as opposed to the energy
-            extrapolated to 0 K). By default (force_consistent=None) uses
-            force-consistent energies if available in the calculator, but
-            falls back to force_consistent=False if not.
-        mlmodel: ML-model Object
-            ML-model object used in the ML-calculator. A default ML-model is used
-            if mlmodel is None.
-        mlcalc: ML-calculator Object
-            The ML-calculator object used as surrogate surface. A default ML-model is used
-            if mlcalc is None.
-        acq: Acquisition Object
-            The Acquisition object used for calculating the acq. function and choose a candidate
-            to calculate next. A default Acquisition object is used if acq is None.
-        local_opt: ASE local optimizer Object 
-            A local optimizer object from ASE. If None is given then MDMin is used
-        local_opt_kwargs: dict
-            Arguments used for the ASE local optimizer
-        trainingset: string
-            Trajectory filename to store the evaluated training data output.
-        trajectory: string
-            Trajectory filename to store the predicted NEB path.
-        full_output: boolean
-            Whether to print on screen the full output (True) or not (False).
+    def __init__(self,start,end,mlcalc=None,ase_calc=None,acq=None,interpolation='idpp',interpolation_kwargs={},
+                climb=True,neb_kwargs=dict(k=None,method='improvedtangent',remove_rotation_and_translation=False), 
+                n_images=15,mic=False,prev_calculations=None,
+                force_consistent=None,local_opt=None,local_opt_kwargs={},
+                trainingset='data.traj',trajectory='MLNEB.traj',full_output=False):
+        """ Nudged elastic band (NEB) with Machine Learning as active learning.
+            Parameters:
+                start: Atoms object with calculated energy or ASE Trajectory file.
+                    Initial end-point of the NEB path.
+                end: Atoms object with calculated energy or ASE Trajectory file.
+                    Final end-point of the NEB path.
+                mlcalc: ML-calculator Object.
+                    The ML-calculator object used as surrogate surface. A default ML-model is used
+                    if mlcalc is None.
+                ase_calc: ASE calculator Object.
+                    ASE calculator as implemented in ASE.
+                    See https://wiki.fysik.dtu.dk/ase/ase/calculators/calculators.html
+                acq: Acquisition Object.
+                    The Acquisition object used for calculating the acq. function and choose a candidate
+                    to calculate next. A default Acquisition object is used if acq is None.
+                interpolation: string or list of ASE Atoms or ASE Trajectory file.
+                    Automatic interpolation can be done ('idpp' and 'linear' as
+                    implemented in ASE).
+                    See https://wiki.fysik.dtu.dk/ase/ase/neb.html.
+                    Manual: Trajectory file (in ASE format) or list of Atoms.
+                interpolation_kwargs: dict.
+                    A dictionary with the arguments used in the interpolation.
+                    See https://wiki.fysik.dtu.dk/ase/ase/neb.html. 
+                climb : bool
+                    Whether to use climbing image in the ML-NEB. It is strongly recommended to have climb=True. 
+                    It is only activated when the uncertainty is low and a NEB without climbing image can converge.
+                neb_kwargs: dict.
+                    A dictionary with the arguments used in the NEB method. climb can not be included.
+                    See https://wiki.fysik.dtu.dk/ase/ase/neb.html. 
+                n_images: int.
+                    Number of images of the path (if not included a path before).
+                    The number of images include the 2 end-points of the NEB path.
+                mic: boolean.
+                    Use mic=True to use the Minimum Image Convention and calculate the
+                    interpolation considering periodic boundary conditions.
+                prev_calculations: Atoms list or ASE Trajectory file.
+                    (optional) The user can feed previously calculated data for the
+                    same hypersurface. The previous calculations must be fed as an
+                    Atoms list or Trajectory file.
+                force_consistent: boolean or None.
+                    Use force-consistent energy calls (as opposed to the energy
+                    extrapolated to 0 K). By default (force_consistent=None) uses
+                    force-consistent energies if available in the calculator, but
+                    falls back to force_consistent=False if not.
+                local_opt: ASE local optimizer Object. 
+                    A local optimizer object from ASE. If None is given then MDMin is used.
+                local_opt_kwargs: dict
+                    Arguments used for the ASE local optimizer.
+                trainingset: string.
+                    Trajectory filename to store the evaluated training data.
+                trajectory: string
+                    Trajectory filename to store the predicted NEB path.
+                full_output: boolean
+                    Whether to print on screen the full output (True) or not (False).
         """
-        # General setup.
-        self.trainingset_filename=trainingset
-        self.trajectory_filename=trajectory
-        self.n_images = n_images
+        # Setup parallelization
+        self.parallel_setup()
+        # NEB parameters
         self.interpolation=interpolation
-        self.feval = 0
-        self.fc = force_consistent
-        self.iter = 0
-        self.ase_calc = ase_calc
-        assert self.ase_calc, 'ASE calculator not provided (see "ase_calc" flag).'
-        self.ase_calc_kwargs = ase_calc_kwargs
+        self.interpolation_kwargs=interpolation_kwargs.copy()
+        self.n_images=n_images
         self.mic=mic
-        self.restart=restart
-        self.fullout = full_output
-        self.version='ML-NEB ' + __version__
-        self.interesting_point=None
-        self.train_images=[]
-        # Settings for the NEB.
-        self.neb_method=neb_method
-        # Load previous data into self.train_images
-        self.save_prev_calculations(prev_calculations=prev_calculations)
-        # Make training and NEB-path trajectory files
-        self.trajectory=TrajectoryWriter(trajectory)
-        self.trainingset=TrajectoryWriter(trainingset)
-        for atoms in self.train_images:
-            self.trainingset.write(atoms)
-        # Set up the machine learning part
-        if mlmodel is None:
-            from catlearn.regression.gp_bv.calculator import GPModel
-            mlmodel=GPModel(verbose=self.fullout)
+        self.climb=climb
+        self.neb_kwargs=neb_kwargs.copy()
+        # Whether to have the full output
+        self.full_output=full_output  
+        # Setup the ML calculator
         if mlcalc is None:
-            from catlearn.regression.gp_bv.calculator import GPCalculator
-            mlcalc=GPCalculator()
+            mlcalc=self.get_default_mlcalc()
+        self.mlcalc=deepcopy(mlcalc)
+        # Select an acquisition function 
         if acq is None:
-            from catlearn.optimize.acquisition import Acquisition
-            acq=Acquisition(mode='umucb',objective='max',kappa=2)
-        self.mlcalc=copy.deepcopy(mlcalc)
-        self.mlcalc.model=copy.deepcopy(mlmodel)
-        self.acq=copy.deepcopy(acq)
-        # Define local optimizer
+            from .acquisition import Acquisition
+            acq=Acquisition(mode='ume',objective='max',kappa=2,unc_convergence=0.05)
+        self.acq=deepcopy(acq)
+        # Save initial and final state
+        self.set_up_endpoints(start,end)
+        # Save the ASE calculator
+        self.ase_calc=ase_calc
+        self.force_consistent=force_consistent
+        # Save local optimizer
         if local_opt is None:
+            from ase.optimize import MDMin
             local_opt=MDMin
-            local_opt_kwargs={'dt':0.025}
+            local_opt_kwargs=dict(dt=0.05,trajectory='surrogate_neb.traj')
         self.local_opt=local_opt
         self.local_opt_kwargs=local_opt_kwargs
-        # Set up initial and final states
-        self.set_up_endpoints(start,end)
-        # Make initial path and add training data to ML-Model
-        self.initial_interpolation(interpolation=interpolation,k=k)
-        
+        # Set spring constant if it is not given
+        if 'k' not in self.neb_kwargs.keys() or self.neb_kwargs['k']==None:
+            d_start_end=np.linalg.norm(self.end.get_positions()-self.start.get_positions())
+            self.neb_kwargs['k']=2.0*np.sqrt(self.n_images-1)/d_start_end
+        # Trajectories
+        self.trainingset=trainingset
+        self.trajectory=trajectory
+        # Load previous calculations to the ML model
+        self.use_prev_calculations(prev_calculations)
+              
 
-
-    def run(self, fmax=0.05, unc_convergence=0.050, steps=500,
-            ml_steps=750, max_step=0.25, sequential=False):
-
-        """Executing run will start the NEB optimization process.
-
-        Parameters
-        ----------
-        fmax : float
-            Convergence criteria (in eV/Angs).
-        unc_convergence: float
-            Maximum uncertainty for convergence (in eV).
-        steps : int
-            Maximum number of evaluations.
-        ml_steps: int
-            Maximum number of steps for the NEB optimization on the
-            predicted landscape.
-        max_step: float
-            Early stopping criteria. Maximum uncertainty before stopping the
-            optimization in the predicted landscape.
-        sequential: boolean
-            When sequential is set to True, the ML-NEB algorithm starts
-            with only one moving image. After finding a saddle point
-            the algorithm adds all the images selected in the MLNEB class
-            (the total number of NEB images is defined in the 'n_images' flag).
-        Returns
-        -------
-        Minimum Energy Path from the initial to the final states.
-
+    def run(self,fmax=0.05,unc_convergence=0.025,steps=500,ml_steps=750,max_unc=0.25):
+        """ Run the active learning NEB process. 
+            Parameters:
+                fmax : float
+                    Convergence criteria (in eV/Angs).
+                unc_convergence: float
+                    Maximum uncertainty for convergence (in eV).
+                steps : int
+                    Maximum number of evaluations.
+                ml_steps: int
+                    Maximum number of steps for the NEB optimization on the
+                    predicted landscape.
+                max_unc: float
+                    Early stopping criteria. Maximum uncertainty before stopping the
+                    optimization on the surrogate surface.
         """
-        # General setup
-        stationary_point_found = False
-        org_n_images = self.n_images
+        # Active learning parameters
+        candidate=None
         self.acq.unc_convergence=unc_convergence
-        converged=False
-        # Set up parallel objects
-        self.comm = MPI.COMM_WORLD
-        self.rank,self.size=self.comm.Get_rank(),self.comm.Get_size()
-        # Calculate a third point if only initial and final structures are known.
-        self.extra_data_point()
-        # Use only one moving image
-        if sequential is True:
-            self.n_images = 3
-        while True:
-            # 1. Perform the ML-NEB inclusive finding the next point
-            self.mlneb_part(fmax,max_step,ml_steps,stationary_point_found,org_n_images)
-
-            # 2. Calculate the next point 
-            self.evaluate_ase()            
-
-            # 3. Store results.
-            self.store_results_mlneb()
-
-            # 4. Check convergence:
-            stationary_point_found,converged=self.check_convergence(fmax,unc_convergence,org_n_images,stationary_point_found)
-            converged=self.broadcast_converged(converged=converged)
-
-            # Check convergence criteria
+        self.trajectory_neb=TrajectoryWriter(self.trajectory,mode='w',properties=['energy','forces'])
+        # Calculate a extra data point if only start and end is given
+        self.extra_initial_data()
+        # Run the active learning
+        for step in range(1,steps+1):
+            # Train and optimize ML model
+            self.ml_optimize()
+            # Perform NEB on ML surrogate surface
+            max_u=((max_unc*(step-1))+unc_convergence)/step
+            candidate=self.run_mlneb(fmax=fmax*0.8,ml_steps=ml_steps,max_unc=max_u)
+            # Evaluate candidate
+            self.evaluate(candidate)
+            # Print the results for this iteration
+            self.print_neb(step)
+            # Check convergence
+            converged=self.check_convergence(fmax,unc_convergence)
             if converged:
                 break
-            # Break if reaches the max number of iterations set by the user.
-            if steps <= self.iter:
-                parprint('Maximum number iterations reached. Not converged.')
-                break
-
-        parprint('Number of steps performed in total:',self.iter)
-        print_cite_mlneb()
-        self.trainingset.close()
-        self.trajectory.close()
+        if converged==False:
+            self.message_system('MLNEB did not converge!')
+        self.trajectory_neb.close()
         return self
 
     def set_up_endpoints(self,start,end):
-        " Load and calculate the intial and final stats"
-        # Load and calculate initial state
+        " Load and calculate the intial and final states"
+        # Load initial and final states
         if isinstance(start, str):
-            start=read(start, '-1')
-        try:
-            self.start=self.copy_image(start)
-        except:
-            raise Exception('Initial structure for the NEB was not provided')
-        self.eval_and_append(self.start)
-        self.energy_is=self.energy
-        # Number of atoms and the constraint used
-        self.constraints=self.start.constraints
-        self.index_mask=None
-        if len(self.constraints)>0:
-            from ase.constraints import FixAtoms
-            self.index_mask=np.array([c.get_indices() for c in self.constraints if isinstance(c,FixAtoms)]).flatten()
-            self.index_mask=sorted(list(set(self.index_mask)))
-            self.mlcalc.model.index_mask=copy.deepcopy(self.index_mask)
-        
-        # Load and calculate final state
+            start=read(start)
         if isinstance(end, str):
-            end=read(end, '-1')
-        try:
-            self.end=self.copy_image(end)
-        except:
-            raise Exception('Final structure for the NEB was not provided')
-        self.eval_and_append(self.end)
-        self.energy_fs=self.energy
-        # Calculate the direct distance between the initial and final states
-        self.path_distance=np.linalg.norm(self.start.get_positions().flatten()-self.end.get_positions().flatten())
-        pass
+            end=read(end)
+        # Add initial and final states to ML model
+        self.add_training([start,end])
+        # Store the initial and final energy
+        self.start_energy=start.get_potential_energy()
+        self.end_energy=end.get_potential_energy()
+        self.start=start.copy()
+        self.end=end.copy()
+        return 
 
-    def save_prev_calculations(self,prev_calculations=None):
-        " Store previous calculated data "
-        # Store previous calculated data given in prev_calculations
-        if prev_calculations is not None:
-            if isinstance(prev_calculations,str):
-                if os.path.exists(prev_calculations):
-                    trajreader=TrajectoryReader(prev_calculations)
-                    for atoms in trajreader:
-                        atoms.get_forces()
-                        self.train_images.append(self.copy_image(atoms))
-                    trajreader.close()
-        # Store previous calculated data given from trajectory file
-        if self.restart and prev_calculations is None:
-            if os.path.exists(self.trainingset_filename):
-                trajreader=TrajectoryReader(self.trainingset_filename)
-                for atoms in trajreader:
-                    atoms.get_forces()
-                    self.train_images.append(self.copy_image(atoms))
-                trajreader.close()
-    pass
+    def use_prev_calculations(self,prev_calculations):
+        " Use previous calculations to restart ML calculator."
+        if prev_calculations is None:
+            return
+        if isinstance(prev_calculations,str):
+            prev_calculations=read(prev_calculations,':')
+        # Add calculations to the ML model
+        self.add_training(prev_calculations)
+        return
 
-    @parallel_function
-    def initial_interpolation(self,interpolation='linear',k=None):
-        " Add training data to machine learning model and make the first path used "
-        # Add training data to ML-Model
-        self.mlcalc.model.add_training_points(self.train_images)
-        self.mlcalc.model.train_model()
-        # Make initial path
-        path=None
-        # If the path is given then use it
-        if interpolation not in ['idpp','linear']:
-            if isinstance(interpolation,str):
-                if os.path.exists(interpolation):
-                    path=read(interpolation,':')
-            elif isinstance(interpolation,list):
-                path=[self.copy_image(atoms) for atoms in interpolation]
-        # Calculate the number of images if a float is given
-        if path is None:
-            if isinstance(self.n_images,float):
-                self.n_images=int(self.path_distance/self.n_images)
-                if self.n_images<3:
-                    self.n_images=3
-        else:
-            self.n_images=len(path)
-        # Calculate the spring constant if it is not given
-        self.spring = k if k is not None else np.sqrt((self.n_images-1) / self.path_distance)
-        # Set up NEB path
-        self.images=self.make_interpolation(interpolation=interpolation,path=path)
-        # Save files with all the paths that have been predicted:
-        self.e_path,self.uncertainty_path=self.energy_and_uncertainty()
-        for img in self.images:
-            self.trajectory.write(self.copy_image(img))
-        pass
-
-    def make_interpolation(self,interpolation='linear',path=None):
+    def make_interpolation(self,interpolation='idpp'):
         " Make the NEB interpolation path "
-        images=[self.copy_image(self.start)]
-        for i in range(1,self.n_images-1):
-            image=self.copy_image(self.start)
-            image.calc=copy.deepcopy(self.mlcalc)
-            if path is not None:
-                image.set_positions(path[i].get_positions())
-            image.set_constraint(self.constraints)
+        # Use a premade interpolation path
+        if isinstance(interpolation,(list,np.ndarray)):
+            images=interpolation.copy()
+        else:
+            if interpolation in ['linear','idpp']:
+                # Make path by the NEB methods interpolation
+                images=[self.start.copy() for i in range(self.n_images-1)]+[self.end.copy()]
+                neb=NEB(images,**self.neb_kwargs)
+                if interpolation=='linear':
+                    neb.interpolate(mic=self.mic,**self.interpolation_kwargs)
+                elif interpolation=='idpp':
+                    neb.interpolate(method='idpp',mic=self.mic,**self.interpolation_kwargs)
+            else:
+                images=read(interpolation,':')
+        # Attach the ML calculator to all images
+        images=self.attach_mlcalc(images)
+        return images
+
+    def attach_mlcalc(self,imgs):
+        " Attach the ML calculator to the given images. "
+        images=[]
+        for img in imgs:
+            image=img.copy()
+            image.calc=deepcopy(self.mlcalc)
             images.append(image)
-        images.append(self.copy_image(self.end))
-        if path is None:
-            neb_interpolation=NEB(images,k=self.spring)
-            neb_interpolation.interpolate(method=interpolation,mic=self.mic)
-        return images  
+        return images
 
-    def eval_and_append(self,atoms):
-        " Recalculate the energy and forces with the ASE calculator if it is not stored and store it as training data "
-        self.energy=atoms.get_potential_energy(force_consistent=self.fc)
-        self.forces=atoms.get_forces()
-        self.train_images.append(self.copy_image(atoms))
-        self.trainingset.write(self.copy_image(atoms))
-        self.max_abs_forces=np.max(np.linalg.norm(self.forces,axis=1))
-        pass
+    def parallel_setup(self):
+        " Setup the parallelization. "
+        self.comm = MPI.COMM_WORLD
+        self.rank,self.size=self.comm.Get_rank(),self.comm.Get_size()
+        return
 
-    def evaluate_ase(self):
-        " Set the ASE calculator evaluate the point of interest in parallel and add it as a new training point"
-        # Broadcast the system to other cpus
+    def evaluate(self,candidate):
+        " Evaluate the ASE atoms with the ASE calculator. "
+        self.message_system('Performing evaluation.',end='\r')
+        # Broadcast the system to all cpus
         if self.rank==0:
-            self.message_system('Performing evaluation on the real landscape...')
-            self.interesting_point.calc=None
-            for r in range(1,self.size):
-                self.comm.send(self.interesting_point,dest=r,tag=self.iter)
-        else:
-            self.interesting_point=self.comm.recv(source=0,tag=self.iter)
+            candidate=candidate.copy()
+        candidate=self.comm.bcast(candidate,root=0)
         self.comm.barrier()
-        self.interesting_point.calc=self.ase_calc(**self.ase_calc_kwargs)
-        # Evaluate the energy and forces
-        self.energy=self.interesting_point.get_potential_energy(force_consistent=self.fc)
-        self.forces=self.interesting_point.get_forces()
-        # Add the structure as training data
+        # Calculate the energies and forces
+        candidate.calc=self.ase_calc
+        forces=candidate.get_forces()
+        self.energy=candidate.get_potential_energy(force_consistent=self.force_consistent)
+        self.max_abs_forces=np.max(np.linalg.norm(forces,axis=1))
+        self.message_system('Single-point calculation finished.')
+        # Store the data
+        self.add_training([candidate])
+        self.mlcalc.mlmodel.database.save_data(trajectory=self.trainingset)
+        return
+
+    def add_training(self,atoms_list):
+        " Add atoms_list data to ML model on rank=0. "
         if self.rank==0:
-            self.interesting_point=self.copy_image(self.interesting_point)
-            self.message_system('Single-point calculation finished.')
-            self.eval_and_append(self.interesting_point)
-            self.mlcalc.model.add_training_points([self.interesting_point])
-        self.iter+=1
-        pass
+            self.mlcalc.mlmodel.add_training(atoms_list)
+        return
 
-    def copy_image(self,atoms):
-        """
-        Copy an image. It returns a copy of the atoms object with the single point
-        calculator attached
-        """
-        # Check if the atoms object has energy and forces calculated for this position
-        # If not, compute them
-        atoms.get_forces()
-        # Check that the atoms does not contain any unavailable properties
-        results=copy.deepcopy(atoms.calc.results)
-        all_properties = ['energy', 'forces', 'stress', 'stresses', 'dipole',\
-                  'charges', 'magmom', 'magmoms', 'free_energy', 'energies']
-        results={key:results[key] for key in results.keys() if key in all_properties}
-
-        # Initialize a SinglePointCalculator to store this results
-        calc = SinglePointCalculator(atoms, **results)
-        atoms0 = atoms.copy()
-        atoms0.calc = calc
-        return atoms0
-
-    def broadcast_converged(self,converged=False):
-        " Broadcast the convergence statement to all CPUs"
+    def ml_optimize(self):
+        " Train the ML model "
         if self.rank==0:
-            for r in range(1,self.size):
-                self.comm.send(converged,dest=r,tag=2)
-        else:
-            converged=self.comm.recv(source=0,tag=2)
-        self.comm.barrier()
-        return converged
+            self.mlcalc.mlmodel.train_model(verbose=self.full_output)
+        return
 
-    def energy_and_uncertainty(self):
+    def extra_initial_data(self):
+        " If only initial and final state is given then a third data point is calculated. "
+        candidate=None
+        if self.rank==0:
+            if len(self.mlcalc.mlmodel.database)==2:
+                images=self.make_interpolation(interpolation=self.interpolation)
+                middle=int((self.n_images-2)/3.0) if self.start_energy>=self.end_energy else int((self.n_images-2)*2.0/3.0)
+                candidate=images[1+middle].copy()
+        candidate=self.comm.bcast(candidate,root=0)
+        if candidate is not None:
+            self.evaluate(candidate)
+        return candidate
+
+    def run_mlneb(self,fmax=0.05,ml_steps=750,max_unc=0.25):
+        " Run the NEB on the ML surrogate surface"
+        if self.rank==0:
+            # Make the interpolation from the initial points
+            images=self.make_interpolation(interpolation=self.interpolation)
+            # Check whether the predicted fmax for each image are lower than the NEB convergence fmax
+            if self.get_fmax_predictions(images)<fmax:
+                self.message_system('Too low forces on initial path!')
+                candidate=self.choose_candidate(images)
+                return candidate
+            # Run the NEB on the surrogate surface
+            self.message_system('Starting NEB without climbing image on surrogate surface.')
+            images=self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc,climb=False)
+            self.save_mlneb(images)
+            # Get the candidate
+            candidate=self.choose_candidate(images)
+            return candidate
+        return None
+
+    def get_predictions(self,images):
         " Calculate the energies and uncertainties with the ML calculator "
-        energies=[img.get_potential_energy() for img in self.images]
-        uncertainties=[0]+[img.calc.results['uncertainty'] for img in self.images[1:-1]]+[0]
+        energies=[image.get_potential_energy() for image in images]
+        uncertainties=[image.calc.results['uncertainty'] for image in images]
         return np.array(energies),np.array(uncertainties)
 
-    def message_system(self,message,obj=None):
-        " Print output "
-        if self.fullout is True:
-            if obj is None:
-                parprint(message)
-            else:
-                parprint(message,obj)
-        pass
+    def get_fmax_predictions(self,images):
+        " Calculate the maximum force with the ML calculator "
+        forces=np.array([image.get_forces() for image in images])
+        return np.nanmax(np.linalg.norm(forces,axis=1))
 
-    
-    def extra_data_point(self):
-        " Calculate a third point if only initial and final structures are known. "
-        if len(self.train_images) == 2:
-            self.middle_extra_data()
-            self.evaluate_ase()
-            self.print_neb()
-        pass
-
-    @parallel_function
-    def middle_extra_data(self):
-        " What data point to calculate extra if only initial and final structures are known "
-        middle = int(self.n_images * (1./3.)) if self.energy_is>=self.energy_fs else int(self.n_images * (2./3.)) 
-        self.interesting_point=copy.deepcopy(self.images[middle])
-        pass
-
-    @parallel_function
-    def mlneb_part(self,fmax,max_step,ml_steps,stationary_point_found,org_n_images):
-        " Run the ML-NEB part with training the ML, run ML-NEB, get results, and get next point "
-        # 1. Train Machine Learning process.
-        self.mlcalc.model.train_model()
-        
-        # 2. Setup and run ML NEB:
-        self.mlneb_opt(fmax,max_step,ml_steps,stationary_point_found,org_n_images)
-
-        # 3. Get results from ML NEB using ASE NEB Tools (https://wiki.fysik.dtu.dk/ase/ase/neb.html)
-        self.interesting_point = []
-        # Get fit of the discrete path.
-        self.e_path,self.uncertainty_path=self.energy_and_uncertainty()
-
-        # 4. Select next point to train (acquisition function):
-        self.acq_next_point(stationary_point_found)
-        pass
-
-    def mlneb_opt(self,fmax,max_step,ml_steps,stationary_point_found,org_n_images):
-        " Setup and run the ML-NEB: "
-        ml_cycles = 0
-        while True:
-            if stationary_point_found is True:
-                self.n_images = org_n_images
-            # Start from the last path
-            starting_path = [self.copy_image(img) for img in self.images] 
-            # Use the initial path
-            if ml_cycles == 0:
-                self.message_system('Using initial path.')
-                trajreader=TrajectoryReader(self.trajectory_filename)
-                starting_path=[img for img in trajreader[0:self.n_images]]
-                trajreader.close()
-            # Use the last predicted path for the previous run
-            if ml_cycles == 1:
-                self.message_system('Using last predicted path.')
-                trajreader=TrajectoryReader(self.trajectory_filename)
-                starting_path=[img for img in trajreader[-self.n_images:]]
-                trajreader.close()
-            # Make the path
-            self.images=self.make_interpolation(interpolation=self.interpolation,path=starting_path)
-            # Check energy and uncertainty before optimization:
-            self.e_path,self.uncertainty_path=self.energy_and_uncertainty()
-            unc_ml=np.max(self.uncertainty_path[1:-1])
-            self.max_target=np.max(self.mlcalc.model.train_targets)
-            if unc_ml >= max_step:
-                self.message_system('Maximum uncertainty reach in initial path. Early stop.')
-                break
-            # Perform NEB in the predicted landscape.
-            ml_neb=NEB(self.images, climb=True,method=self.neb_method,k=self.spring)
-            if self.fullout:
-                neb_opt=self.local_opt(ml_neb,**self.local_opt_kwargs)
-            else:
-                neb_opt=self.local_opt(ml_neb,logfile=None,**self.local_opt_kwargs)
-            # Run the NEB optimization
-            ml_converged=self.mlneb_opt_run(ml_neb,neb_opt,fmax,max_step,ml_steps)
-            # Check if it is converged
-            if ml_converged:
-                self.message_system('Converged opt. in the predicted landscape.')
-                break
-            ml_cycles += 1
-            self.message_system('ML cycles performed:', ml_cycles)
-            if ml_cycles == 2:
-                self.message_system('ML process not optimized...not safe... \nChange interpolation or numb. of images.')
-                break
-        return ml_cycles
-
-    def mlneb_opt_run(self,ml_neb,neb_opt,fmax,max_step,ml_steps):
-        " Run the NEB on the predicted surface one step at the time. It is stopped if the energy or uncertainty is too large"
-        ml_converged = False
-        for n_steps_performed in range(1,ml_steps):
-            # Save prev. positions:
-            prev_save_positions = [img.get_positions() for img in self.images]
-            # Run the NEB optimization one step
-            neb_opt.run(fmax=(fmax * 0.85), steps=1)
-            neb_opt.nsteps = 0
-            # Calculate the maximum energies and uncertainties
-            self.e_path,self.uncertainty_path=self.energy_and_uncertainty()
-            e_ml=np.max(self.e_path[1:-1])
-            unc_ml=np.max(self.uncertainty_path)
-            # If the energy barrier is too large
-            if e_ml >= self.max_target + 0.2:
-                for i in range(1, self.n_images-1):
-                    self.images[i].positions = prev_save_positions[i]
-                self.message_system('Pred. energy above max. energy. Early stop.')
-                break
-            # If the uncertainty is too large
-            if unc_ml >= max_step:
-                for i in range(1, self.n_images-1):
-                    self.images[i].positions = prev_save_positions[i]
-                self.message_system('Maximum uncertainty reach. Early stop.')
-                break
-            # If the energy is a nan value (error)
-            if np.isnan(ml_neb.emax):
-                trajreader=TrajectoryReader(self.trajectory_filename)
-                starting_path=[img for img in trajreader[-self.n_images:]]
-                trajreader.close()
-                self.images=self.make_interpolation(interpolation=self.interpolation,path=starting_path)
-                self.message_system('Not converged')
-                break
-            # The NEB is converged 
-            if neb_opt.converged():
-                ml_converged = True
-                break
-            # Not converged within the steps given
-            if n_steps_performed > ml_steps-1:
-                self.message_system('Not converged yet...')
-                break
-        return ml_converged
-
-    def acq_next_point(self,stationary_point_found):
+    def choose_candidate(self,images):
         " Use acquisition functions to chose the next training point "
-        # Set if the stationary is found
-        self.acq.stationary_point_found=stationary_point_found
+        # Get the energies and uncertainties
+        energy_path,unc_path=self.get_predictions(images)
+        self.emax_ml=np.nanmax(energy_path)
+        self.umax_ml=np.nanmax(unc_path)
+        self.umean_ml=np.mean(unc_path)
         # Calculate the acquisition function for each image
-        acq_values=self.acq.calculate(self.e_path[1:-1],self.uncertainty_path[1:-1])
+        acq_values=self.acq.calculate(energy_path[1:-1],unc_path[1:-1])
         # Chose the maximum value given by the Acq. class
-        argmax=self.acq.choose(acq_values)[0]
+        i_sort=self.acq.choose(acq_values)
         # The next training point
-        self.interesting_point=copy.deepcopy(self.images[1+argmax])
-        pass
+        image=images[1+i_sort[0]]
+        self.energy_pred=image.get_potential_energy()
+        return image.copy()
 
-    def check_fp_distance(self,argmax):
-        " Check that the next training point is not in the training set by using fingerprints "
-        fps=np.array([self.mlcalc.model.new_fingerprint(img) for img in self.images[1:-1]])
-        fps_dist=np.min(cdist(fps,np.array(self.mlcalc.model.train_features)),axis=1)
-        if np.isclose(fps_dist[argmax],0):
-            argmax=np.argmax(fps_dist)
-            if np.isclose(fps_dist[argmax],0):
-                raise Exception('The training point is already in training set')
-        return argmax
+    def mlneb_opt(self,images,fmax=0.05,ml_steps=750,max_unc=0.25,climb=False):
+        " Run the ML NEB with checking uncertainties if selected. "
+        neb=NEB(images,climb=climb,**self.neb_kwargs)
+        neb_opt=self.local_opt(neb,**self.local_opt_kwargs)
+        # Run the ML NEB fully without consider the uncertainty
+        if max_unc==False:
+            neb_opt.run(fmax=fmax*0.8,steps=ml_steps)
+            self.message_system('NEB on surrogate surface converged!')
+            return images
+        # Stop the ML NEB if the uncertainty becomes too large
+        for i in range(1,ml_steps+1):
+            # Make backup of image before NEB step
+            image_backup=[image.copy() for image in images]
+            # Run the NEB on the surrogate surface
+            neb_opt.run(fmax=fmax,steps=i)
+            #neb_opt.nsteps = 0
+            energy_path,unc_path=self.get_predictions(images)
+            if np.max(unc_path)>=max_unc:
+                self.message_system('NEB on surrogate surface stopped due to high uncertainty!')
+                break
+            if np.isnan(energy_path).any():
+                images=self.make_interpolation(interpolation=image_backup)
+                for image in images:
+                    image.get_forces()
+                self.message_system('Stopped due to NaN value in prediction!')
+                break
+            if neb_opt.converged():
+                self.message_system('NEB on surrogate surface converged!')
+                break
+        # Activate climbing when the model has low uncertainty and it is converged
+        if neb_opt.converged():
+            if climb==False and self.climb==True:
+                self.message_system('Starting NEB with climbing image on surrogate surface.')
+                return self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps-neb_opt.nsteps,max_unc=max_unc,climb=True)
+        return images
 
-    @parallel_function
-    def store_results_mlneb(self):
-        " Store the forward and backwards energy and the neb path "
-        parprint('\n')
-        self.energy_forward = np.max(self.e_path) - self.e_path[0]
-        self.energy_backward = np.max(self.e_path) - self.e_path[-1]
-        self.print_neb()
-        for img in self.images:
-            self.trajectory.write(self.copy_image(img))
-        pass
+    def save_mlneb(self,images):
+        " Save the ML NEB result in the trajectory. "
+        for image in images:
+            self.trajectory_neb.write(self.mlcalc.mlmodel.database.copy_atoms(image))
+        self.images=deepcopy(images)
+        return 
 
-    @parallel_function
-    def check_convergence(self,fmax,unc_convergence,org_n_images,stationary_point_found):
-        " Check if the ML-NEB is converged to the final path with low uncertainty "
-        converged=False
-        # Check whether the evaluated point is a stationary point.
-        if self.max_abs_forces <= fmax:
-            stationary_point_found = True
-            # Check all images are used
-            if self.n_images == org_n_images:
-                # Check the maximum uncertainty is lower than the convergence criteria
-                if np.max(self.uncertainty_path[1:-1])<unc_convergence:
-                    # Write the Last path.
-                    for img in self.images:
-                        self.trajectory.write(self.copy_image(img))
-                    parprint("Congratulations! Your ML NEB is converged. See the final path in file {}".format(self.trajectory_filename))
-                    converged=True
-        return stationary_point_found,converged
+    def message_system(self,message,obj=None,end='\n'):
+        " Print output on rank=0. "
+        if self.full_output is True:
+            if self.rank==0:
+                if obj is None:
+                    print(message,end=end)
+                else:
+                    print(message,obj,end=end)
+        return
 
-    def print_neb(self):
+    def print_neb(self,step):
         " Print the NEB process as a table "
         if self.rank==0:
             now=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -576,14 +366,72 @@ class MLNEB(object):
                 len(self.print_neb_list)
             except:
                 self.print_neb_list=['| Step |        Time         | Pred. barrier (-->) | Pred. barrier (<--) | Max. uncert. | Avg. uncert. |   fmax   |']
-                self.energy_backward,self.energy_forward=0,0
-
-            msg='|{0:6d}| '.format(self.iter)+'{} |'.format(now)
-            msg+='{0:21f}|'.format(self.energy_forward)+'{0:21f}|'.format(self.energy_backward)
-            msg+='{0:14f}|'.format(np.max(self.uncertainty_path[1:-1]))
-            msg+='{0:14f}|'.format(np.mean(self.uncertainty_path[1:-1]))+'{0:10f}|'.format(self.max_abs_forces)
+            msg='|{0:6d}| '.format(step)+'{} |'.format(now)
+            msg+='{0:21f}|'.format(self.emax_ml-self.start_energy)+'{0:21f}|'.format(self.emax_ml-self.end_energy)
+            msg+='{0:14f}|'.format(self.umax_ml)
+            msg+='{0:14f}|'.format(np.mean(self.umean_ml))+'{0:10f}|'.format(self.max_abs_forces)
             self.print_neb_list.append(msg)
             msg='\n'.join(self.print_neb_list)
-            parprint(msg)
-        pass
+            self.message_system(msg)
+        return
 
+    def check_convergence(self,fmax,unc_convergence):
+        " Check if the ML-NEB is converged to the final path with low uncertainty "
+        converged=False
+        if self.rank==0:
+            # Check the force criterion is met
+            if self.max_abs_forces<=fmax and self.umax_ml<=unc_convergence:
+                if np.abs(self.energy_pred-self.energy)<=unc_convergence:
+                    self.message_system("Congratulations! Your ML NEB is converged.") 
+                    self.print_cite()
+                    converged=True
+        converged=self.comm.bcast(converged,root=0)
+        return converged
+
+    def print_cite(self):
+        msg = "\n" + "-" * 79 + "\n"
+        msg += "You are using AIDNEB. Please cite: \n"
+        msg += "[1] J. A. Garrido Torres, M. H. Hansen, P. C. Jennings, "
+        msg += "J. R. Boes and T. Bligaard. Phys. Rev. Lett. 122, 156001. "
+        msg += "https://doi.org/10.1103/PhysRevLett.122.156001 \n"
+        msg += "[2] O. Koistinen, F. B. Dagbjartsdottir, V. Asgeirsson, A. Vehtari"
+        msg += " and H. Jonsson. J. Chem. Phys. 147, 152720. "
+        msg += "https://doi.org/10.1063/1.4986787 \n"
+        msg += "[3] E. Garijo del Rio, J. J. Mortensen and K. W. Jacobsen. "
+        msg += "Phys. Rev. B 100, 104103."
+        msg += "https://doi.org/10.1103/PhysRevB.100.104103. \n"
+        msg += "-" * 79 + '\n'
+        self.message_system(msg)
+        return 
+
+    def get_default_mlcalc(self,use_derivatives=True,use_fingerprint=False):
+        " Get a default ML calculator if a calculator is not given. This is a recommended ML calculator."
+        from ..regression.tprocess.calculator.mlcalc import MLCalculator
+        from ..regression.tprocess.calculator.mlmodel import MLModel
+        from ..regression.tprocess.tp.tp import TProcess
+        from ..regression.tprocess.kernel.se import SE,SE_Derivative
+        from ..regression.tprocess.means import Prior_median,Prior_first,Prior_max
+        from ..regression.tprocess.hpfitter import HyperparameterFitter
+        from ..regression.tprocess.objectfunctions.factorized_likelihood import FactorizedLogLikelihood
+        from ..regression.tprocess.optimizers import run_golden,line_search_scale
+        from ..regression.tprocess.calculator.database import Database
+        from ..regression.tprocess.fingerprint.cartesian import Cartesian
+        from ..regression.tprocess.pdistributions import Normal_prior
+        # Use a GP as the model 
+        local_kwargs=dict(tol=1e-5,optimize=True,multiple_max=True)
+        kwargs_optimize=dict(local_run=run_golden,maxiter=1000,jac=False,bounds=None,ngrid=80,use_bounds=True,local_kwargs=local_kwargs)
+        hpfitter=HyperparameterFitter(FactorizedLogLikelihood(),optimization_method=line_search_scale,opt_kwargs=kwargs_optimize,distance_matrix=True)
+        kernel=SE_Derivative(use_fingerprint=use_fingerprint) if use_derivatives else SE(use_fingerprint=use_fingerprint)
+        model=TProcess(prior=Prior_max(),kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter)
+        # Use cartesian coordinates and make the database ready
+        fp=Cartesian(reduce_dimensions=True,use_derivatives=use_derivatives,mic=self.mic)
+        database=Database(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,negative_forces=True,use_fingerprint=use_fingerprint)
+        # Make prior distributions for hyperparameters
+        #prior=dict(length=np.array([Normal_prior(0.0,8.0)]),noise=np.array([Normal_prior(-14.0,14.0)]))
+        prior=dict(length=np.array([Normal_prior(0.0,3.0)]),noise=np.array([Normal_prior(-11.0,4.0)]))
+        # Make the ML model with model and database
+        ml_opt_kwargs=dict(retrain=True,prior=prior)
+        mlmodel=MLModel(model=model,database=database,baseline=None,optimize=True,optimize_kwargs=ml_opt_kwargs)
+        # Finally make the calculator
+        mlcalc=MLCalculator(mlmodel=mlmodel,calculate_uncertainty=True)
+        return mlcalc
