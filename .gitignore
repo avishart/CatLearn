@@ -3,6 +3,7 @@
 *.pickle
 __pycache__
 docs/_*
+*.egg-info
 
 .idea/
 .ipynb_checkpoints/
