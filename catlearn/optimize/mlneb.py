@@ -148,8 +148,8 @@ class MLNEB(object):
             # Print the results for this iteration
             self.print_neb()
             # Check convergence
-            converged=self.check_convergence(fmax,unc_convergence)
-            if converged:
+            self.converged=self.check_convergence(fmax,unc_convergence)
+            if self.converged:
                 break
             if self.steps>=steps:
                 self.message_system('MLNEB did not converge!')
