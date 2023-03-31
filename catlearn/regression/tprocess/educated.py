@@ -1,7 +1,7 @@
 import numpy as np
 import copy
 from scipy.spatial.distance import pdist,squareform
-from .fingerprint.fingerprintobject import FingerprintObject
+from .fingerprint.fingerprint import Fingerprint
 
 class Educated_guess:
     def __init__(self,TP=None):
@@ -80,7 +80,7 @@ class Educated_guess:
         "The best educated guess for the length scale by using nearst neighbor"
         lengths=[]
         l_dim=self.TP.kernel.get_dimension(X)
-        if isinstance(X[0],FingerprintObject):
+        if isinstance(X[0],Fingerprint):
             X=np.array([fp.get_vector() for fp in X])
         for d in range(l_dim):
             if l_dim==1:
@@ -100,7 +100,7 @@ class Educated_guess:
         "Get the minimum and maximum ranges of the length scale in the educated guess regime within a scale"
         lengths=[]
         l_dim=self.TP.kernel.get_dimension(X)
-        if isinstance(X[0],FingerprintObject):
+        if isinstance(X[0],Fingerprint):
             X=np.array([fp.get_vector() for fp in X])
         for d in range(l_dim):
             if l_dim==1:

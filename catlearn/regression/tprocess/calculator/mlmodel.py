@@ -145,7 +145,7 @@ class MLModel:
 
     def get_default_model(self,use_derivatives=True,use_fingerprint=False):
         " Get the ML model as a default GP model. "
-        from ..tp.tp import TProcess
+        from ..gp.gp import GaussianProcess
         from ..kernel.se import SE,SE_Derivative
         from ..means.median import Prior_median
         from ..hpfitter import HyperparameterFitter
@@ -155,7 +155,7 @@ class MLModel:
         kwargs_optimize=dict(local_run=run_golden,maxiter=5000,jac=False,bounds=None,ngrid=80,use_bounds=True,local_kwargs=local_kwargs)
         hpfitter=HyperparameterFitter(FactorizedLogLikelihood(),optimization_method=line_search_scale,opt_kwargs=kwargs_optimize,distance_matrix=True)
         kernel=SE_Derivative(use_fingerprint=use_fingerprint) if use_derivatives else SE(use_fingerprint=use_fingerprint)
-        model=TProcess(prior=Prior_median(),kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter)
+        model=GaussianProcess(prior=Prior_median(),kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter)
         return model
 
     def get_default_database(self,use_derivatives=True,use_fingerprint=False):

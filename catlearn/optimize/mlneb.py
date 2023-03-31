@@ -13,7 +13,7 @@ class MLNEB(object):
                 climb=True,neb_kwargs=dict(k=None,method='improvedtangent',remove_rotation_and_translation=False), 
                 n_images=15,mic=False,prev_calculations=None,
                 force_consistent=None,local_opt=None,local_opt_kwargs={},
-                trainingset='data.traj',trajectory='MLNEB.traj',full_output=False):
+                trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',full_output=False):
         """ Nudged elastic band (NEB) with Machine Learning as active learning.
             Parameters:
                 start: Atoms object with calculated energy or ASE Trajectory file.
@@ -94,7 +94,7 @@ class MLNEB(object):
         # Save the ASE calculator
         self.ase_calc=ase_calc
         self.force_consistent=force_consistent
-        # Save local optimizer
+        ## Save local optimizer
         if local_opt is None:
             from ase.optimize import MDMin
             local_opt=MDMin
@@ -131,26 +131,29 @@ class MLNEB(object):
         # Active learning parameters
         candidate=None
         self.acq.unc_convergence=unc_convergence
+        self.steps=0
         self.trajectory_neb=TrajectoryWriter(self.trajectory,mode='w',properties=['energy','forces'])
         # Calculate a extra data point if only start and end is given
         self.extra_initial_data()
         # Run the active learning
-        for step in range(1,steps+1):
+        while True:
+            self.steps+=1
             # Train and optimize ML model
             self.ml_optimize()
             # Perform NEB on ML surrogate surface
-            max_u=((max_unc*(step-1))+unc_convergence)/step
+            max_u=((max_unc*(self.steps-1))+unc_convergence)/self.steps
             candidate=self.run_mlneb(fmax=fmax*0.8,ml_steps=ml_steps,max_unc=max_u)
             # Evaluate candidate
             self.evaluate(candidate)
             # Print the results for this iteration
-            self.print_neb(step)
+            self.print_neb()
             # Check convergence
             converged=self.check_convergence(fmax,unc_convergence)
             if converged:
                 break
-        if converged==False:
-            self.message_system('MLNEB did not converge!')
+            if self.steps>=steps:
+                self.message_system('MLNEB did not converge!')
+                break
         self.trajectory_neb.close()
         return self
 
@@ -222,16 +225,18 @@ class MLNEB(object):
         if self.rank==0:
             candidate=candidate.copy()
         candidate=self.comm.bcast(candidate,root=0)
+        self.ase_calc.reset()
         self.comm.barrier()
         # Calculate the energies and forces
         candidate.calc=self.ase_calc
+        candidate.calc.reset()
         forces=candidate.get_forces()
         self.energy=candidate.get_potential_energy(force_consistent=self.force_consistent)
         self.max_abs_forces=np.max(np.linalg.norm(forces,axis=1))
         self.message_system('Single-point calculation finished.')
         # Store the data
         self.add_training([candidate])
-        self.mlcalc.mlmodel.database.save_data(trajectory=self.trainingset)
+        self.mlcalc.mlmodel.database.save_data()
         return
 
     def add_training(self,atoms_list):
@@ -358,7 +363,7 @@ class MLNEB(object):
                     print(message,obj,end=end)
         return
 
-    def print_neb(self,step):
+    def print_neb(self):
         " Print the NEB process as a table "
         if self.rank==0:
             now=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -366,7 +371,7 @@ class MLNEB(object):
                 len(self.print_neb_list)
             except:
                 self.print_neb_list=['| Step |        Time         | Pred. barrier (-->) | Pred. barrier (<--) | Max. uncert. | Avg. uncert. |   fmax   |']
-            msg='|{0:6d}| '.format(step)+'{} |'.format(now)
+            msg='|{0:6d}| '.format(self.steps)+'{} |'.format(now)
             msg+='{0:21f}|'.format(self.emax_ml-self.start_energy)+'{0:21f}|'.format(self.emax_ml-self.end_energy)
             msg+='{0:14f}|'.format(self.umax_ml)
             msg+='{0:14f}|'.format(np.mean(self.umean_ml))+'{0:10f}|'.format(self.max_abs_forces)
@@ -404,7 +409,7 @@ class MLNEB(object):
         self.message_system(msg)
         return 
 
-    def get_default_mlcalc(self,use_derivatives=True,use_fingerprint=False):
+    def get_default_mlcalc(self):
         " Get a default ML calculator if a calculator is not given. This is a recommended ML calculator."
         from ..regression.tprocess.calculator.mlcalc import MLCalculator
         from ..regression.tprocess.calculator.mlmodel import MLModel
@@ -417,6 +422,8 @@ class MLNEB(object):
         from ..regression.tprocess.calculator.database import Database
         from ..regression.tprocess.fingerprint.cartesian import Cartesian
         from ..regression.tprocess.pdistributions import Normal_prior
+        use_derivatives=True
+        use_fingerprint=False
         # Use a GP as the model 
         local_kwargs=dict(tol=1e-5,optimize=True,multiple_max=True)
         kwargs_optimize=dict(local_run=run_golden,maxiter=1000,jac=False,bounds=None,ngrid=80,use_bounds=True,local_kwargs=local_kwargs)

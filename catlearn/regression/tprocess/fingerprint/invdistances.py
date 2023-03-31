@@ -26,39 +26,36 @@ class Inv_distances(Fingerprint):
                 ele_combi=self.unique_comb(elements_list[ei])
             else:
                 ele_combi=list(itertools.product(elements_list[ei],elements_list[ej]))
-            fp,g=self.fp_deriv_iter(ele_combi,cov_dis,distances,vec_distances,n_atoms_g,not_masked,fp,g,use_derivatives)
+            if use_derivatives:
+                fp,g=self.fp_deriv_iter(ele_combi,cov_dis,distances,vec_distances,n_atoms_g,not_masked,fp,g)
+            else:
+                fp.append(sorted([cov_dis[elei,elej]/distances[elei,elej] for elei,elej in ele_combi if elei!=elej])[::-1])
         return np.concatenate(fp),g
 
-    def fp_deriv_iter(self,ele_combi,cov_dis,distances,vec_distances,n_atoms_g,not_masked,fp,g,use_derivatives):
+    def fp_deriv_iter(self,ele_combi,cov_dis,distances,vec_distances,n_atoms_g,not_masked,fp,g):
         " Calculate the derivative of the fingerprint simultaneously with calculation of the fingerprint "
         fpij=[]
         gtemp=[]
-        not_masked_combi=False
         for elei,elej in ele_combi:
             if elei!=elej:
+                cov_dis_ij=cov_dis[elei,elej]/distances[elei,elej]
+                fpij.append(cov_dis_ij)
+                gij=[0.0]*(n_atoms_g*3)
                 if elei in not_masked or elej in not_masked:
-                    not_masked_combi=True
-                    cov_dis_ij=cov_dis[elei,elej]/distances[elei,elej]
-                    fpij.append(cov_dis_ij)
-                    if use_derivatives:
-                        gij=np.zeros((n_atoms_g*3))
-                        if elei in not_masked or elej in not_masked:
-                            gij_value=(cov_dis_ij/(distances[elei,elej]**2))*vec_distances[elei,elej]
-                            if elei in not_masked:
-                                i=not_masked.index(elei)
-                                gij[3*i:3*i+3]=gij_value
-                            if elej in not_masked:
-                                j=not_masked.index(elej)
-                                gij[3*j:3*j+3]=-gij_value
-                        gtemp.append(gij)
-        if not_masked_combi:
-            i_sort=np.argsort(fpij)[::-1]
-            fp.append(np.array(fpij)[i_sort])
-            if use_derivatives:
-                if len(g)==0:
-                    g=np.array(np.array(gtemp)[i_sort])
-                else:
-                    g=np.append(g,np.array(gtemp)[i_sort],axis=0)
+                    gij_value=(cov_dis_ij/(distances[elei,elej]**2))*vec_distances[elei,elej]
+                    if elei in not_masked:
+                        i=not_masked.index(elei)
+                        gij[3*i:3*i+3]=gij_value
+                    if elej in not_masked:
+                        j=not_masked.index(elej)
+                        gij[3*j:3*j+3]=-gij_value
+                gtemp.append(gij)
+        i_sort=np.argsort(fpij)[::-1]
+        fp.append(np.array(fpij)[i_sort])
+        if len(g)==0:
+            g=np.array(np.array(gtemp)[i_sort])
+        else:
+            g=np.append(g,np.array(gtemp)[i_sort],axis=0)
         return fp,g
         
     def element_setup(self,atoms):
