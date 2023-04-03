@@ -3,7 +3,7 @@ from scipy.spatial.distance import cdist
 from .database import Database
 
 class Database_Reduction(Database):
-    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,negative_forces=True,use_fingerprint=True,npoints=15,reduction_method='hybrid'):
+    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,negative_forces=True,use_fingerprint=True,npoints=25,initial_indicies=[0]):
         """ Database of ASE atoms objects that are converted into fingerprints and targets with only a limitted number in the database. 
             Parameters:
                 fingerprint : Fingerprint object
@@ -16,10 +16,14 @@ class Database_Reduction(Database):
                     Whether derivatives (True) or forces (False) are used.
                 use_fingerprint : bool
                     Whether the kernel uses fingerprint objects (True) or arrays (False).
+                npoints : int
+                    Number of points that are used from the database.
+                initial_indicies : list
+                    The indicies of the data points that must be included in the final data base.
         """
-        Database.__init__(self,fingerprint=fingerprint,reduce_dimensions=reduce_dimensions,use_derivatives=use_derivatives,negative_forces=negative_forces,use_fingerprint=use_fingerprint)
+        super.__init__(fingerprint=fingerprint,reduce_dimensions=reduce_dimensions,use_derivatives=use_derivatives,negative_forces=negative_forces,use_fingerprint=use_fingerprint)
         self.npoints=npoints
-        self.reduction_method=reduction_method
+        self.initial_indicies=np.array(initial_indicies).copy()
         self.update_indicies=True
 
     def append(self,atoms):
@@ -35,66 +39,25 @@ class Database_Reduction(Database):
         return self
 
     def get_reduction_indicies(self):
-        " Get the indicies of the data with the largest dispersion. "
+        " Get the indicies of the data used. "
+        # If the indicies is already calculated then give them
         if not self.update_indicies:
             return self.indicies
+        # Set up all the indicies 
         self.update_indicies=False
-        features=np.array(self.features).copy()
-        all_indicies=np.array(list(range(len(features))))
-        if len(features)<=self.npoints:
+        data_len=self.__len__()
+        all_indicies=np.array(list(range(data_len)))
+        # No reduction is needed if the database is not large  
+        if data_len<=self.npoints:
             self.indicies=all_indicies.copy()
             return self.indicies
-        if self.reduction_method=='distance':
-            indicies=self.reduction_distances(all_indicies,features)
-        elif self.reduction_method=='random':
-            indicies=self.reduction_random(all_indicies)
-        elif self.reduction_method=='hybrid':
-            indicies=self.reduction_hybrid(all_indicies,features)
-        elif self.reduction_method=='min':
-            indicies=self.reduction_min()
-        elif self.reduction_method=='last':
-            indicies=self.reduction_last(all_indicies)
-        self.indicies=indicies.copy()
-        return indicies
-        
-    def reduction_distances(self,all_indicies,features):
-        " Reduce the training set with the points farthest from each other. "
-        indicies=np.array([0,1])
-        for i in range(2,self.npoints):
-            not_indicies=[j for j in all_indicies if j not in indicies]
-            dist=cdist(features[indicies],features[not_indicies])
-            i_max=np.argmax(np.nanmin(dist,axis=0))
-            indicies=np.append(indicies,[all_indicies[not_indicies][i_max]])
-        return indicies
-
-    def reduction_random(self,all_indicies):
-        " Random select the training points. "
-        indicies=np.array([0,1])
-        indicies=np.append(indicies,np.random.permutation(all_indicies[2:])[:int(self.npoints-2)])
-        return indicies
-
-    def reduction_hybrid(self,all_indicies,features):
-        " Use a combination of random sampling and farthest distance to reduce training set. "
-        indicies=np.array([0,1])
-        for i in range(2,self.npoints):
-            not_indicies=[j for j in all_indicies if j not in indicies]
-            if i%3==0:
-                indicies=np.append(indicies,[np.random.choice(all_indicies[not_indicies])])
-            else:
-                dist=cdist(features[indicies],features[not_indicies])
-                i_max=np.argmax(np.nanmin(dist,axis=0))
-                indicies=np.append(indicies,[all_indicies[not_indicies][i_max]])                
-        return indicies
-
-    def reduction_min(self):
-        " Use the targets with smallest norms in the training set. "
-        indicies=np.argsort(np.linalg.norm(np.array(self.targets),axis=1))[:int(self.npoints)]
-        return indicies
-
-    def reduction_last(self,all_indicies):
-        " Use the targets with smallest norms in the training set. "
-        indicies=np.append(all_indicies[:2],all_indicies[-int(self.npoints-2):])
-        return indicies
+        # Reduce the data base 
+        self.indicies=self.make_reduction(all_indicies).copy()
+        return self.indicies
+    
+    def make_reduction(self,all_indicies):
+        " Make the reduction of the data base with a chosen method. "
+        raise NotImplementedError()
     
     def get_atoms(self):
         " Get the list of atoms in the database. "
@@ -117,3 +80,65 @@ class Database_Reduction(Database):
         return "Database_Reduction({} Atoms objects with forces)".format(len(self.atoms_list))
     
     
+
+class DatabaseDistance(Database_Reduction):
+    """ Database of ASE atoms objects that are converted into fingerprints and targets with only a limitted number in the database defined from the distances. """
+
+    def make_reduction(self,all_indicies):
+        " Reduce the training set with the points farthest from each other. "
+        indicies=self.initial_indicies.copy()
+        features=np.array(self.features).copy()
+        for i in range(len(indicies),self.npoints):
+            not_indicies=[j for j in all_indicies if j not in indicies]
+            dist=cdist(features[indicies],features[not_indicies])
+            i_max=np.argmax(np.nanmin(dist,axis=0))
+            indicies=np.append(indicies,[not_indicies[i_max]])
+        return indicies
+    
+class DatabaseRandom(Database_Reduction):
+    """ Database of ASE atoms objects that are converted into fingerprints and targets with only a limitted number in the database defined from random. """
+
+    def make_reduction(self,all_indicies):
+        " Random select the training points. "
+        indicies=self.initial_indicies.copy()
+        not_indicies=[j for j in all_indicies if j not in indicies]
+        indicies=np.append(indicies,np.random.permutation(not_indicies)[:int(self.npoints-len(indicies))])
+        return indicies
+    
+class DatabaseHybrid(Database_Reduction):
+    """ Database of ASE atoms objects that are converted into fingerprints and targets with only a limitted number in the database defined from distance and random. """
+
+    def make_reduction(self,all_indicies):
+        " Use a combination of random sampling and farthest distance to reduce training set. "
+        indicies=self.initial_indicies.copy()
+        features=np.array(self.features).copy()
+        for i in range(len(indicies),self.npoints):
+            not_indicies=[j for j in all_indicies if j not in indicies]
+            if i%3==0:
+                indicies=np.append(indicies,[np.random.choice(not_indicies)])
+            else:
+                dist=cdist(features[indicies],features[not_indicies])
+                i_max=np.argmax(np.nanmin(dist,axis=0))
+                indicies=np.append(indicies,[not_indicies[i_max]])                
+        return indicies
+    
+class DatabaseMin(Database_Reduction):
+    """ Database of ASE atoms objects that are converted into fingerprints and targets with only a limitted number in the database defined from the smallest targets. """
+
+    def make_reduction(self,all_indicies):
+        " Use the targets with smallest norms in the training set. "
+        indicies=self.initial_indicies.copy()
+        not_indicies=np.array([j for j in all_indicies if j not in indicies])
+        i_sort=np.argsort(np.linalg.norm(np.array(self.targets)[not_indicies],axis=1))
+        indicies=np.append(indicies,not_indicies[i_sort[:int(self.npoints-len(indicies))]])
+        return indicies
+    
+class DatabaseLast(Database_Reduction):
+    """ Database of ASE atoms objects that are converted into fingerprints and targets with only a limitted number in the database defined from the last data points. """
+
+    def make_reduction(self,all_indicies):
+        " Use the last data points. "
+        indicies=self.initial_indicies.copy()
+        not_indicies=[j for j in all_indicies if j not in indicies]
+        indicies=np.append(indicies,not_indicies[-int(self.npoints-len(indicies)):])
+        return indicies
