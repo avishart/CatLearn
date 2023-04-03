@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.spatial.distance import pdist,squareform
-from .fingerprint.fingerprint import Fingerprint
+from .fingerprint.fingerprintobject import FingerprintObject
 
 class Boundary_conditions:
     def __init__(self,bound_type='no',scale=1,max_length=True):
@@ -80,7 +80,7 @@ class Boundary_conditions:
             exp_max=2.0
         lengths=[]
         l_dim=TP.kernel.get_dimension(X)
-        if isinstance(X[0],Fingerprint):
+        if isinstance(X[0],FingerprintObject):
             X=np.array([fp.get_vector() for fp in X])
         for d in range(l_dim):
             if l_dim==1:
