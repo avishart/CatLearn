@@ -59,7 +59,7 @@ class MLNEB(object):
                     force-consistent energies if available in the calculator, but
                     falls back to force_consistent=False if not.
                 local_opt: ASE local optimizer Object. 
-                    A local optimizer object from ASE. If None is given then MDMin is used.
+                    A local optimizer object from ASE. If None is given then FIRE is used.
                 local_opt_kwargs: dict
                     Arguments used for the ASE local optimizer.
                 trainingset: string.
