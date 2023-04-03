@@ -433,17 +433,16 @@ class MLNEB(object):
         self.message_system(msg)
         return 
 
-    def get_default_mlcalc(self,fp=None,baseline=None):
+    def get_default_mlcalc(self,fp=None,baseline=None,optimize=True,database_reduction=True,npoints=25):
         " Get a default ML calculator if a calculator is not given. This is a recommended ML calculator."
         from ..regression.tprocess.calculator.mlcalc import MLCalculator
         from ..regression.tprocess.calculator.mlmodel import MLModel
         from ..regression.tprocess.tp.tp import TProcess
         from ..regression.tprocess.kernel.se import SE,SE_Derivative
-        from ..regression.tprocess.means import Prior_median,Prior_first,Prior_max
+        from ..regression.tprocess.means import Prior_max
         from ..regression.tprocess.hpfitter import HyperparameterFitter
         from ..regression.tprocess.objectfunctions.factorized_likelihood import FactorizedLogLikelihood
         from ..regression.tprocess.optimizers import run_golden,line_search_scale
-        from ..regression.tprocess.calculator.database import Database
         from ..regression.tprocess.fingerprint.cartesian import Cartesian
         from ..regression.tprocess.pdistributions import Normal_prior
         use_derivatives=True
@@ -460,12 +459,17 @@ class MLNEB(object):
         hpfitter=HyperparameterFitter(FactorizedLogLikelihood(),optimization_method=line_search_scale,opt_kwargs=kwargs_optimize,distance_matrix=True)
         kernel=SE_Derivative(use_fingerprint=use_fingerprint) if use_derivatives else SE(use_fingerprint=use_fingerprint)
         model=TProcess(prior=Prior_max(),kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter)
-        database=Database(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,negative_forces=True,use_fingerprint=use_fingerprint)
+        if database_reduction:
+            from ..regression.tprocess.calculator.database_reduction import DatabaseLast
+            database=Database(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,negative_forces=True,use_fingerprint=use_fingerprint,npoints=npoints,initial_indicies=[0,1])
+        else:
+            from ..regression.tprocess.calculator.database import Database
+            database=Database(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,negative_forces=True,use_fingerprint=use_fingerprint)
         # Make prior distributions for hyperparameters
         prior=dict(length=np.array([Normal_prior(0.0,2.0)]),noise=np.array([Normal_prior(-9.0,2.0)]))
         # Make the ML model with model and database
         ml_opt_kwargs=dict(retrain=True,prior=prior)
-        mlmodel=MLModel(model=model,database=database,baseline=baseline,optimize=True,optimize_kwargs=ml_opt_kwargs)
+        mlmodel=MLModel(model=model,database=database,baseline=baseline,optimize=optimize,optimize_kwargs=ml_opt_kwargs)
         # Finally make the calculator
         mlcalc=MLCalculator(mlmodel=mlmodel,calculate_uncertainty=True)
         return mlcalc
