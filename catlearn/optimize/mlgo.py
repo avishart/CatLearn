@@ -390,7 +390,7 @@ class mlgo:
             self.message_system(msg)
         pass
 
-    def get_default_mlcalc(self,use_derivatives=True,use_fingerprint=True):
+    def get_default_mlcalc(self,use_derivatives=True,optimize=True,database_reduction=True,npoints=25):
         " Get a default ML calculator if a calculator is not given. This is a recommended ML calculator."
         from ..regression.gaussianprocess.calculator.mlcalc import MLCalculator
         from ..regression.gaussianprocess.calculator.mlmodel import MLModel
@@ -404,20 +404,28 @@ class mlgo:
         from ..regression.gaussianprocess.fingerprint.invdistances import Inv_distances
         from ..regression.gaussianprocess.pdistributions import Normal_prior
         from ..regression.gaussianprocess.baseline.repulsive import Repulsion_calculator
+        # Set a fingerprint
+        use_fingerprint=True
+        # Use inverse distances as fingerprint
+        fp=Inv_distances(reduce_dimensions=True,use_derivatives=use_derivatives,mic=self.mic)
         # Use a GP as the model 
         local_kwargs=dict(tol=1e-5,optimize=True,multiple_max=True)
         kwargs_optimize=dict(local_run=run_golden,maxiter=1000,jac=False,bounds=None,ngrid=80,use_bounds=True,local_kwargs=local_kwargs)
         hpfitter=HyperparameterFitter(FactorizedLogLikelihood(),optimization_method=line_search_scale,opt_kwargs=kwargs_optimize,distance_matrix=True)
         kernel=SE_Derivative(use_fingerprint=use_fingerprint) if use_derivatives else SE(use_fingerprint=use_fingerprint)
         model=GaussianProcess(prior=Prior_max(),kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter)
-        # Use cartesian coordinates and make the database ready
-        fp=Inv_distances(reduce_dimensions=True,use_derivatives=use_derivatives,mic=self.mic)
-        database=Database(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,negative_forces=True,use_fingerprint=use_fingerprint)
+        # Make the data base ready
+        if database_reduction:
+            from ..regression.tprocess.calculator.database_reduction import DatabaseLast
+            database=DatabaseLast(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,negative_forces=True,use_fingerprint=use_fingerprint,npoints=npoints,initial_indicies=[])
+        else:
+            from ..regression.tprocess.calculator.database import Database
+            database=Database(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,negative_forces=True,use_fingerprint=use_fingerprint)        
         # Make prior distributions for hyperparameters
-        prior=dict(length=np.array([Normal_prior(0.0,3.0)]),noise=np.array([Normal_prior(-11.0,4.0)]))
+        prior=dict(length=np.array([Normal_prior(0.0,2.0)]),noise=np.array([Normal_prior(-9.0,2.0)]))
         # Make the ML model with model and database
         ml_opt_kwargs=dict(retrain=True,prior=prior)
-        mlmodel=MLModel(model=model,database=database,baseline=Repulsion_calculator(),optimize=True,optimize_kwargs=ml_opt_kwargs)
+        mlmodel=MLModel(model=model,database=database,baseline=Repulsion_calculator(),optimize=optimize,optimize_kwargs=ml_opt_kwargs)
         # Finally make the calculator
         mlcalc=MLCalculator(mlmodel=mlmodel,calculate_uncertainty=True)
         return mlcalc

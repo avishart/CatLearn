@@ -447,7 +447,7 @@ class MLNEB(object):
         from ..regression.tprocess.pdistributions import Normal_prior
         # Set a fingerprint
         if fp is None:
-            # Use cartesian coordinates and make the database ready
+            # Use cartesian coordinates as the fingerprint
             fp=Cartesian(reduce_dimensions=True,use_derivatives=use_derivatives,mic=self.mic)
             use_fingerprint=False
         else:
@@ -458,9 +458,10 @@ class MLNEB(object):
         hpfitter=HyperparameterFitter(FactorizedLogLikelihood(),optimization_method=line_search_scale,opt_kwargs=kwargs_optimize,distance_matrix=True)
         kernel=SE_Derivative(use_fingerprint=use_fingerprint) if use_derivatives else SE(use_fingerprint=use_fingerprint)
         model=TProcess(prior=Prior_max(),kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter)
+        # Make the data base ready
         if database_reduction:
             from ..regression.tprocess.calculator.database_reduction import DatabaseLast
-            database=Database(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,negative_forces=True,use_fingerprint=use_fingerprint,npoints=npoints,initial_indicies=[0,1])
+            database=DatabaseLast(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,negative_forces=True,use_fingerprint=use_fingerprint,npoints=npoints,initial_indicies=[0,1])
         else:
             from ..regression.tprocess.calculator.database import Database
             database=Database(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,negative_forces=True,use_fingerprint=use_fingerprint)
