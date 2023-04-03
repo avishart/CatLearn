@@ -7,7 +7,7 @@ CalLearn uses ASE for handling the atomic systems and the calculator interface f
 
 You can simply install CatLearn as:
 ```shell
-$ git clone https://github.com/avishart/CatLearn/tree/PhD
+$ git clone https://github.com/avishart/CatLearn/tree/database-reduction
 ```
 Then go into the directory and write:
 ```shell
