@@ -21,7 +21,7 @@ class Database_Reduction(Database):
                 initial_indicies : list
                     The indicies of the data points that must be included in the final data base.
         """
-        super.__init__(fingerprint=fingerprint,reduce_dimensions=reduce_dimensions,use_derivatives=use_derivatives,negative_forces=negative_forces,use_fingerprint=use_fingerprint)
+        super().__init__(fingerprint=fingerprint,reduce_dimensions=reduce_dimensions,use_derivatives=use_derivatives,negative_forces=negative_forces,use_fingerprint=use_fingerprint)
         self.npoints=npoints
         self.initial_indicies=np.array(initial_indicies).copy()
         self.update_indicies=True
