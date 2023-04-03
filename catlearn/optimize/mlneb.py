@@ -96,9 +96,9 @@ class MLNEB(object):
         self.force_consistent=force_consistent
         ## Save local optimizer
         if local_opt is None:
-            from ase.optimize import MDMin
-            local_opt=MDMin
-            local_opt_kwargs=dict(dt=0.05,trajectory='surrogate_neb.traj')
+            from ase.optimize import FIRE
+            local_opt=FIRE
+            local_opt_kwargs=dict(dt=0.1,trajectory='surrogate_neb.traj')
         self.local_opt=local_opt
         self.local_opt_kwargs=local_opt_kwargs
         # Set spring constant if it is not given
@@ -325,17 +325,20 @@ class MLNEB(object):
             image_backup=[image.copy() for image in images]
             # Run the NEB on the surrogate surface
             neb_opt.run(fmax=fmax,steps=i)
-            #neb_opt.nsteps = 0
+            # Calculate energy and uncertainty
             energy_path,unc_path=self.get_predictions(images)
+            # Check if the uncertainty is too large
             if np.max(unc_path)>=max_unc:
                 self.message_system('NEB on surrogate surface stopped due to high uncertainty!')
                 break
+            # Check if there is a problem with prediction
             if np.isnan(energy_path).any():
                 images=self.make_interpolation(interpolation=image_backup)
                 for image in images:
                     image.get_forces()
                 self.message_system('Stopped due to NaN value in prediction!')
                 break
+            # Check if the NEB is converged on the predicted surface
             if neb_opt.converged():
                 self.message_system('NEB on surrogate surface converged!')
                 break
