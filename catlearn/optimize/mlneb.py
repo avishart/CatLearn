@@ -135,6 +135,8 @@ class MLNEB(object):
         self.trajectory_neb=TrajectoryWriter(self.trajectory,mode='w',properties=['energy','forces'])
         # Calculate a extra data point if only start and end is given
         self.extra_initial_data()
+        # Define the last images that can be used to restart the interpolation
+        self.last_images=None
         # Run the active learning
         while True:
             self.steps+=1
@@ -202,6 +204,25 @@ class MLNEB(object):
         # Attach the ML calculator to all images
         images=self.attach_mlcalc(images)
         return images
+    
+    def make_reused_interpolation(self,max_unc):
+        " Make the NEB interpolation path or use the previous path if it has low uncertainty. "
+        # Make the interpolation from the initial points
+        if self.last_images is None:
+            self.message_system('Used the initial path!')
+            images=self.make_interpolation(interpolation=self.interpolation)
+        else:
+            # Reuse the previous path 
+            images=self.make_interpolation(interpolation=self.last_images)
+            unc_path=self.get_predictions(images)[1]
+            # Check if the uncertainty is too large
+            if np.max(unc_path)>=max_unc:
+                self.last_images=None
+                images=self.make_reused_interpolation(max_unc)
+            else:
+                self.message_system('The last path is used as the initial path!')
+        return images
+
 
     def attach_mlcalc(self,imgs):
         " Attach the ML calculator to the given images. "
@@ -267,8 +288,8 @@ class MLNEB(object):
     def run_mlneb(self,fmax=0.05,ml_steps=750,max_unc=0.25):
         " Run the NEB on the ML surrogate surface"
         if self.rank==0:
-            # Make the interpolation from the initial points
-            images=self.make_interpolation(interpolation=self.interpolation)
+            # Make the interpolation from initial path or the previous path
+            images=self.make_reused_interpolation(max_unc)
             # Check whether the predicted fmax for each image are lower than the NEB convergence fmax
             if self.get_fmax_predictions(images)<fmax:
                 self.message_system('Too low forces on initial path!')
@@ -321,8 +342,8 @@ class MLNEB(object):
             return images
         # Stop the ML NEB if the uncertainty becomes too large
         for i in range(1,ml_steps+1):
-            # Make backup of image before NEB step
-            image_backup=[image.copy() for image in images]
+            # Make backup of images before NEB step that can be used as a restart interpolation
+            self.last_images=[image.copy() for image in images]
             # Run the NEB on the surrogate surface
             neb_opt.run(fmax=fmax,steps=i)
             # Calculate energy and uncertainty
@@ -333,7 +354,7 @@ class MLNEB(object):
                 break
             # Check if there is a problem with prediction
             if np.isnan(energy_path).any():
-                images=self.make_interpolation(interpolation=image_backup)
+                images=self.make_interpolation(interpolation=self.last_images)
                 for image in images:
                     image.get_forces()
                 self.message_system('Stopped due to NaN value in prediction!')
