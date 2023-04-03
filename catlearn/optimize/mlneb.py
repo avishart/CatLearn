@@ -86,8 +86,8 @@ class MLNEB(object):
         self.mlcalc=deepcopy(mlcalc)
         # Select an acquisition function 
         if acq is None:
-            from .acquisition import Acquisition
-            acq=Acquisition(mode='ume',objective='max',kappa=2,unc_convergence=0.05)
+            from .acquisition import AcqUME
+            acq=AcqUME(objective='max',unc_convergence=0.05)
         self.acq=deepcopy(acq)
         # Save initial and final state
         self.set_up_endpoints(start,end)

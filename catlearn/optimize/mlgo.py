@@ -49,8 +49,8 @@ class mlgo:
         self.mlcalc=deepcopy(mlcalc)
         # Select an acquisition function 
         if acq is None:
-            from .acquisition import Acquisition
-            acq=Acquisition(mode='umlcb',objective='min',kappa=3.0,unc_convergence=0.05)
+            from .acquisition import AcqULCB
+            acq=AcqULCB(objective='min',unc_convergence=0.05,kappa=3.0,kappamax=5)
         self.acq=deepcopy(acq)
         # Define best candidate 
         self.emin=np.inf
