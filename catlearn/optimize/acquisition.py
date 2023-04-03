@@ -1,119 +1,157 @@
 import numpy as np
+from scipy.stats import norm
 
-class Acquisition():
-
-    def __init__(self,mode='energy',objective='min',kappa=2,unc_convergence=0.05,stationary_point_found=False):
+class Acquisition:
+    def __init__(self,objective='min'):
         """
         Acquisition function class.
         Parameters:
-            mode : string
-                The type of acquisition function used
-                Available:
-                    - 'energy': Predicted energy.
-                    - 'uncertainty': Predicted uncertainty.
-                    - 'ucb': Predicted energy plus uncertainty.
-                    - 'lcb': Predicted energy minus uncertainty.
-                    - 'ue': Predicted uncertainty every second time else predicted energy.
-                    - 'ume': Predicted uncertainty when it is is larger than unc_convergence else predicted energy.
-                    - 'umue': Predicted uncertainty when it is is larger than unc_convergence else 'ue'.
-                    - 'sume': 'ume' if stationary point is found else 'ue'.
-                    - 'umucb': Predicted uncertainty when it is is larger than unc_convergence else 'ucb'.
-                    - 'umlcb': Predicted uncertainty when it is is larger than unc_convergence else 'lcb'.
             objective : string
                 How to sort a list of acquisition functions
                 Available:
                     - 'min': Sort after the smallest values.
                     - 'max': Sort after the largest values.
                     - 'random' : Sort randomly
-            kappa : int or string
-                The scale of the uncertainty when 'ucb' or 'lcb' is chosen.
-                If 'random' is set for kappa, the kappa value is chosen randomly between 0 and 5  
-            unc_convergence : float
-                The uncertainty convergence criteria.
-            stationary_point_found : bool
-                If the stationary point is found.
         """
-        self.update(mode)
-        self.objective=objective
-        self.kappa=kappa
-        self.unc_convergence=unc_convergence
-        self.stationary_point_found=stationary_point_found
-        self.iter=0
-        
+        self.objective=objective.lower()
 
-    def update(self,mode):
-        self.mode=mode.lower()
-        acq={'energy':self.ener, 'uncertainty':self.unc, 'ucb':self.ucb, 'lcb':self.lcb, \
-                'ue':self.ue, 'ume':self.ume, 'umue':self.umue, 'sume':self.sume, 'umucb':self.umucb, 'umlcb':self.umlcb}
-        self.calculate=acq[self.mode]
-        pass
+    def calculate(self,energy,uncertainty=None,**kwargs):
+        " Calculate the acqusition function value. "
+        raise NotImplementedError()
 
     def choose(self,candidates):
         " Sort a list of acquisition function values "
-        if self.objective.lower()=='min':
+        if self.objective=='min':
             return np.argsort(candidates)
-        elif self.objective.lower()=='max':
+        elif self.objective=='max':
             return np.argsort(candidates)[::-1]
-        elif self.objective.lower()=='random':
+        elif self.objective=='random':
             return np.random.permutation(list(range(len(candidates))))
         return np.random.permutation(list(range(len(candidates))))
 
-    def ener(self,energy,uncertainty=None):
-        " Predicted energy "
-        return energy
+class AcqEnergy(Acquisition):
+    def __init__(self,objective='min'):
+        " The predicted energy as the acqusition function. "
+        super().__init__(objective)
 
-    def unc(self,energy,uncertainty=None):
-        " Predicted uncertainty "
+    def calculate(self,energy,uncertainty=None,**kwargs):
+        " Calculate the acqusition function value as the predicted energy. "
+        return energy
+    
+class AcqUncertainty(Acquisition):
+    def __init__(self,objective='min'):
+        " The predicted uncertainty as the acqusition function. "
+        super().__init__(objective)
+
+    def calculate(self,energy,uncertainty=None,**kwargs):
+        " Calculate the acqusition function value as the predicted uncertainty. "
         return uncertainty
+    
+class AcqUCB(Acquisition):
+    def __init__(self,objective='max',kappa=2.0,kappamax=3):
+        " The predicted upper confidence interval (ucb) as the acqusition function. "
+        super().__init__(objective)
+        self.kappa=kappa
+        self.kappamax=kappamax
 
-    def ucb(self,energy,uncertainty=None):
-        " Predicted energy plus uncertainty "
-        kappa=np.random.uniform(0,5) if self.kappa=='random' else abs(self.kappa)
-        return energy+kappa*uncertainty
+    def calculate(self,energy,uncertainty=None,**kwargs):
+        " Calculate the acqusition function value as the predicted ucb. "
+        kappa=np.random.uniform(0,self.kappamax) if self.kappa=='random' else abs(self.kappa)
+        return energy+kappa*uncertainty  
 
-    def lcb(self,energy,uncertainty=None):
-        " Predicted energy minus uncertainty "
-        kappa=np.random.uniform(0,5) if self.kappa=='random' else abs(self.kappa)
-        return energy-kappa*uncertainty
+class AcqLCB(Acquisition):
+    def __init__(self,objective='min',kappa=2.0,kappamax=3):
+        " The predicted lower confidence interval (lcb) as the acqusition function. "
+        super().__init__(objective)
+        self.kappa=kappa
+        self.kappamax=kappamax
 
-    def ue(self,energy,uncertainty=None):
-        " Predicted uncertainty every second time else predicted energy "
-        if self.iter%2==0:
-            return uncertainty
-        return energy
+    def calculate(self,energy,uncertainty=None,**kwargs):
+        " Calculate the acqusition function value as the predicted lcb. "
+        kappa=np.random.uniform(0,self.kappamax) if self.kappa=='random' else abs(self.kappa)
+        return energy-kappa*uncertainty   
 
-    def ume(self,energy,uncertainty=None):
-        " Predicted uncertainty when it is is larger than unc_convergence else predicted energy "
-        if np.max([uncertainty])<self.unc_convergence:
+class AcqIter(Acquisition):
+    def __init__(self,objective='max',niter=2):
+        " The predicted energy or uncertainty dependent on the iteration as the acqusition function. "
+        super().__init__(objective)
+        self.iter=0
+        self.niter=niter
+
+    def calculate(self,energy,uncertainty=None,**kwargs):
+        " Calculate the acqusition function value as the predicted energy or uncertainty. "
+        self.iter+=1
+        if (self.iter)%self.niter==0:
             return energy
         return uncertainty
+    
+class AcqUME(Acquisition):
+    def __init__(self,objective='max',unc_convergence=0.05):
+        " The predicted uncertainty when it is larger than unc_convergence else predicted energy as the acqusition function. "
+        super().__init__(objective)
+        self.unc_convergence=unc_convergence
 
-    def umue(self,energy,uncertainty=None):
-        " Predicted uncertainty when it is is larger than unc_convergence else 'ue' "
+    def calculate(self,energy,uncertainty=None,**kwargs):
+        " Calculate the acqusition function value as the predicted uncertainty when it is is larger than unc_convergence else predicted energy. "
         if np.max([uncertainty])<self.unc_convergence:
-            return self.ue(energy,uncertainty)
-        return uncertainty
-
-    def sume(self,energy,uncertainty=None):
-        " 'ume' if stationary point is found else 'ue' "
-        if self.stationary_point_found:
-            return self.ume(energy,uncertainty)
-        return self.ue(energy,uncertainty)
-
-    def umucb(self,energy,uncertainty=None):
-        " Predicted uncertainty when it is is larger than unc_convergence else 'ucb' "
-        if np.max([uncertainty])<self.unc_convergence:
-            return self.ucb(energy,uncertainty)
-        return uncertainty
-
-    def umlcb(self,energy,uncertainty=None):
-        " Predicted uncertainty when it is is larger than unc_convergence else 'lcb' "
-        if np.max([uncertainty])<self.unc_convergence:
-            return self.lcb(energy,uncertainty)
+             return energy
+        if self.objective=='max':
+            return uncertainty
         return -uncertainty
     
+class AcqUUCB(Acquisition):
+    def __init__(self,objective='max',kappa=2.0,kappamax=3,unc_convergence=0.05):
+        " The predicted uncertainty when it is larger than unc_convergence else upper confidence interval (ucb) as the acqusition function. "
+        super().__init__(objective)
+        self.kappa=kappa
+        self.kappamax=kappamax
+        self.unc_convergence=unc_convergence
 
+    def calculate(self,energy,uncertainty=None,**kwargs):
+        " Calculate the acqusition function value as the predicted uncertainty when it is is larger than unc_convergence else ucb. "
+        if np.max([uncertainty])<self.unc_convergence:
+            kappa=np.random.uniform(0,self.kappamax) if self.kappa=='random' else abs(self.kappa)
+            return energy+kappa*uncertainty  
+        return uncertainty
     
+class AcqULCB(Acquisition):
+    def __init__(self,objective='min',kappa=2.0,kappamax=3,unc_convergence=0.05):
+        " The predicted uncertainty when it is larger than unc_convergence else lower confidence interval (lcb) as the acqusition function. "
+        super().__init__(objective)
+        self.kappa=kappa
+        self.kappamax=kappamax
+        self.unc_convergence=unc_convergence
 
+    def calculate(self,energy,uncertainty=None,**kwargs):
+        " Calculate the acqusition function value as the predicted uncertainty when it is is larger than unc_convergence else lcb. "
+        if np.max([uncertainty])<self.unc_convergence:
+            kappa=np.random.uniform(0,self.kappamax) if self.kappa=='random' else abs(self.kappa)
+            return energy-kappa*uncertainty  
+        return -uncertainty
+    
+class AcqEI(Acquisition):
+    def __init__(self,objective='max',ebest=None):
+        " The predicted expected improvement as the acqusition function. "
+        super().__init__(objective)
+        self.ebest=ebest
 
+    def calculate(self,energy,uncertainty=None,**kwargs):
+        " Calculate the acqusition function value as the predicted expected improvement. "
+        z=(energy-self.ebest)/uncertainty
+        a=(energy-self.ebest)*norm.cdf(z)+uncertainty*norm.pdf(z)
+        if self.objective=='min':
+            return -a
+        return a
 
+class AcqPI(Acquisition):
+    def __init__(self,objective='max',ebest=None):
+        " The predicted probability of improvement as the acqusition function. "
+        super().__init__(objective)
+        self.ebest=ebest
+
+    def calculate(self,energy,uncertainty=None,**kwargs):
+        " Calculate the acqusition function value as the predicted expected improvement. "
+        z=(energy-self.ebest)/uncertainty
+        if self.objective=='min':
+            return -norm.cdf(z)
+        return norm.cdf(z)
