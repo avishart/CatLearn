@@ -433,7 +433,7 @@ class MLNEB(object):
         self.message_system(msg)
         return 
 
-    def get_default_mlcalc(self,fp=None,baseline=None,optimize=True,database_reduction=True,npoints=25):
+    def get_default_mlcalc(self,use_derivatives=True,fp=None,baseline=None,optimize=True,database_reduction=True,npoints=25):
         " Get a default ML calculator if a calculator is not given. This is a recommended ML calculator."
         from ..regression.tprocess.calculator.mlcalc import MLCalculator
         from ..regression.tprocess.calculator.mlmodel import MLModel
@@ -445,7 +445,6 @@ class MLNEB(object):
         from ..regression.tprocess.optimizers import run_golden,line_search_scale
         from ..regression.tprocess.fingerprint.cartesian import Cartesian
         from ..regression.tprocess.pdistributions import Normal_prior
-        use_derivatives=True
         # Set a fingerprint
         if fp is None:
             # Use cartesian coordinates and make the database ready
