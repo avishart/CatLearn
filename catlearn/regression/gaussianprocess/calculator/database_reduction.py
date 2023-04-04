@@ -59,8 +59,12 @@ class Database_Reduction(Database):
         " Make the reduction of the data base with a chosen method. "
         raise NotImplementedError()
     
+    def get_all_atoms(self):
+        " Get the list of all the atoms in the database. "
+        return self.atoms_list.copy()
+    
     def get_atoms(self):
-        " Get the list of atoms in the database. "
+        " Get the list of atoms in the reduced database. "
         indicies=self.get_reduction_indicies()
         return [atoms for i,atoms in enumerate(self.atoms_list.copy()) if i in indicies]
     
@@ -74,12 +78,28 @@ class Database_Reduction(Database):
         indicies=self.get_reduction_indicies()
         return np.array(self.targets).copy()[indicies]
     
-    def __repr__(self):
+    def save_data(self,trajectory='data.traj'):
+        " Save the ASE atoms data to a trajectory. "
+        from ase.io import write
+        write(trajectory,self.get_all_atoms())
+        return self
+    
+    def __str__(self):
+        " Returned string for description. "
         if self.use_derivatives:
             return "Database_Reduction({} Atoms objects without forces)".format(len(self.atoms_list))
         return "Database_Reduction({} Atoms objects with forces)".format(len(self.atoms_list))
     
-    
+    def __repr__(self):
+        " Returned string for representation the class object. "
+        para_kwars=dict(reduce_dimensions=self.reduce_dimensions,
+                        use_derivatives=self.use_derivatives,
+                        negative_forces=self.negative_forces,
+                        use_fingerprint=self.use_fingerprint,
+                        npoints=self.npoints,
+                        initial_indicies=self.initial_indicies)
+        kwargs_str=",".join(["{}={}".format(key,str(value)) for key,value in para_kwars.items()])
+        return "Database_Reduction({})".format(kwargs_str)
 
 class DatabaseDistance(Database_Reduction):
     """ Database of ASE atoms objects that are converted into fingerprints and targets with only a limitted number in the database defined from the distances. """
@@ -95,6 +115,17 @@ class DatabaseDistance(Database_Reduction):
             indicies=np.append(indicies,[not_indicies[i_max]])
         return indicies
     
+    def __repr__(self):
+        " Returned string for representation the class object. "
+        para_kwars=dict(reduce_dimensions=self.reduce_dimensions,
+                        use_derivatives=self.use_derivatives,
+                        negative_forces=self.negative_forces,
+                        use_fingerprint=self.use_fingerprint,
+                        npoints=self.npoints,
+                        initial_indicies=self.initial_indicies)
+        kwargs_str=",".join(["{}={}".format(key,str(value)) for key,value in para_kwars.items()])
+        return "DatabaseDistance({})".format(kwargs_str)
+    
 class DatabaseRandom(Database_Reduction):
     """ Database of ASE atoms objects that are converted into fingerprints and targets with only a limitted number in the database defined from random. """
 
@@ -104,6 +135,17 @@ class DatabaseRandom(Database_Reduction):
         not_indicies=[j for j in all_indicies if j not in indicies]
         indicies=np.append(indicies,np.random.permutation(not_indicies)[:int(self.npoints-len(indicies))])
         return indicies
+    
+    def __repr__(self):
+        " Returned string for representation the class object. "
+        para_kwars=dict(reduce_dimensions=self.reduce_dimensions,
+                        use_derivatives=self.use_derivatives,
+                        negative_forces=self.negative_forces,
+                        use_fingerprint=self.use_fingerprint,
+                        npoints=self.npoints,
+                        initial_indicies=self.initial_indicies)
+        kwargs_str=",".join(["{}={}".format(key,str(value)) for key,value in para_kwars.items()])
+        return "DatabaseRandom({})".format(kwargs_str)
     
 class DatabaseHybrid(Database_Reduction):
     """ Database of ASE atoms objects that are converted into fingerprints and targets with only a limitted number in the database defined from distance and random. """
@@ -122,6 +164,17 @@ class DatabaseHybrid(Database_Reduction):
                 indicies=np.append(indicies,[not_indicies[i_max]])                
         return indicies
     
+    def __repr__(self):
+        " Returned string for representation the class object. "
+        para_kwars=dict(reduce_dimensions=self.reduce_dimensions,
+                        use_derivatives=self.use_derivatives,
+                        negative_forces=self.negative_forces,
+                        use_fingerprint=self.use_fingerprint,
+                        npoints=self.npoints,
+                        initial_indicies=self.initial_indicies)
+        kwargs_str=",".join(["{}={}".format(key,str(value)) for key,value in para_kwars.items()])
+        return "DatabaseHybrid({})".format(kwargs_str)
+    
 class DatabaseMin(Database_Reduction):
     """ Database of ASE atoms objects that are converted into fingerprints and targets with only a limitted number in the database defined from the smallest targets. """
 
@@ -133,6 +186,17 @@ class DatabaseMin(Database_Reduction):
         indicies=np.append(indicies,not_indicies[i_sort[:int(self.npoints-len(indicies))]])
         return indicies
     
+    def __repr__(self):
+        " Returned string for representation the class object. "
+        para_kwars=dict(reduce_dimensions=self.reduce_dimensions,
+                        use_derivatives=self.use_derivatives,
+                        negative_forces=self.negative_forces,
+                        use_fingerprint=self.use_fingerprint,
+                        npoints=self.npoints,
+                        initial_indicies=self.initial_indicies)
+        kwargs_str=",".join(["{}={}".format(key,str(value)) for key,value in para_kwars.items()])
+        return "DatabaseMin({})".format(kwargs_str)
+    
 class DatabaseLast(Database_Reduction):
     """ Database of ASE atoms objects that are converted into fingerprints and targets with only a limitted number in the database defined from the last data points. """
 
@@ -142,3 +206,14 @@ class DatabaseLast(Database_Reduction):
         not_indicies=[j for j in all_indicies if j not in indicies]
         indicies=np.append(indicies,not_indicies[-int(self.npoints-len(indicies)):])
         return indicies
+    
+    def __repr__(self):
+        " Returned string for representation the class object. "
+        para_kwars=dict(reduce_dimensions=self.reduce_dimensions,
+                        use_derivatives=self.use_derivatives,
+                        negative_forces=self.negative_forces,
+                        use_fingerprint=self.use_fingerprint,
+                        npoints=self.npoints,
+                        initial_indicies=self.initial_indicies)
+        kwargs_str=",".join(["{}={}".format(key,str(value)) for key,value in para_kwars.items()])
+        return "DatabaseLast({})".format(kwargs_str)

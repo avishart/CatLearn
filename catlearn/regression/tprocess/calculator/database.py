@@ -129,9 +129,19 @@ class Database:
         " Get the number of atoms objects in the database. "
         return len(self.atoms_list)
     
-    def __repr__(self):
+    def __str__(self):
+        " Returned string for description. "
         if self.use_derivatives:
             return "Database({} Atoms objects without forces)".format(len(self.atoms_list))
         return "Database({} Atoms objects with forces)".format(len(self.atoms_list))
+    
+    def __repr__(self):
+        " Returned string for representation the class object. "
+        para_kwars=dict(reduce_dimensions=self.reduce_dimensions,
+                        use_derivatives=self.use_derivatives,
+                        negative_forces=self.negative_forces,
+                        use_fingerprint=self.use_fingerprint)
+        kwargs_str=",".join(["{}={}".format(key,str(value)) for key,value in para_kwars.items()])
+        return "Database({})".format(kwargs_str)
     
     
