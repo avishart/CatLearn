@@ -12,7 +12,8 @@ class MLNEB(object):
     def __init__(self,start,end,mlcalc=None,ase_calc=None,acq=None,interpolation='idpp',interpolation_kwargs={},
                 climb=True,neb_kwargs=dict(k=None,method='improvedtangent',remove_rotation_and_translation=False), 
                 n_images=15,mic=False,prev_calculations=None,
-                use_restart_path=False,check_path_unc=False,default_mlcalc_kwargs=dict(),
+                use_restart_path=True,check_path_unc=False,
+                default_mlcalc_kwargs=dict(database_reduction=True,npoints=50),
                 force_consistent=None,local_opt=None,local_opt_kwargs={},
                 trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',full_output=False):
         """ Nudged elastic band (NEB) with Machine Learning as active learning.
@@ -110,7 +111,7 @@ class MLNEB(object):
         if local_opt is None:
             from ase.optimize import FIRE
             local_opt=FIRE
-            local_opt_kwargs=dict(dt=0.1,trajectory='surrogate_neb.traj')
+            local_opt_kwargs=dict(dt=0.05,trajectory='surrogate_neb.traj')
         self.local_opt=local_opt
         self.local_opt_kwargs=local_opt_kwargs
         # Set spring constant if it is not given
@@ -124,7 +125,7 @@ class MLNEB(object):
         self.use_prev_calculations(prev_calculations)
               
 
-    def run(self,fmax=0.05,unc_convergence=0.025,steps=500,ml_steps=750,max_unc=0.25):
+    def run(self,fmax=0.05,unc_convergence=0.05,steps=500,ml_steps=750,max_unc=0.05):
         """ Run the active learning NEB process. 
             Parameters:
                 fmax : float
@@ -447,7 +448,7 @@ class MLNEB(object):
         self.message_system(msg)
         return 
 
-    def get_default_mlcalc(self,use_derivatives=True,fp=None,baseline=None,optimize=True,database_reduction=True,npoints=25):
+    def get_default_mlcalc(self,use_derivatives=True,fp=None,baseline=None,optimize=True,database_reduction=True,npoints=50):
         " Get a default ML calculator if a calculator is not given. This is a recommended ML calculator."
         from ..regression.tprocess.calculator.mlcalc import MLCalculator
         from ..regression.tprocess.calculator.mlmodel import MLModel
