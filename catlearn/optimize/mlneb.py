@@ -12,6 +12,7 @@ class MLNEB(object):
     def __init__(self,start,end,mlcalc=None,ase_calc=None,acq=None,interpolation='idpp',interpolation_kwargs={},
                 climb=True,neb_kwargs=dict(k=None,method='improvedtangent',remove_rotation_and_translation=False), 
                 n_images=15,mic=False,prev_calculations=None,
+                use_restart_path=False,check_path_unc=False,
                 force_consistent=None,local_opt=None,local_opt_kwargs={},
                 trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',full_output=False):
         """ Nudged elastic band (NEB) with Machine Learning as active learning.
@@ -53,6 +54,11 @@ class MLNEB(object):
                     (optional) The user can feed previously calculated data for the
                     same hypersurface. The previous calculations must be fed as an
                     Atoms list or Trajectory file.
+                use_restart_path: bool
+                    Use the path from last robust iteration (low uncertainty).
+                check_path_unc: bool
+                    Check if the uncertainty is large for the restarted path and
+                    if it is then use the initial interpolation.
                 force_consistent: boolean or None.
                     Use force-consistent energy calls (as opposed to the energy
                     extrapolated to 0 K). By default (force_consistent=None) uses
@@ -78,6 +84,9 @@ class MLNEB(object):
         self.mic=mic
         self.climb=climb
         self.neb_kwargs=neb_kwargs.copy()
+        # General parameter settings
+        self.use_restart_path=use_restart_path
+        self.check_path_unc=check_path_unc
         # Whether to have the full output
         self.full_output=full_output  
         # Setup the ML calculator
@@ -208,19 +217,21 @@ class MLNEB(object):
     def make_reused_interpolation(self,max_unc):
         " Make the NEB interpolation path or use the previous path if it has low uncertainty. "
         # Make the interpolation from the initial points
-        if self.last_images is None:
-            self.message_system('Used the initial path!')
+        if not self.use_restart_path or self.last_images is None:
+            self.message_system('The initial interpolation is used as the initial path!')
             images=self.make_interpolation(interpolation=self.interpolation)
         else:
             # Reuse the previous path 
             images=self.make_interpolation(interpolation=self.last_images)
-            unc_path=self.get_predictions(images)[1]
-            # Check if the uncertainty is too large
-            if np.max(unc_path)>=max_unc:
-                self.last_images=None
-                images=self.make_reused_interpolation(max_unc)
-            else:
-                self.message_system('The last path is used as the initial path!')
+            self.message_system('The last path is used as the initial path!')
+            if self.check_path_unc:
+                unc_path=self.get_predictions(images)[1]
+                # Check if the uncertainty is too large
+                if np.max(unc_path)>=max_unc:
+                    self.last_images=None
+                    images=self.make_reused_interpolation(max_unc)
+                else:
+                    self.message_system('The last path is used as the initial path!')
         return images
 
 
