@@ -234,8 +234,6 @@ class MLNEB(object):
                 if np.max(unc_path)>=max_unc:
                     self.last_images=None
                     images=self.make_reused_interpolation(max_unc)
-                else:
-                    self.message_system('The last path is used as the initial path!')
         return images
 
 
