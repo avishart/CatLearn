@@ -13,7 +13,7 @@ class MLNEB(object):
                 climb=True,neb_kwargs=dict(k=None,method='improvedtangent',remove_rotation_and_translation=False), 
                 n_images=15,mic=False,prev_calculations=None,
                 use_restart_path=True,check_path_unc=False,
-                default_mlcalc_kwargs=dict(database_reduction=True,npoints=50),
+                default_mlcalc_kwargs=dict(database_reduction=False,npoints=50),
                 force_consistent=None,local_opt=None,local_opt_kwargs={},
                 trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',full_output=False):
         """ Nudged elastic band (NEB) with Machine Learning as active learning.
@@ -446,7 +446,7 @@ class MLNEB(object):
         self.message_system(msg)
         return 
 
-    def get_default_mlcalc(self,use_derivatives=True,fp=None,baseline=None,optimize=True,database_reduction=True,npoints=50):
+    def get_default_mlcalc(self,use_derivatives=True,fp=None,baseline=None,optimize=True,database_reduction=False,npoints=50):
         " Get a default ML calculator if a calculator is not given. This is a recommended ML calculator."
         from ..regression.tprocess.calculator.mlcalc import MLCalculator
         from ..regression.tprocess.calculator.mlmodel import MLModel
