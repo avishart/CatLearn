@@ -1,22 +1,15 @@
-from site import execsitecustomize
-from turtle import up
 import numpy as np
-import ase
 from ase.io import read
-from ase.data import covalent_radii
-from ase.calculators.singlepoint import SinglePointCalculator
 from copy import deepcopy
-from ase.io.trajectory import TrajectoryWriter,TrajectoryReader
 from scipy.optimize import dual_annealing
 import datetime
-#from catlearn import __version__
-from ase.parallel import parallel_function
 from mpi4py import MPI
 
 
 class mlgo:
     def __init__(self,slab,ads,ase_calc,ads2=None,mlcalc=None,acq=None,\
                  local_opt=None,local_opt_kwargs={},prev_calculations=None,force_consistent=None,\
+                 default_mlcalc_kwargs=dict(database_reduction=False,npoints=50),\
                  bounds=None,initial_points=2,norelax_points=10,min_steps=8,mic=True,opt_kwargs={},trajectory='evaluated.traj',fullout=False):
         # Setup given parameters
         self.setup_slab_ads(slab,ads,ads2)
@@ -45,7 +38,7 @@ class mlgo:
         self.trajectory=trajectory
         # Setup the ML calculator
         if mlcalc is None:
-            mlcalc=self.get_default_mlcalc()
+            mlcalc=self.get_default_mlcalc(**default_mlcalc_kwargs)
         self.mlcalc=deepcopy(mlcalc)
         # Select an acquisition function 
         if acq is None:
@@ -392,7 +385,7 @@ class mlgo:
             self.message_system(msg)
         pass
 
-    def get_default_mlcalc(self,use_derivatives=True,optimize=True,database_reduction=True,npoints=25):
+    def get_default_mlcalc(self,use_derivatives=True,optimize=True,database_reduction=False,npoints=50):
         " Get a default ML calculator if a calculator is not given. This is a recommended ML calculator."
         from ..regression.gaussianprocess.calculator.mlcalc import MLCalculator
         from ..regression.gaussianprocess.calculator.mlmodel import MLModel
