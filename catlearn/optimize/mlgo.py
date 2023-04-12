@@ -159,9 +159,11 @@ class mlgo:
         if self.rank==0:
             candidate=candidate.copy()
         candidate=self.comm.bcast(candidate,root=0)
+        self.ase_calc.reset()
         self.comm.barrier()
         # Calculate the energies and forces
         candidate.calc=self.ase_calc
+        candidate.calc.reset()
         forces=candidate.get_forces()
         self.energy_true=candidate.get_potential_energy(force_consistent=self.force_consistent)
         self.step+=1
