@@ -11,6 +11,59 @@ class mlgo:
                  local_opt=None,local_opt_kwargs={},prev_calculations=None,force_consistent=None,\
                  default_mlcalc_kwargs=dict(database_reduction=False,npoints=50),\
                  bounds=None,initial_points=2,norelax_points=10,min_steps=8,mic=True,opt_kwargs={},trajectory='evaluated.traj',fullout=False):
+        """ Machine learning accelerated global adsorption optimization with active learning.
+            Parameters:
+                slab: ASE Atoms object.
+                    The object of the surface or nanoparticle that the adsorbate is adsorped to. 
+                    The energy and forces for the structure is not needed.
+                ads: ASE Atoms object.
+                    The object of the adsorbate in vacuum with same cell size and pbc as for the slab. 
+                    The energy and forces for the structure is not needed.
+                ase_calc: ASE calculator Object.
+                    ASE calculator as implemented in ASE.
+                    See https://wiki.fysik.dtu.dk/ase/ase/calculators/calculators.html
+                ads2: ASE Atoms object (optional).
+                    The object of a second adsorbate in vacuum that is adsorbed simultaneously with the other adsorbate.
+                mlcalc: ML-calculator Object.
+                    The ML-calculator object used as surrogate surface. A default ML-model is used if mlcalc is None.
+                acq: Acquisition Object.
+                    The Acquisition object used for calculating the acq. function and choose a candidate
+                    to calculate next. A default Acquisition object is used if acq is None.
+                local_opt: ASE local optimizer Object. 
+                    A local optimizer object from ASE. If None is given then FIRE is used.
+                local_opt_kwargs: dict.
+                    Arguments used for the ASE local optimizer.
+                prev_calculations: Atoms list or ASE Trajectory file.
+                    (optional) The user can feed previously calculated data for the
+                    same hypersurface. The previous calculations must be fed as an
+                    Atoms list or Trajectory file.
+                force_consistent: boolean or None.
+                    Use force-consistent energy calls (as opposed to the energy
+                    extrapolated to 0 K). By default (force_consistent=None) uses
+                    force-consistent energies if available in the calculator, but
+                    falls back to force_consistent=False if not.
+                default_mlcalc_kwargs: dict.
+                    A dictonary with kwargs for construction of the default ML calculator
+                    if it is chosen to be used.
+                bounds: (6,2) or (12,2) ndarray (optional).
+                    The boundary conditions used for the global optimization in form of the simulated annealing.
+                    The boundary conditions are the x, y, and z coordinates of the center of the adsorbate and 3 rotations.
+                    Same boundary conditions can be set for the second adsorbate if chosen.
+                initial_points: int.
+                    Number of generated initial structures used for training the ML calculator if no previous data is given.
+                norelax_points: int.
+                    The number of structures used for training before local relaxation of the structures after the global optimization is activated.
+                min_steps: int.
+                    The minimum number of iterations before convergence is checked.
+                mic: bool.
+                    Whether to use the Minimum Image Convention for the fingerprint.
+                opt_kwargs: dict.
+                    Arguments used for the simulated annealing method.
+                trajectory: string.
+                    Trajectory filename to store the evaluated training data.
+                fullout: bool.
+                    Whether to print on screen the full output (True) or not (False).
+        """
         # Setup given parameters
         self.setup_slab_ads(slab,ads,ads2)
         self.ase_calc=ase_calc
@@ -52,8 +105,8 @@ class mlgo:
         self.use_prev_calculations(prev_calculations)
         # Define local optimizer
         if local_opt is None:
-            from ase.optimize import MDMin
-            local_opt=MDMin
+            from ase.optimize import FIRE
+            local_opt=FIRE
             local_opt_kwargs=dict(dt=0.05,trajectory='local_opt.traj')
         self.local_opt=local_opt
         self.local_opt_kwargs=local_opt_kwargs
