@@ -105,9 +105,9 @@ class mlgo:
         self.use_prev_calculations(prev_calculations)
         # Define local optimizer
         if local_opt is None:
-            from ase.optimize import FIRE
-            local_opt=FIRE
-            local_opt_kwargs=dict(dt=0.05,trajectory='local_opt.traj')
+            from ase.optimize import LBFGS
+            local_opt=LBFGS
+            local_opt_kwargs=dict(trajectory='local_opt.traj')
         self.local_opt=local_opt
         self.local_opt_kwargs=local_opt_kwargs
         
