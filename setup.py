@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '3.1.2' 
+VERSION = '3.2.0' 
 DESCRIPTION = 'Machine Learning using atomic-scale calculations'
 LONG_DESCRIPTION = 'Machine Learning using atomic-scale calculations'
 
@@ -14,7 +14,6 @@ setup(  name="CatLearn",
         long_description=LONG_DESCRIPTION,
         packages=find_packages(),
         install_requires=['numpy','scipy','ase'], 
-
         keywords=['python','gaussian process','machine learning','regression'],
         classifiers= [
             "Development Status :: 4 - Beta",

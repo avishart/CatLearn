@@ -89,7 +89,7 @@ class MLModel:
 
     def not_masked_reshape(self,array,not_masked,indicies):
         " Reshape an array so that it works for all atom coordinates and set constrained indicies to 0. "
-        return np.array([array[not_masked.index(i)] if i in not_masked else [0.0]*3 for i in indicies])
+        return np.array([array[not_masked.index(i)] if i in not_masked else [0.0,0.0,0.0] for i in indicies])
 
     def derivatives_fd(self,atoms,d_step=1e-5,not_masked=[]):
         " Calculate the derivatives of the energy (-forces) from finite difference "
