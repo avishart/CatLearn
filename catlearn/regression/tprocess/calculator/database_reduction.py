@@ -113,7 +113,7 @@ class DatabaseDistance(Database_Reduction):
             dist=cdist(features[indicies],features[not_indicies])
             i_max=np.argmax(np.nanmin(dist,axis=0))
             indicies=np.append(indicies,[not_indicies[i_max]])
-        return indicies
+        return np.array(indicies,dtype=int)
     
     def __repr__(self):
         " Returned string for representation the class object. "
@@ -134,7 +134,7 @@ class DatabaseRandom(Database_Reduction):
         indicies=self.initial_indicies.copy()
         not_indicies=[j for j in all_indicies if j not in indicies]
         indicies=np.append(indicies,np.random.permutation(not_indicies)[:int(self.npoints-len(indicies))])
-        return indicies
+        return np.array(indicies,dtype=int)
     
     def __repr__(self):
         " Returned string for representation the class object. "
@@ -162,7 +162,7 @@ class DatabaseHybrid(Database_Reduction):
                 dist=cdist(features[indicies],features[not_indicies])
                 i_max=np.argmax(np.nanmin(dist,axis=0))
                 indicies=np.append(indicies,[not_indicies[i_max]])                
-        return indicies
+        return np.array(indicies,dtype=int)
     
     def __repr__(self):
         " Returned string for representation the class object. "
@@ -184,7 +184,7 @@ class DatabaseMin(Database_Reduction):
         not_indicies=np.array([j for j in all_indicies if j not in indicies])
         i_sort=np.argsort(np.linalg.norm(np.array(self.targets)[not_indicies],axis=1))
         indicies=np.append(indicies,not_indicies[i_sort[:int(self.npoints-len(indicies))]])
-        return indicies
+        return np.array(indicies,dtype=int)
     
     def __repr__(self):
         " Returned string for representation the class object. "
@@ -205,7 +205,7 @@ class DatabaseLast(Database_Reduction):
         indicies=self.initial_indicies.copy()
         not_indicies=[j for j in all_indicies if j not in indicies]
         indicies=np.append(indicies,not_indicies[-int(self.npoints-len(indicies)):])
-        return indicies
+        return np.array(indicies,dtype=int)
     
     def __repr__(self):
         " Returned string for representation the class object. "
