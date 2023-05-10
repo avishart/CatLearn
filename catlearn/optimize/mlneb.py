@@ -12,7 +12,7 @@ class MLNEB(object):
     def __init__(self,start,end,mlcalc=None,ase_calc=None,acq=None,interpolation='idpp',interpolation_kwargs={},
                 climb=True,neb_kwargs=dict(k=None,method='improvedtangent',remove_rotation_and_translation=False), 
                 n_images=15,mic=False,prev_calculations=None,
-                use_restart_path=True,check_path_unc=False,
+                use_restart_path=True,check_path_unc=True,
                 default_mlcalc_kwargs=dict(database_reduction=False,npoints=50),
                 force_consistent=None,local_opt=None,local_opt_kwargs={},
                 trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',full_output=False):
