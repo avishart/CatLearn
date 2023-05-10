@@ -83,6 +83,7 @@ class MLModel:
                 forces=-self.derivatives_fd(atoms,not_masked=not_masked).reshape(-1,3)
             forces=self.not_masked_reshape(forces,not_masked,range(len(atoms)))
             if uncertainty_forces is not None:
+                uncertainty_forces=uncertainty_forces.reshape(-1,3)
                 uncertainty_forces=self.not_masked_reshape(uncertainty_forces,not_masked,range(len(atoms)))
             return energy,forces,uncertainty,uncertainty_forces
         return energy,None,uncertainty,None
