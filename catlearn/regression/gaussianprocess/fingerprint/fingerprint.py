@@ -23,8 +23,10 @@ class Fingerprint:
                     The ASE Atoms object that are converted to a fingerprint.
         """
         not_masked=self.get_constrains(atoms)
-        vector,derivative=self.make_fingerprint(atoms,not_masked=not_masked,**kwargs)    
-        return FingerprintObject(vector=vector,derivative=derivative)
+        vector,derivative=self.make_fingerprint(atoms,not_masked=not_masked,**kwargs)  
+        if self.use_derivatives:  
+            return FingerprintObject(vector=vector,derivative=derivative)
+        return FingerprintObject(vector=vector,derivative=None)
     
     def make_fingerprint(self,atoms,not_masked,**kwargs):
         " The calculation of the fingerprint "
@@ -43,6 +45,10 @@ class Fingerprint:
             return [i for i in not_masked if i not in index_mask]
         return not_masked
     
+    def copy(self):
+        " Copy the Fingerprint. "
+        return self.__class__(reduce_dimensions=self.reduce_dimensions,use_derivatives=self.use_derivatives,mic=self.mic)
+    
     def __repr__(self):
-        return "Fingerprint"
+        return "Fingerprint(reduce_dimensions={},use_derivatives={},mic={})".format(self.reduce_dimensions,self.use_derivatives,self.mic)
         

@@ -1,9 +1,8 @@
 import numpy as np
-import copy
 from ase.calculators.singlepoint import SinglePointCalculator
 
 class Database:
-    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,negative_forces=True,use_fingerprint=True):
+    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,negative_forces=True,use_fingerprint=True,**kwargs):
         """ Database of ASE atoms objects that are converted into fingerprints and targets. 
             Parameters:
                 fingerprint : Fingerprint object
@@ -20,7 +19,7 @@ class Database:
         if fingerprint is None:
             from ..fingerprint.cartesian import Cartesian
             fingerprint=Cartesian(reduce_dimensions=reduce_dimensions,use_derivatives=use_derivatives,mic=True)
-        self.fingerprint=copy.deepcopy(fingerprint)
+        self.fingerprint=fingerprint.copy()
         self.reduce_dimensions=reduce_dimensions
         self.use_derivatives=use_derivatives
         self.check_attributes()
@@ -82,11 +81,11 @@ class Database:
     
     def get_features(self):
         " Get all the fingerprints of the atoms in the database. "
-        return np.array(self.features).copy()
+        return np.array(self.features)
     
     def get_targets(self):
         " Get all the targets of the atoms in the database. "
-        return np.array(self.targets).copy()
+        return np.array(self.targets)
 
     def copy_atoms(self,atoms):
         " Copy the atoms object together with the calculated energies and forces "
@@ -115,15 +114,21 @@ class Database:
         " Check if all attributes agree between the class and subclasses. "
         if self.reduce_dimensions!=self.fingerprint.reduce_dimensions:
             raise Exception('Database and Fingerprint do not agree whether to reduce dimensions!')
-        if self.use_derivatives!=self.fingerprint.use_derivatives:
-            raise Exception('Database and Fingerprint do not agree whether to use derivatives!')
         # Copy attributes from fingerprint
         self.mic=self.fingerprint.mic
         return
     
     def copy(self):
         " Copy the database. "
-        return copy.deepcopy(self)
+        clone=self.__class__(fingerprint=self.fingerprint,
+                             reduce_dimensions=self.reduce_dimensions,
+                             use_derivatives=self.use_derivatives,
+                             negative_forces=self.negative_forces,
+                             use_fingerprint=self.use_fingerprint)
+        clone.atoms_list=self.atoms_list.copy()
+        clone.features=self.features.copy()
+        clone.targets=self.targets.copy()
+        return clone
     
     def __len__(self):
         " Get the number of atoms objects in the database. "

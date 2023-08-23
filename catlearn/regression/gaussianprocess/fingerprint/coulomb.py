@@ -1,5 +1,6 @@
 import numpy as np
 from .fingerprint import Fingerprint
+from .geometry import get_all_distances
 
 class Coulomb(Fingerprint):
     " The Coulomb matrix fingerprint "
@@ -29,8 +30,8 @@ class Coulomb(Fingerprint):
     def get_coulomb(self,atoms,use_derivatives=False,mic=True):
         " Get distances and charges to calculate coulomb potential "
         from scipy.spatial.distance import squareform
-        range_atoms=range(len(atoms))
-        distances=atoms.get_all_distances(mic=mic)
+        range_atoms=np.arange(len(atoms))
+        distances,vec_distances=get_all_distances(atoms,range_atoms,mic=mic,vector=use_derivatives)
         atom_numb=np.array([float(an) for an in atoms.get_atomic_numbers()])
         atom_numb=atom_numb.reshape(-1,1)*atom_numb
         atom_numb[range_atoms,range_atoms]=0.0
@@ -38,7 +39,6 @@ class Coulomb(Fingerprint):
         cmatrix=squareform(atom_numb/squareform(distances))
         cmatrix[range_atoms,range_atoms]=0.5*(atoms.get_atomic_numbers()**2.4)
         if use_derivatives:
-            vec_distances=atoms.get_all_distances(mic=mic,vector=True)
             return cmatrix,distances,vec_distances
         return cmatrix,distances,None
     
@@ -58,3 +58,6 @@ class Coulomb(Fingerprint):
                         gij[3*j:3*j+3]=-gij_value
             g.append(gij)
         return np.array(g)
+    
+    def __repr__(self):
+        return "Coulomb(reduce_dimensions={},use_derivatives={},mic={})".format(self.reduce_dimensions,self.use_derivatives,self.mic)

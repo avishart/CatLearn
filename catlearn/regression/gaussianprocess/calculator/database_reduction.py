@@ -3,7 +3,7 @@ from scipy.spatial.distance import cdist
 from .database import Database
 
 class Database_Reduction(Database):
-    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,negative_forces=True,use_fingerprint=True,npoints=25,initial_indicies=[0]):
+    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,negative_forces=True,use_fingerprint=True,npoints=25,initial_indicies=[0],**kwargs):
         """ Database of ASE atoms objects that are converted into fingerprints and targets with only a limitted number in the database. 
             Parameters:
                 fingerprint : Fingerprint object
@@ -21,9 +21,9 @@ class Database_Reduction(Database):
                 initial_indicies : list
                     The indicies of the data points that must be included in the final data base.
         """
-        super().__init__(fingerprint=fingerprint,reduce_dimensions=reduce_dimensions,use_derivatives=use_derivatives,negative_forces=negative_forces,use_fingerprint=use_fingerprint)
+        super().__init__(fingerprint=fingerprint,reduce_dimensions=reduce_dimensions,use_derivatives=use_derivatives,negative_forces=negative_forces,use_fingerprint=use_fingerprint,**kwargs)
         self.npoints=npoints
-        self.initial_indicies=np.array(initial_indicies).copy()
+        self.initial_indicies=np.array(initial_indicies)
         self.update_indicies=True
 
     def append(self,atoms):
@@ -46,7 +46,7 @@ class Database_Reduction(Database):
         # Set up all the indicies 
         self.update_indicies=False
         data_len=self.__len__()
-        all_indicies=np.array(list(range(data_len)))
+        all_indicies=np.arange(data_len)
         # No reduction is needed if the database is not large  
         if data_len<=self.npoints:
             self.indicies=all_indicies.copy()
@@ -55,7 +55,7 @@ class Database_Reduction(Database):
         self.indicies=self.make_reduction(all_indicies).copy()
         return self.indicies
     
-    def make_reduction(self,all_indicies):
+    def make_reduction(self,all_indicies,**kwargs):
         " Make the reduction of the data base with a chosen method. "
         raise NotImplementedError()
     
@@ -71,18 +71,41 @@ class Database_Reduction(Database):
     def get_features(self):
         " Get all the fingerprints of the atoms in the database. "
         indicies=self.get_reduction_indicies()
-        return np.array(self.features).copy()[indicies]
+        return np.array(self.features)[indicies]
+    
+    def get_all_feature_vectors(self):
+        " Get all the features in numpy array form. "
+        if self.use_fingerprint:
+            return np.array([feature.get_vector() for feature in self.features])
+        return np.array(self.features)
     
     def get_targets(self):
         " Get all the targets of the atoms in the database. "
         indicies=self.get_reduction_indicies()
-        return np.array(self.targets).copy()[indicies]
+        return np.array(self.targets)[indicies]
     
     def save_data(self,trajectory='data.traj'):
         " Save the ASE atoms data to a trajectory. "
         from ase.io import write
         write(trajectory,self.get_all_atoms())
         return self
+    
+    def copy(self):
+        " Copy the database. "
+        clone=self.__class__(fingerprint=self.fingerprint,
+                             reduce_dimensions=self.reduce_dimensions,
+                             use_derivatives=self.use_derivatives,
+                             negative_forces=self.negative_forces,
+                             use_fingerprint=self.use_fingerprint,
+                             npoints=self.npoints,
+                             initial_indicies=self.initial_indicies)
+        clone.atoms_list=self.atoms_list.copy()
+        clone.features=self.features.copy()
+        clone.targets=self.targets.copy()
+        clone.update_indicies=self.update_indicies
+        if 'indicies' in self.__dict__.keys():
+            clone.indicies=self.indicies.copy()
+        return clone
     
     def __str__(self):
         " Returned string for description. "
@@ -104,13 +127,16 @@ class Database_Reduction(Database):
 class DatabaseDistance(Database_Reduction):
     """ Database of ASE atoms objects that are converted into fingerprints and targets with only a limitted number in the database defined from the distances. """
 
-    def make_reduction(self,all_indicies):
+    def make_reduction(self,all_indicies,**kwargs):
         " Reduce the training set with the points farthest from each other. "
         indicies=self.initial_indicies.copy()
-        features=np.array(self.features).copy()
+        if len(indicies)==0:
+            indicies=[np.random.choice(all_indicies)]
+        features=self.get_all_feature_vectors()
+        fdim=len(features[0])
         for i in range(len(indicies),self.npoints):
             not_indicies=[j for j in all_indicies if j not in indicies]
-            dist=cdist(features[indicies],features[not_indicies])
+            dist=cdist(features[indicies].reshape(-1,fdim),features[not_indicies].reshape(-1,fdim))
             i_max=np.argmax(np.nanmin(dist,axis=0))
             indicies=np.append(indicies,[not_indicies[i_max]])
         return np.array(indicies,dtype=int)
@@ -129,7 +155,7 @@ class DatabaseDistance(Database_Reduction):
 class DatabaseRandom(Database_Reduction):
     """ Database of ASE atoms objects that are converted into fingerprints and targets with only a limitted number in the database defined from random. """
 
-    def make_reduction(self,all_indicies):
+    def make_reduction(self,all_indicies,**kwargs):
         " Random select the training points. "
         indicies=self.initial_indicies.copy()
         not_indicies=[j for j in all_indicies if j not in indicies]
@@ -150,16 +176,19 @@ class DatabaseRandom(Database_Reduction):
 class DatabaseHybrid(Database_Reduction):
     """ Database of ASE atoms objects that are converted into fingerprints and targets with only a limitted number in the database defined from distance and random. """
 
-    def make_reduction(self,all_indicies):
+    def make_reduction(self,all_indicies,**kwargs):
         " Use a combination of random sampling and farthest distance to reduce training set. "
         indicies=self.initial_indicies.copy()
-        features=np.array(self.features).copy()
+        if len(indicies)==0:
+            indicies=[np.random.choice(all_indicies)]
+        features=self.get_all_feature_vectors()
+        fdim=len(features[0])
         for i in range(len(indicies),self.npoints):
             not_indicies=[j for j in all_indicies if j not in indicies]
             if i%3==0:
                 indicies=np.append(indicies,[np.random.choice(not_indicies)])
             else:
-                dist=cdist(features[indicies],features[not_indicies])
+                dist=cdist(features[indicies].reshape(-1,fdim),features[not_indicies].reshape(-1,fdim))
                 i_max=np.argmax(np.nanmin(dist,axis=0))
                 indicies=np.append(indicies,[not_indicies[i_max]])                
         return np.array(indicies,dtype=int)
@@ -178,7 +207,7 @@ class DatabaseHybrid(Database_Reduction):
 class DatabaseMin(Database_Reduction):
     """ Database of ASE atoms objects that are converted into fingerprints and targets with only a limitted number in the database defined from the smallest targets. """
 
-    def make_reduction(self,all_indicies):
+    def make_reduction(self,all_indicies,**kwargs):
         " Use the targets with smallest norms in the training set. "
         indicies=self.initial_indicies.copy()
         not_indicies=np.array([j for j in all_indicies if j not in indicies])
@@ -200,7 +229,7 @@ class DatabaseMin(Database_Reduction):
 class DatabaseLast(Database_Reduction):
     """ Database of ASE atoms objects that are converted into fingerprints and targets with only a limitted number in the database defined from the last data points. """
 
-    def make_reduction(self,all_indicies):
+    def make_reduction(self,all_indicies,**kwargs):
         " Use the last data points. "
         indicies=self.initial_indicies.copy()
         not_indicies=[j for j in all_indicies if j not in indicies]

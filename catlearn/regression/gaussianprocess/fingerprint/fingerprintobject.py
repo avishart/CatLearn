@@ -1,8 +1,7 @@
 import numpy as np
-import copy
 
 class FingerprintObject:
-    def __init__(self,vector=None,derivative=None):
+    def __init__(self,vector,derivative=None,**kwargs):
         """ Fingerprint object class that has the fingerprint vector for anatoms object.
             Parameters:
                 vector: (N) array
@@ -22,6 +21,8 @@ class FingerprintObject:
     
     def get_derivatives(self,d=None):
         " Get the derivative of the fingerprint wrt the cartesian coordinates"
+        if self.derivative is None:
+            return None
         if d is None:
             return self.derivative.copy()
         return self.derivative[:,d].copy()
@@ -29,6 +30,14 @@ class FingerprintObject:
     def get_derivative_dimension(self):
         " Get the dimensions of the cartesian coordinates used for calculating the derivative "
         return len(self.derivative[0])
+    
+    def copy(self):
+        " Copy the Fingerprint object. "
+        return self.__class__(vector=self.vector,derivative=self.derivative)
+
+    def __len__(self):
+        " Get len of the vector"
+        return len(self.vector)
     
     def __repr__(self):
         return str(self.vector)

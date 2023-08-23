@@ -2,12 +2,12 @@ import numpy as np
 from .constant import Prior_constant
 
 class Prior_min(Prior_constant):
-    def __init__(self,yp=0.0,add=0.0,**kwargs):
-        "The prior uses a baseline of the target values if given else it is at 0"
-        Prior_constant.__init__(self,yp,add,**kwargs)
+    """ The prior uses a baseline of the target values as the minimum target value. """
     
-    def update(self,X,Y):
+    def update(self,X,Y,**kwargs):
         "The prior will use the minimum of the target values"
-        self.dim=len(Y[0])
-        self.yp=np.min(Y[:,0])+self.add
-        return self.yp
+        self.set_parameters(yp=np.min(Y[:,0]))
+        return self
+    
+    def __repr__(self):
+        return "Prior_min(yp={:.4f},add={:.4f})".format(self.yp,self.add) 

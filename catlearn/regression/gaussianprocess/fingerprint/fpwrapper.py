@@ -14,10 +14,8 @@ class Fingerprint_wrapper(Fingerprint):
                 mic: bool
                     Minimum Image Convention (Shortest distances when periodic boundary is used).
         """
+        super().__init__(reduce_dimensions=reduce_dimensions,use_derivatives=use_derivatives,mic=mic,**kwargs)
         self.fingerprint=fingerprint
-        self.reduce_dimensions=reduce_dimensions
-        self.use_derivatives=use_derivatives
-        self.mic=mic
 
     def make_fingerprint(self,atoms,not_masked,**kwargs):
         " The calculation of the gp-atom fingerprint "
@@ -30,4 +28,11 @@ class Fingerprint_wrapper(Fingerprint):
         else:
             derivative=None
         return vector,derivative
+    
+    def copy(self):
+        " Copy the Fingerprint. "
+        return self.__class__(fingerprint=self.fingerprint,reduce_dimensions=self.reduce_dimensions,use_derivatives=self.use_derivatives,mic=self.mic)
+    
+    def __repr__(self):
+        return "Fingerprint_wrapper(fingerprint={},reduce_dimensions={},use_derivatives={},mic={})".format(self.fingerprint,self.reduce_dimensions,self.use_derivatives,self.mic)
 

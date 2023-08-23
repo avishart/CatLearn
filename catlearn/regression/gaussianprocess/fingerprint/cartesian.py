@@ -12,3 +12,6 @@ class Cartesian(Fingerprint):
         else:
             derivative=None
         return vector,derivative
+
+    def __repr__(self):
+        return "Cartesian(reduce_dimensions={},use_derivatives={},mic={})".format(self.reduce_dimensions,self.use_derivatives,self.mic)

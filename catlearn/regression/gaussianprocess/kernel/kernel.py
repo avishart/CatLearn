@@ -1,28 +1,23 @@
 import numpy as np
-import copy
-from .distances import Distance_matrix,Distance_matrix_per_dimension
+from scipy.spatial.distance import pdist,cdist
 
 class Kernel:
-    def __init__(self,distances=None,use_fingerprint=False,hp={'length':np.array([0.0])}):
+    def __init__(self,use_derivatives=False,use_fingerprint=False,hp={}):
         """The Kernel class with hyperparameters.
             Parameters:
-                distances : Distance class
-                    A distance matrix object that calculates the distances.
-                use_fingerprint : bool
+                use_derivatives: bool
+                    Whether to use the derivatives of the targets.
+                use_fingerprint: bool
                     Whether fingerprint objects is given or arrays.
-                hp : dict
+                hp: dict
                     A dictionary of hyperparameters.
         """
-        self.use_derivatives=False
-        if distances is None:
-            distances=Distance_matrix(use_fingerprint=use_fingerprint)
-        self.distances=copy.deepcopy(distances)
+        self.use_derivatives=use_derivatives
         self.use_fingerprint=use_fingerprint
-        self.check_attributes()
-        self.hp=hp.copy()
+        self.hp={'length':np.array([-0.7])}
         self.set_hyperparams(hp)
-    
-    def get_K(self,features,features2=None,dis_m=None,**kwargs):
+
+    def __call__(self,features,features2=None,get_derivatives=True,**kwargs):
         """Make the kernel matrix.
             Parameters:
                 features : (N,D) array or (N) list of fingerprint objects
@@ -30,200 +25,77 @@ class Kernel:
                 features2 : (M,D) array or (M) list of fingerprint objects
                     Features with M data points and D dimensions. 
                     If it is not given a squared kernel from features is generated.
-                dis_m : (N,M) or (N*(N-1)/2) array (optional)
-                    Already calculated distance matrix.
-        """
-        raise NotImplementedError()
-
-    def set_hyperparams(self,new_params):
-        """Set or update the hyperparameters for the Kernel.
-            Parameters:
-                new_params: dictionary
-                    A dictionary of hyperparameters that are added or updated.
-        """
-        self.hp.update(new_params)
-        return self.hp
-    
-    def __call__(self,features,features2=None,get_derivatives=True,dis_m=None,**kwargs):
-        """Make the kernel matrix.
-            Parameters:
-                features : (N,D) array or (N) list of fingerprint objects
-                    Features with N data points.
-                features2 : (M,D) array or (M) list of fingerprint objects
-                    Features with M data points and D dimensions. 
-                    If it is not given a squared kernel from features is generated.
-                get_derivatives : bool
-                    Can only be False.
-                dis_m : (N,M) or (N*(N-1)/2) array (optional)
-                    Already calculated distance matrix.
-        """
-        return self.get_K(features,features2,dis_m,**kwargs)
-
-    def diag(self,features,get_derivatives=True):
-        """Get the diagonal kernel vector.
-            Parameters:
-                features : (N,D) array or (N) list of fingerprint objects
-                    Features with N data points.
-        """
-        raise NotImplementedError()
-
-    def get_gradients(self,features,hp,KXX,dis_m=None,**kwargs):
-        """Get the gradients of the kernel matrix in respect to the hyperparameters.
-            Parameters:
-                features : (N,D) array or (N) list of fingerprint objects
-                    Features with N data points.
-                hp : list
-                    A list of the hyperparameters that are optimized.
-                KXX : (N,N) array
-                    The kernel matrix of training data .
-                dis_m : (N,N) array (optional)
-                    Already calculated distance matrix.
-        """
-        raise NotImplementedError()
-
-    def check_attributes(self):
-        " Check if all attributes agree between the class and subclasses. "
-        if self.use_fingerprint!=self.distances.use_fingerprint:
-            raise Exception('Kernel and Distances do not agree whether to use fingerprints!')
-        if self.use_derivatives!=self.distances.use_derivatives:
-            raise Exception('Kernel and Distances do not agree whether to use derivatives!')
-        return
-    
-    def get_dimension(self,features):
-        " Get the dimension of the length-scale hyperparameter "
-        return 1
-
-    def copy(self):
-        " Deepcopy the object "
-        return copy.deepcopy(self)
-    
-    def __repr__(self):
-        return 'Kernel(use_fingerprint={}, hp={})'.format(self.use_fingerprint,self.hp)
-
-
-class Kernel_Derivative:
-    def __init__(self,distances=None,use_fingerprint=False,hp={'length':np.array([0.0])}):
-        """The Kernel class with hyperparameters.
-            Parameters:
-                distances : Distance class
-                    A distance matrix object that calculates the distances.
-                use_fingerprint : bool
-                    Whether fingerprint objects is given or arrays.
-                hp : dict
-                    A dictionary of hyperparameters.
-        """
-        self.use_derivatives=True
-        if distances is None:
-            distances=Distance_matrix_per_dimension(use_fingerprint=use_fingerprint)
-        self.distances=copy.deepcopy(distances)
-        self.use_fingerprint=use_fingerprint
-        self.check_attributes()
-        self.hp=hp.copy()
-        self.set_hyperparams(hp)
-        
-    def get_K(self,dis_m,**kwargs):
-        """Make the kernel matrix without derivatives.
-            Parameters:
-                dis_m : (N,M) or (N*(N-1)/2) array
-                    Already calculated distance matrix.
-        """
-        raise NotImplementedError()
-        
-    def set_hyperparams(self,new_params):
-        """Set or update the hyperparameters for the Kernel.
-            Parameters:
-                new_params: dictionary
-                    A dictionary of hyperparameters that are added or updated.
-        """
-        self.hp.update(new_params)
-        return self.hp
-    
-    def get_derivative_K(self,features,dis_m,K,d1,axis=0):
-        """Make the derivative of the kernel matrix wrt. to one dimension of the fingerprint.
-            Parameters:
-                features : (N,D) array or (N) list of fingerprint objects
-                    Features with N data points.
-                dis_m : (D,N,M) array 
-                    Already calculated distance matrix.
-                K : (N,M) array
-                    The kernel matrix without derivatives
-                d1 : int
-                    The dimension considered.
-                axis : int
-                    If it is the first or second term in the distance matrix.
-        """
-        raise NotImplementedError()
-    
-    def get_hessian_K(self,features,features2,dis_m,K,d1,d2):
-        """Make the hessian of the kernel matrix wrt. to two dimension of the fingerprint.
-            Parameters:
-                features : (N,D) array or (N) list of fingerprint objects
-                    Features with N data points.
-                features2 : (M,D) array or (M) list of fingerprint objects
-                    Features with M data points.
-                dis_m : (D,N,M) array 
-                    Already calculated distance matrix.
-                K : (N,M) array
-                    The kernel matrix without derivatives
-                d1 : int
-                    The dimension considered for features.
-                d2 : int
-                    The dimension considered for features2.
-        """
-        raise NotImplementedError()
-    
-    def get_KXX(self,features,dis_m=None,**kwargs):
-        """ Get the symmetric kernel matrix. 
-            Parameters:
-                features : (N,D) array or (N) list of fingerprint objects
-                    Features with N data points.
-                dis_m : (D,N,M) array (optional)
-                    Already calculated distance matrix.
-        """
-        raise NotImplementedError()
-
-    def get_KQX(self,features,features2=None,get_derivatives=False,dis_m=None,**kwargs):
-        """ Get the kernel matrix with two different features.
-            Parameters:
-                features : (N,D) array or (N) list of fingerprint objects
-                    Features with N data points.
-                features2 : (M,D) array or (M) list of fingerprint objects
-                    Features with M data points.
-                get_derivatives : bool
-                    Whether to get the derivatives of the prediction part.
-                dis_m : (D,N,M) array (optional)
-                    Already calculated distance matrix.
-        """
-        raise NotImplementedError()
-        
-    def __call__(self,features,features2=None,get_derivatives=False,dis_m=None,**kwargs):
-        """Make the kernel matrix.
-            Parameters:
-                features : (N,D) array or (N) list of fingerprint objects
-                    Features with N data points.
-                features2 : (M,D) array or (M) list of fingerprint objects
-                    Features with M data points and D dimensions. 
-                    If it is not given a squared kernel from features is generated.
-                get_derivatives : bool
-                    Whether to get the derivatives of the prediction part.
-                dis_m : (D,N,M) array (optional)
-                    Already calculated distance matrix.
+                get_derivatives: bool
+                    Whether to predict derivatives of target.
         """
         if features2 is None:
-            return self.get_KXX(features,dis_m=dis_m,**kwargs)
-        return self.get_KQX(features,features2,get_derivatives=get_derivatives,dis_m=dis_m,**kwargs)
+            return self.get_KXX(features,**kwargs)
+        return self.get_KQX(features,features2=features2,get_derivatives=get_derivatives,**kwargs)
+    
+    def get_KXX(self,features,**kwargs):
+        """Make the symmetric kernel matrix.
+            Parameters:
+                features : (N,D) array or (N) list of fingerprint objects
+                    Features with N data points.
+        """
+        raise NotImplementedError()
+    
+    def get_KQX(self,features,features2,get_derivatives=True,**kwargs):
+        """Make the kernel matrix.
+            Parameters:
+                features : (N,D) array or (N) list of fingerprint objects
+                    Features with N data points.
+                features2 : (M,D) array or (M) list of fingerprint objects
+                    Features with M data points and D dimensions. 
+                    If it is not given a squared kernel from features is generated.
+                get_derivatives: bool
+                    Whether to predict derivatives of target.
+        """
+        raise NotImplementedError()
+    
+    def get_arrays(self,features,features2=None):
+        " Get the feature matrix from the fingerprint "
+        X=np.array([feature.get_vector() for feature in features])
+        if features2 is None:
+            return X
+        Q=np.array([feature.get_vector() for feature in features2])
+        return X,Q
+    
+    def get_symmetric_absolute_distances(self,features,metric='sqeuclidean'):
+        " Calculate the symmetric absolute distance matrix in (scaled) feature space. "
+        return pdist(features,metric=metric)
 
-    def diag(self,features,get_derivatives=True):
+    def get_absolute_distances(self,features,features2,metric='sqeuclidean'):
+        " Calculate the absolute distance matrix in (scaled) feature space. "
+        return cdist(features,features2,metric=metric)
+    
+    def get_feature_dimension(self,features):
+        " Get the dimension of the features "
+        if self.use_fingerprint:
+            return len(features[0].get_vector())
+        return len(features[0])
+    
+    def get_fp_deriv(self,features,dim=None):
+        " Get the derivatives of all the fingerprints. "
+        if dim is None:
+            return np.array([fp.get_derivatives() for fp in features]).transpose((2,0,1))
+        return np.array([fp.get_derivatives(dim) for fp in features])
+
+    def get_derivative_dimension(self,features):
+        " Get the dimension of the features "
+        if self.use_fingerprint:
+            return int(features[0].get_derivative_dimension())
+        return len(features[0])
+
+    def diag(self,features,get_derivatives=True,**kwargs):
         """Get the diagonal kernel vector.
             Parameters:
                 features : (N,D) array or (N) list of fingerprint objects
                     Features with N data points.
-                get_derivatives : bool
-                    Whether to get the derivatives of the prediction part.
         """
         raise NotImplementedError()
 
-    def get_gradients(self,features,hp,KXX,dis_m=None,correction=True,**kwargs):
+    def get_gradients(self,features,hp,KXX,correction=True,**kwargs):
         """Get the gradients of the kernel matrix in respect to the hyperparameters.
             Parameters:
                 features : (N,D) array
@@ -232,28 +104,33 @@ class Kernel_Derivative:
                     A list of the hyperparameters that are optimized.
                 KXX : (N,N) array
                     The kernel matrix of training data.
-                dis_m : (D,N,M) array (optional)
-                    Already calculated distance matrix.
                 correction : bool
                     Whether the noise correction is used.
         """
         raise NotImplementedError()
-
-    def check_attributes(self):
-        " Check if all attributes agree between the class and subclasses. "
-        if self.use_fingerprint!=self.distances.use_fingerprint:
-            raise Exception('Kernel and Distances do not agree whether to use fingerprints!')
-        if self.use_derivatives!=self.distances.use_derivatives:
-            raise Exception('Kernel and Distances do not agree whether to use derivatives!')
-        return
     
-    def get_dimension(self,features):
+    def set_hyperparams(self,new_params):
+        """Set or update the hyperparameters for the Kernel.
+            Parameters:
+                new_params: dictionary
+                    A dictionary of hyperparameters that are added or updated.
+        """
+        if 'length' in new_params:
+            self.hp['length']=np.array(new_params['length'],dtype=float).reshape(-1)
+        return self
+    
+    def get_hyperparams(self):
+        " Get the hyperparameters for the kernel. "
+        return {'length':self.hp['length'].copy()}
+    
+    def get_hp_dimension(self,features=None,**kwargs):
         " Get the dimension of the length-scale hyperparameter "
-        return 1
-
+        return int(1)
+    
     def copy(self):
-        " Deepcopy the object "
-        return copy.deepcopy(self)
+        " Copy the kernel class object. "
+        return self.__class__(use_derivatives=self.use_derivatives,use_fingerprint=self.use_fingerprint,hp=self.hp)
     
     def __repr__(self):
-        return 'Kernel_Derivative(use_fingerprint={}, hp={})'.format(self.use_fingerprint,self.hp)
+        return 'Kernel(use_derivatives={}, use_fingerprint={}, hp={})'.format(self.use_derivatives,self.use_fingerprint,self.hp)
+

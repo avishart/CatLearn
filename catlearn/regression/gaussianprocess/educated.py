@@ -1,23 +1,26 @@
 import numpy as np
-import copy
 from scipy.spatial.distance import pdist,squareform
-from .fingerprint.fingerprintobject import FingerprintObject
 
 class Educated_guess:
-    def __init__(self,GP=None):
-        "Educated guess method for hyperparameters of a Gaussian Process"
-        if GP is None:
-            from .gp.gp import GaussianProcess
-            GP=GaussianProcess()
-        self.GP=copy.deepcopy(GP)
+    def __init__(self,prior=None,kernel=None,parameters=['length','noise'],**kwargs):
+        "Educated guess method for hyperparameters of a Process model with a prior mean and a kernel function. "
+        self.parameters=sorted(parameters.copy())
+        if 'correction' in self.parameters:
+            self.parameters.remove('correction')
+        if prior is None:
+            from .means.mean import Prior_mean
+            prior=Prior_mean()
+        self.prior=prior.copy()
+        if kernel is None:
+            from .kernel.se import SE
+            kernel=SE()
+        self.kernel=kernel.copy()
+        self.use_derivatives=kernel.use_derivatives
 
-    def hp(self,X,Y,parameters=None):
+    def get_hp(self,X,Y,parameters=None,**kwargs):
         " Get the best educated guess of the hyperparameters "
         if parameters is None:
-            parameters=list(self.GP.hp.keys())
-            parameters=parameters+['noise']
-        if 'correction' in parameters:
-            parameters.remove('correction')
+            parameters=self.parameters.copy()
         parameters=sorted(parameters)
         hp={}
         for para in sorted(set(parameters)):
@@ -36,13 +39,10 @@ class Educated_guess:
                 hp[para]=self.no_guess_mean(para,parameters)
         return hp
 
-    def bounds(self,X,Y,parameters=None,scale=1):
+    def bounds(self,X,Y,parameters=None,scale=1,**kwargs):
         " Get the educated guess bounds of the hyperparameters "
         if parameters is None:
-            parameters=list(self.GP.hp.keys())
-            parameters=parameters+['noise']
-        if 'correction' in parameters:
-            parameters.remove('correction')
+            parameters=self.parameters.copy()
         parameters=sorted(parameters)
         bounds={}
         for para in sorted(set(parameters)):
@@ -72,8 +72,9 @@ class Educated_guess:
 
     def prefactor_mean(self,X,Y):
         "The best educated guess for the prefactor by using standard deviation of the target"
-        self.GP.prior.update(X,Y)
-        a_mean=np.sqrt(np.mean(((Y[:,0]-self.GP.prior.get(X)[:,0]))**2))
+        self.prior.update(X,Y)
+        Y_std=Y[:,0:1]-self.prior.get(X,Y[:,0:1],get_derivatives=False)
+        a_mean=np.sqrt(np.mean(Y_std**2))
         if a_mean==0.0:
             return 0.00
         return np.log(a_mean)
@@ -96,8 +97,8 @@ class Educated_guess:
     def length_mean(self,X,Y):
         "The best educated guess for the length scale by using nearst neighbor"
         lengths=[]
-        l_dim=self.GP.kernel.get_dimension(X)
-        if isinstance(X[0],FingerprintObject):
+        l_dim=self.kernel.get_hp_dimension(X)
+        if not isinstance(X[0],(list,np.ndarray)):
             X=np.array([fp.get_vector() for fp in X])
         for d in range(l_dim):
             if l_dim==1:
@@ -108,7 +109,7 @@ class Educated_guess:
             if len(dis)==0:
                 dis=[1.0]
             dis_min,dis_max=0.2*np.nanmedian(self.nearest_neighbors(dis)),np.nanmedian(dis)*4.0
-            if self.GP.use_derivatives:
+            if self.use_derivatives:
                 dis_min=dis_min*0.05
             lengths.append(np.nanmean(np.log([dis_min,dis_max])))
         return np.array(lengths)
@@ -116,8 +117,8 @@ class Educated_guess:
     def length_bound(self,X,Y,scale=1):
         "Get the minimum and maximum ranges of the length scale in the educated guess regime within a scale"
         lengths=[]
-        l_dim=self.GP.kernel.get_dimension(X)
-        if isinstance(X[0],FingerprintObject):
+        l_dim=self.kernel.get_hp_dimension(X)
+        if not isinstance(X[0],(list,np.ndarray)):
             X=np.array([fp.get_vector() for fp in X])
         for d in range(l_dim):
             if l_dim==1:
@@ -128,7 +129,7 @@ class Educated_guess:
             if len(dis)==0:
                 dis=[1.0]
             dis_min,dis_max=0.2*np.nanmedian(self.nearest_neighbors(dis)),np.nanmedian(dis)*4.0
-            if self.GP.use_derivatives:
+            if self.use_derivatives:
                 dis_min=dis_min*0.05
             lengths.append([dis_min/scale,dis_max*scale])
         return np.log(lengths)
@@ -139,4 +140,8 @@ class Educated_guess:
         m_len=len(dis_matrix)
         dis_matrix[range(m_len),range(m_len)]=np.inf
         return np.nanmin(dis_matrix,axis=0)
-
+    
+    def copy(self):
+        " Copy the object. "
+        return self.__class__(prior=self.prior,kernel=self.kernel,parameters=self.parameters)
+    

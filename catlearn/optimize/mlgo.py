@@ -1,16 +1,14 @@
 import numpy as np
 from ase.io import read
-from copy import deepcopy
 from scipy.optimize import dual_annealing
 import datetime
-from mpi4py import MPI
 
-
-class mlgo:
+class MLGO:
     def __init__(self,slab,ads,ase_calc,ads2=None,mlcalc=None,acq=None,\
-                 local_opt=None,local_opt_kwargs={},prev_calculations=None,force_consistent=None,\
-                 default_mlcalc_kwargs=dict(database_reduction=False,npoints=50),\
-                 bounds=None,initial_points=2,norelax_points=10,min_steps=8,mic=True,opt_kwargs={},trajectory='evaluated.traj',fullout=False):
+                 prev_calculations=None,force_consistent=None,save_memory=False,\
+                 local_opt=None,local_opt_kwargs={},opt_kwargs={},\
+                 bounds=None,initial_points=2,norelax_points=10,min_steps=8,\
+                 trajectory='evaluated.traj',tabletxt=None,full_output=False,**kwargs):
         """ Machine learning accelerated global adsorption optimization with active learning.
             Parameters:
                 slab: ASE Atoms object.
@@ -29,10 +27,6 @@ class mlgo:
                 acq: Acquisition Object.
                     The Acquisition object used for calculating the acq. function and choose a candidate
                     to calculate next. A default Acquisition object is used if acq is None.
-                local_opt: ASE local optimizer Object. 
-                    A local optimizer object from ASE. If None is given then FIRE is used.
-                local_opt_kwargs: dict.
-                    Arguments used for the ASE local optimizer.
                 prev_calculations: Atoms list or ASE Trajectory file.
                     (optional) The user can feed previously calculated data for the
                     same hypersurface. The previous calculations must be fed as an
@@ -42,6 +36,14 @@ class mlgo:
                     extrapolated to 0 K). By default (force_consistent=None) uses
                     force-consistent energies if available in the calculator, but
                     falls back to force_consistent=False if not.
+                save_memory: bool
+                    Whether to only train the ML calculator and store all objects on one CPU. 
+                    If save_memory==True then parallel optimization of the hyperparameters can not be achived.
+                    If save_memory==False no MPI object is used.  
+                local_opt: ASE local optimizer Object. 
+                    A local optimizer object from ASE. If None is given then FIRE is used.
+                local_opt_kwargs: dict.
+                    Arguments used for the ASE local optimizer.
                 default_mlcalc_kwargs: dict.
                     A dictonary with kwargs for construction of the default ML calculator
                     if it is chosen to be used.
@@ -55,68 +57,79 @@ class mlgo:
                     The number of structures used for training before local relaxation of the structures after the global optimization is activated.
                 min_steps: int.
                     The minimum number of iterations before convergence is checked.
-                mic: bool.
-                    Whether to use the Minimum Image Convention for the fingerprint.
                 opt_kwargs: dict.
                     Arguments used for the simulated annealing method.
                 trajectory: string.
                     Trajectory filename to store the evaluated training data.
-                fullout: bool.
+                tabletxt: string
+                    Name of the .txt file where the summary table is printed. 
+                    It is not saved to the file if tabletxt=None.
+                full_output: bool.
                     Whether to print on screen the full output (True) or not (False).
         """
+        # Setup parallelization
+        self.parallel_setup(save_memory)
         # Setup given parameters
         self.setup_slab_ads(slab,ads,ads2)
         self.ase_calc=ase_calc
         self.opt_kwargs=opt_kwargs
         self.norelax_points=norelax_points
         self.min_steps=min_steps
+        self.force_consistent=force_consistent
+        self.initial_points=initial_points
+        self.full_output=full_output
+        # Set initial parameters
         self.step=0
         self.error=0
-        self.force_consistent=force_consistent
-        self.mic=mic
-        self.initial_points=initial_points
-        self.fullout=fullout
+        self.energies=np.array([])
+        self.emin=np.inf
+        self.best_candidate=None
         # Boundary conditions for adsorbate position and angles
         if bounds is None:
             self.bounds=np.array([[0.0,1.0],[0.0,1.0],[0.0,1.0],[0.0,2*np.pi],[0.0,2*np.pi],[0.0,2*np.pi]])
         else:
             self.bounds=bounds.copy()
-        if len(self.bounds)==6 and self.ads2:
+        if len(self.bounds)==6 and self.ads2 is not None:
             self.bounds=np.concatenate([self.bounds,self.bounds],axis=0)
-        # Setup other parameters
-        self.energies=np.array([])
-        # Make it parallel
-        self.parallel_setup()
         # Make trajectory file for calculated structures
         self.trajectory=trajectory
+        # Summary table file name
+        self.tabletxt=tabletxt
         # Setup the ML calculator
         if mlcalc is None:
-            mlcalc=self.get_default_mlcalc(**default_mlcalc_kwargs)
-        self.mlcalc=deepcopy(mlcalc)
+            from .default_mlcalc import get_default_mlcalc
+            from ..regression.gaussianprocess.fingerprint.invdistances import Inv_distances
+            from ..regression.gaussianprocess.baseline.repulsive import Repulsion_calculator
+            fp=Inv_distances(reduce_dimensions=True,use_derivatives=True,mic=True,sorting=True)
+            self.mlcalc=get_default_mlcalc(model='gp',fp=fp,baseline=Repulsion_calculator(),parallelize=(not save_memory),database_reduction=False,ensemble=False,npoints=50)
+        else:
+            self.mlcalc=mlcalc.copy()
         # Select an acquisition function 
         if acq is None:
-            from .acquisition import AcqULCB
-            acq=AcqULCB(objective='min',unc_convergence=0.05,kappa=3.0,kappamax=5)
-        self.acq=deepcopy(acq)
-        # Define best candidate 
-        self.emin=np.inf
-        self.best_candidate=None
+            from .acquisition import AcqLCB
+            self.acq=AcqLCB(objective='min',kappa=3.0,kappamax=5.0)
+        else:
+            self.acq=acq.copy()
         # Use restart structures or make one initial point
         self.use_prev_calculations(prev_calculations)
         # Define local optimizer
+        local_opt_kwargs_default=dict(trajectory='local_opt.traj')
         if local_opt is None:
             from ase.optimize import LBFGS
             local_opt=LBFGS
-            local_opt_kwargs=dict(trajectory='local_opt.traj')
         self.local_opt=local_opt
-        self.local_opt_kwargs=local_opt_kwargs
+        local_opt_kwargs_default.update(local_opt_kwargs)
+        self.local_opt_kwargs=local_opt_kwargs_default.copy()
         
-    def run(self,fmax=0.05,unc_convergence=0.025,steps=200,max_unc=0.050,ml_steps=2000,ml_chains=3,relax=True,local_steps=500):
+    def run(self,fmax=0.05,unc_convergence=0.025,steps=200,max_unc=0.050,ml_steps=2000,ml_chains=3,relax=True,local_steps=500,seed=0,**kwargs):
         " Run the ML adsorption optimizer "
-        # Run global search
-        self.acq.unc_convergence=unc_convergence
-        # Calculate initial data if data is not given
+        # Set the random seed
+        np.random.seed(seed)
+        # Update the acquisition function
+        self.acq.set_parameters(unc_convergence=unc_convergence)
+        # Calculate initial data if enough data is not given
         self.extra_initial_data(self.initial_points)
+        # Run global search
         for step in range(1,steps+1):
             # Train ML-Model
             self.train_mlmodel()
@@ -127,11 +140,11 @@ class mlgo:
             # Make print of table
             self.print_statement(step)
             # Check for convergence  
-            converged=self.check_convergence(unc_convergence,fmax)
-            if converged:
+            self.converging=self.check_convergence(unc_convergence,fmax)
+            if self.converging:
                 break
-        if converged==False:
-            self.message_system('MLOPT did not converge!')
+        if self.converging==False:
+            self.message_system('MLGO did not converge!')
         return self.best_candidate
     
     def setup_slab_ads(self,slab,ads,ads2=None):
@@ -163,12 +176,15 @@ class mlgo:
             slab_ads.extend(self.ads2.copy())
         self.number_atoms=len(slab_ads)
         return
-
-    def parallel_setup(self):
+    
+    def parallel_setup(self,save_memory=False,**kwargs):
         " Setup the parallelization. "
-        self.comm=MPI.COMM_WORLD
-        self.rank,self.size=self.comm.Get_rank(),self.comm.Get_size()
-        return
+        self.save_memory=save_memory
+        if self.save_memory:
+            from mpi4py import MPI
+            self.comm=MPI.COMM_WORLD
+            self.rank,self.size=self.comm.Get_rank(),self.comm.Get_size()
+        return self
         
     def place_ads(self,pos_angles):
         " Place the adsorbate in the cell of the surface"
@@ -201,42 +217,48 @@ class mlgo:
     def evaluate(self,candidate):
         " Caculate energy and forces and add training system to ML-model "
         self.message_system('Performing evaluation.',end='\r')
-        # Broadcast the system to all cpus
-        if self.rank==0:
-            candidate=candidate.copy()
-        candidate=self.comm.bcast(candidate,root=0)
+        # Reset calculator results
         self.ase_calc.reset()
-        self.comm.barrier()
+        # Broadcast the system to all cpus
+        if self.save_memory:
+            if self.rank==0:
+                candidate=candidate.copy()
+            candidate=self.comm.bcast(candidate,root=0)
+            self.comm.barrier()
         # Calculate the energies and forces
         candidate.calc=self.ase_calc
         candidate.calc.reset()
         forces=candidate.get_forces()
         self.energy_true=candidate.get_potential_energy(force_consistent=self.force_consistent)
         self.step+=1
-        self.max_abs_forces=np.max(np.linalg.norm(forces,axis=1))
         self.message_system('Single-point calculation finished.')
         # Store the data
+        self.max_abs_forces=np.nanmax(np.linalg.norm(forces,axis=1))
         self.add_training([candidate])
-        self.mlcalc.mlmodel.database.save_data(trajectory=self.trajectory)
+        self.mlcalc.save_data(trajectory=self.trajectory)
         # Best new point
         self.best_new_point(candidate,self.energy_true)
         return
 
     def add_training(self,atoms_list):
         " Add atoms_list data to ML model on rank=0. "
-        if self.rank==0:
-            self.mlcalc.mlmodel.add_training(atoms_list)
-        return
+        if self.save_memory:
+            if self.rank!=0:
+                return self.mlcalc
+        self.mlcalc.add_training(atoms_list)
+        return self.mlcalc
 
     def best_new_point(self,candidate,energy):
         " Best new candidate due to energy "
-        if self.rank==0:
+        if not self.save_memory or self.rank==0:
             if energy<=self.emin:
                 self.emin=energy
                 self.best_candidate=self.mlcalc.mlmodel.database.copy_atoms(candidate)
                 self.best_x=self.x.copy()
-        self.best_candidate,self.emin=self.comm.bcast([self.best_candidate,self.emin],root=0)
-        return
+        # Broadcast convergence statement if MPI is used
+        if self.save_memory:
+            self.best_candidate,self.emin=self.comm.bcast([self.best_candidate,self.emin],root=0)
+        return self.best_candidate
     
     def add_random_ads(self):
         " Generate a random slab-adsorbate structure from bounds "
@@ -247,7 +269,7 @@ class mlgo:
 
     def dual_func_random(self,pos_angles):
         " Dual annealing object function for random structure "
-        from ..regression.tprocess.baseline import Repulsion_calculator
+        from ..regression.gaussianprocess.baseline import Repulsion_calculator
         slab_ads=self.place_ads(pos_angles)
         slab_ads.calc=Repulsion_calculator(r_scale=0.7)
         energy=slab_ads.get_potential_energy()
@@ -266,112 +288,145 @@ class mlgo:
     def train_mlmodel(self):
         " Train the ML-Model on 1 CPU"
         if self.rank==0:
-            self.mlcalc.mlmodel.train_model(verbose=self.fullout)
+            self.mlcalc.mlmodel.train_model(verbose=self.full_output)
         self.mlcalc=self.comm.bcast(self.mlcalc,root=0)
         self.comm.barrier()
         pass
 
-    def find_next_candidate(self,ml_chains,ml_steps,max_unc,relax,fmax,local_steps):
+    def train_mlmodel(self):
+        " Train the ML model "
+        if not self.save_memory or self.rank==0:
+            self.mlcalc.train_model(verbose=self.full_output)
+        if self.save_memory:
+            self.mlcalc=self.comm.bcast(self.mlcalc,root=0)
+        return self.mlcalc
+
+    def find_next_candidate(self,ml_chains,ml_steps,max_unc,relax,fmax,local_steps,**kwargs):
         " Find the next candidates by using simulated annealing and then chose the candidate from acquisition "
-        # Find candidates from dual-annealing
+        # Initialize candidate dictionary
         candidate,energy,unc,x=None,None,None,None
         candidates={'candidates':[],'energies':[],'uncertainties':[],'x':[]}
         r=0
+        # Perform multiple optimizations
         for chain in range(ml_chains):
-            if self.rank==r:
-                np.random.seed(chain)
+            # Set a unique optimization for each chain
+            np.random.seed(chain)
+            if self.save_memory:
+                r=chain%self.size
+            if not self.save_memory or self.rank==r:
+                # Find candidates from a global simulated annealing search
                 self.message_system('Starting global search!',end='\r',rank=r)
                 candidate,energy,unc,x=self.dual_annealing(maxiter=ml_steps,**self.opt_kwargs)
                 self.message_system('Global search converged',rank=r)
-                if relax and self.get_training_len()>=self.norelax_points:
+                # Do a local relaxation if the conditions are met
+                if relax and self.get_training_set_size()>=self.norelax_points:
                     if unc<=max_unc:
                         self.message_system('Starting local relaxation',end='\r',rank=r)
-                        candidate,energy,unc=self.local_relax(candidate,fmax,max_unc,local_steps=local_steps)
+                        candidate,energy,unc=self.local_relax(candidate,fmax,max_unc,local_steps=local_steps,rank=r)
                     else:
                         self.message_system('Stopped due to high uncertainty',rank=r)
-                if r!=0:
-                    self.comm.send([candidate.copy(),energy,unc,x.copy()],dest=0,tag=self.step)
-            candidates,r=self.broadcast_candidates_iter(candidates,r,candidate,energy,unc,x)
-        self.comm.barrier()
-        if self.rank==0:
-            if self.fullout:
-                self.message_system('Candidates energies: '+str(candidates['energies']))
-                self.message_system('Candidates uncertainties: '+str(candidates['uncertainties']))
-            candidate=self.acq_next_point(candidates)
+                # Append the newest candidate
+                candidates=self.append_candidates(candidates,candidate,energy,unc,x)
+        # Broadcast all the candidates
+        if self.save_memory:
+            candidates=self.broadcast_candidates(candidates)
+        # Print the energies and uncertainties for the new candidates
+        self.message_system('Candidates energies: '+str(candidates['energies']))
+        self.message_system('Candidates uncertainties: '+str(candidates['uncertainties']))
+        # Find the new best candidate from the acquisition function
+        candidate=self.choose_candidate(candidates)
         return candidate
 
-    def acq_next_point(self,candidates):
+    def choose_candidate(self,candidates):
         " Use acquisition functions to chose the next training point "
         # Calculate the acquisition function for each candidate
         acq_values=self.acq.calculate(np.array(candidates['energies']),np.array(candidates['uncertainties']))
         # Chose the minimum value given by the Acq. class
-        argmin=self.acq.choose(acq_values)[0]
+        i_min=self.acq.choose(acq_values)[0]
         # The next training point
-        candidate=candidates['candidates'][argmin].copy()
-        self.energy=candidates['energies'][argmin]
-        self.unc=np.abs(candidates['uncertainties'][argmin])
-        self.x=candidates['x'][argmin].copy()
+        candidate=candidates['candidates'][i_min].copy()
+        self.energy=candidates['energies'][i_min]
+        self.unc=np.abs(candidates['uncertainties'][i_min])
+        self.x=candidates['x'][i_min].copy()
         return candidate
         
     def check_convergence(self,unc_convergence,fmax):
-        " Check if the convergence criteria is fulfilled "
+        " Check if the convergence criteria are fulfilled "
         converged=False
-        if self.rank==0:
-            if self.min_steps<=self.get_training_len():
+        if not self.save_memory or self.rank==0:
+            # Check the minimum number of steps have been performed
+            if self.min_steps<=self.get_training_set_size():
+                # Check the force and uncertainty criteria are met
                 if self.max_abs_forces<=fmax and self.unc<unc_convergence:
-                    if np.abs(self.energy_true-self.energy)<=2*unc_convergence:
-                        if np.abs(self.energy_true-self.emin)<=unc_convergence:
-                            self.message_system('Optimization is successfully completed')
+                    # Check the true energy deviation match the uncertainty prediction
+                    if np.abs(self.energy_true-self.energy)<=2.0*unc_convergence:
+                        # Check the predicted structure has the lowest observed energy
+                        if np.abs(self.energy_true-self.emin)<=2.0*unc_convergence:
+                            self.message_system('Optimization is converged.')
                         converged=True
-        converged=self.comm.bcast(converged,root=0)
+        # Broadcast convergence statement if MPI is used
+        if self.save_memory:
+            converged=self.comm.bcast(converged,root=0)
         return converged
     
     def dual_annealing(self,maxiter=5000,**opt_kwargs):
         " Find the candidates structures, energy and forces using dual annealing "
-        self.mlcalc.calculate_forces=False
+        # Deactivate force predictions
+        self.mlcalc.set_parameters(calculate_forces=False)
+        # Perform simulated annealing
         sol=dual_annealing(self.dual_func,bounds=self.bounds,maxfun=maxiter,**opt_kwargs)
+        # Reconstruct the final structure
         slab_ads=self.place_ads(sol['x'])
+        # Get the energy and uncertainty predictions 
         slab_ads.calc=self.mlcalc
         energy,unc=self.get_predictions(slab_ads)
         return slab_ads.copy(),energy,unc,sol['x'].copy()
     
     def dual_func(self,pos_angles):
         " Dual annealing object function "
+        # Construct the structure
         slab_ads=self.place_ads(pos_angles)
+        # Predict the energy and uncertainty
         slab_ads.calc=self.mlcalc
         energy=slab_ads.get_potential_energy()
-        if self.acq.kappa:
-            unc=slab_ads.calc.get_uncertainty()
-            return energy-np.abs(self.acq.kappa)*unc
-        return energy
+        unc=slab_ads.calc.get_uncertainty()
+        # Calculate the acquisition function
+        return self.acq.calculate(energy,uncertainty=unc)
     
-    def local_relax(self,candidate,fmax,max_unc,local_steps=200):
+    def local_relax(self,candidate,fmax,max_unc,local_steps=200,rank=0,**kwargs):
         " Perform a local relaxation of the candidate "
-        # Get forces and reset calculator
-        self.mlcalc.calculate_forces=True
-        self.mlcalc.results={}
-        #candidate=candidate.copy()
+        # Activate force predictions and reset calculator
+        self.mlcalc.set_parameters(calculate_forces=True)
+        self.mlcalc.reset()
+        candidate=candidate.copy()
         candidate.calc=self.mlcalc
+        # Initialize local optimization
         dyn=self.local_opt(candidate,**self.local_opt_kwargs)
+        # Run the local optimization without checking uncertainties
         if max_unc==False:
             dyn.run(fmax=fmax*0.8,steps=local_steps)
-            return candidate
+            energy,unc=self.get_predictions(candidate)
+            return candidate.copy(),energy,unc
+        # Run the local optimization with checking uncertainties
         for i in range(1,local_steps+1):
             candidate_backup=candidate.copy()
-            # Take step in local relaxation on surrogate surface
+            # Take a step in local relaxation on surrogate surface
             dyn.run(fmax=fmax*0.8,steps=i)
             energy,unc=self.get_predictions(candidate)
+            # Check if the uncertainty is too large
             if unc>=max_unc:
-                self.message_system('Relaxation on surrogate surface stopped due to high uncertainty!',rank=self.rank)
+                self.message_system('Relaxation on surrogate surface stopped due to high uncertainty!',rank=rank)
                 break
+            # Check if there is a problem with prediction
             if np.isnan(energy):
                 candidate=candidate_backup.copy()
                 candidate.calc=self.mlcalc
                 energy,unc=self.get_predictions(candidate)
-                self.message_system('Stopped due to NaN value in prediction!',rank=self.rank)
+                self.message_system('Stopped due to NaN value in prediction!',rank=rank)
                 break
+            # Check if the optimization is converged on the predicted surface
             if dyn.converged():
-                self.message_system('Relaxation on surrogate surface converged!',rank=self.rank)
+                self.message_system('Relaxation on surrogate surface converged!',rank=rank)
                 break
         return candidate.copy(),energy,unc
 
@@ -381,100 +436,93 @@ class mlgo:
         unc=candidate.calc.get_uncertainty()
         return energy,unc
 
-    def get_training_len(self):
-        " Get the length of the training set "
-        return len(self.mlcalc.mlmodel.database)
+    def get_training_set_size(self):
+        " Get the size of the training set "
+        return self.mlcalc.get_training_set_size()
 
     def extra_initial_data(self,initial_points):
         " If only initial and final state is given then a third data point is calculated. "
         candidate=None
-        for i in range(initial_points):
-            if self.get_training_len()<initial_points:
-                if self.rank==0:
-                    candidate=self.add_random_ads()
-                self.evaluate(candidate)
-        return 
-
-    def broadcast_candidates_iter(self,candidates,r,candidate,energy,unc,x):
-        " Broadcast iteratively candidate with energy, uncertainty, and position "
-        if self.rank==0:
-            if r!=0:
-                candidate,energy,unc,x=self.comm.recv(source=r,tag=self.step)
-            candidates['candidates'].append(candidate)
-            candidates['energies'].append(energy)
-            candidates['uncertainties'].append(unc)
-            candidates['x'].append(x)
-        r+=1
-        if r>=self.size:
-            r=0
-        return candidates,r
+        while self.get_training_set_size()<initial_points:
+            candidate=self.add_random_ads()
+            self.evaluate(candidate)
+        return self.get_training_set_size()
+    
+    def append_candidates(self,candidates,candidate,energy,unc,x,**kwargs):
+        " Update the candidates by appending the newest one. "
+        candidates['candidates'].append(candidate)
+        candidates['energies'].append(energy)
+        candidates['uncertainties'].append(unc)
+        candidates['x'].append(x)
+        return candidates
+    
+    def broadcast_candidates(self,candidates,**kwargs):
+        " Broadcast candidates with energies, uncertainties, and positions. "
+        candidates_broad={'candidates':[],'energies':[],'uncertainties':[],'x':[]}
+        for r in range(self.size):
+            cand_r=self.comm.bcast(candidates,root=r)
+            for n in range(len(cand_r['candidates'])):
+                candidates_broad=self.append_candidates(candidates_broad,cand_r['candidates'][n],
+                                                        cand_r['energy'][n],
+                                                        cand_r['unc'][n],
+                                                        cand_r['x'][n])
+        return candidates_broad
+    
+    def get_energy_deviation(self,**kwargs):
+        " Get the absolute energy difference between the predicted and true energy. "
+        return np.abs(self.energy_true-self.energy)
 
     def message_system(self,message,obj=None,end='\n',rank=0):
-        " Print output on rank=0. "
-        if self.fullout is True:
-            if self.rank==rank:
+        " Print output once. "
+        if self.full_output is True:
+            if self.save_memory and self.rank==rank:
                 if obj is None:
                     print(message,end=end)
                 else:
                     print(message,obj,end=end)
+            else:
+                import threading
+                lock=threading.Lock()
+                with lock:
+                    if obj is None:
+                        print(message,end=end)
+                    else:
+                        print(message,obj,end=end)
         return
-        
-    def print_statement(self,step):
-        " Print the Global optimization process as a table "
-        if self.rank==0:
-            now=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            try:
-                len(self.print_list)
-            except:
-                self.print_list=['| Step |        Time         |      True energy      | Uncertainty |  True error  |   fmax   |']
-
-            msg='|{0:6d}| '.format(step)+'{} |'.format(now)
-            msg+='{0:23f}|'.format(self.energy_true)
-            msg+='{0:13f}|'.format(self.unc)
-            msg+='{0:14f}|'.format(np.abs(self.energy_true-self.energy))
-            msg+='{0:10f}|'.format(self.max_abs_forces)
-            self.print_list.append(msg)
-            msg='\n'.join(self.print_list)
-            self.message_system(msg)
-        pass
-
-    def get_default_mlcalc(self,use_derivatives=True,optimize=True,database_reduction=False,npoints=50):
-        " Get a default ML calculator if a calculator is not given. This is a recommended ML calculator."
-        from ..regression.gaussianprocess.calculator.mlcalc import MLCalculator
-        from ..regression.gaussianprocess.calculator.mlmodel import MLModel
-        from ..regression.gaussianprocess.gp.gp import GaussianProcess
-        from ..regression.gaussianprocess.kernel.se import SE,SE_Derivative
-        from ..regression.gaussianprocess.means import Prior_max
-        from ..regression.gaussianprocess.hpfitter import HyperparameterFitter
-        from ..regression.gaussianprocess.objectfunctions.factorized_likelihood import FactorizedLogLikelihood
-        from ..regression.gaussianprocess.optimizers import run_golden,line_search_scale
-        from ..regression.gaussianprocess.calculator.database import Database
-        from ..regression.gaussianprocess.fingerprint.invdistances import Inv_distances
-        from ..regression.gaussianprocess.pdistributions import Normal_prior
-        from ..regression.gaussianprocess.baseline.repulsive import Repulsion_calculator
-        # Set a fingerprint
-        use_fingerprint=True
-        # Use inverse distances as fingerprint
-        fp=Inv_distances(reduce_dimensions=True,use_derivatives=use_derivatives,mic=self.mic)
-        # Use a GP as the model 
-        local_kwargs=dict(tol=1e-5,optimize=True,multiple_max=True)
-        kwargs_optimize=dict(local_run=run_golden,maxiter=1000,jac=False,bounds=None,ngrid=80,use_bounds=True,local_kwargs=local_kwargs)
-        hpfitter=HyperparameterFitter(FactorizedLogLikelihood(),optimization_method=line_search_scale,opt_kwargs=kwargs_optimize,distance_matrix=True)
-        kernel=SE_Derivative(use_fingerprint=use_fingerprint) if use_derivatives else SE(use_fingerprint=use_fingerprint)
-        model=GaussianProcess(prior=Prior_max(),kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter)
-        # Make the data base ready
-        if database_reduction:
-            from ..regression.tprocess.calculator.database_reduction import DatabaseLast
-            database=DatabaseLast(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,negative_forces=True,use_fingerprint=use_fingerprint,npoints=npoints,initial_indicies=[])
-        else:
-            from ..regression.tprocess.calculator.database import Database
-            database=Database(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,negative_forces=True,use_fingerprint=use_fingerprint)        
-        # Make prior distributions for hyperparameters
-        prior=dict(length=np.array([Normal_prior(0.0,2.0)]),noise=np.array([Normal_prior(-9.0,2.0)]))
-        # Make the ML model with model and database
-        ml_opt_kwargs=dict(retrain=True,prior=prior)
-        mlmodel=MLModel(model=model,database=database,baseline=Repulsion_calculator(),optimize=optimize,optimize_kwargs=ml_opt_kwargs)
-        # Finally make the calculator
-        mlcalc=MLCalculator(mlmodel=mlmodel,calculate_uncertainty=True)
-        return mlcalc
     
+    def converged(self):
+        " Whether MLGO is converged. "
+        return self.converging
+    
+    def make_summary_table(self,step,**kwargs):
+        " Make the summary of the Global optimization process as table. "
+        now=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            len(self.print_list)
+        except:
+            self.print_list=['| Step |        Time         |      True energy      | Uncertainty |  True error  |   fmax   |']
+        msg='|{0:6d}| '.format(step)
+        msg+='{} |'.format(now)
+        msg+='{0:23f}|'.format(self.energy_true)
+        msg+='{0:13f}|'.format(self.unc)
+        msg+='{0:14f}|'.format(self.get_energy_deviation())
+        msg+='{0:10f}|'.format(self.max_abs_forces)
+        self.print_list.append(msg)
+        msg='\n'.join(self.print_list)
+        return msg
+    
+    def save_summary_table(self,**kwargs):
+        " Save the summary table in the .txt file. "
+        if self.tabletxt is not None:
+            with open(self.tabletxt,'w') as thefile:
+                thefile.write(self.print_list)
+        return
+    
+    def print_statement(self,step,**kwargs):
+        " Print the Global optimization process as a table "
+        msg=''
+        if not self.save_memory or self.rank==0:
+            msg=self.make_summary_table(step,**kwargs)
+            self.save_summary_table()
+            self.message_system(msg)
+        return msg

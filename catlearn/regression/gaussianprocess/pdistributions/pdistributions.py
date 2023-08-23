@@ -1,32 +1,30 @@
 import numpy as np
-import copy
 
-def make_prior(GP,parameters,X,Y,prior_dis=None,scale=1):
+def make_prior(model,parameters,X,Y,prior_dis=None,scale=1):
     " Make prior distribution from educated guesses in log space "
     from ..educated import Educated_guess
-    ed_guess=Educated_guess(GP)
-    prior_lp={}
+    ed_guess=Educated_guess(prior=model.prior,kernel=model.kernel,parameters=parameters)
     parameters_set=sorted(list(set(parameters)))
     if isinstance(scale,(float,int)):
         scale={para:scale for para in parameters_set}
     if prior_dis is None:
         from .normal import Normal_prior
         prior_dis={para:[Normal_prior()] for para in parameters_set}
+    else:
+        prior_dis={para:prior_dis[para].copy() for para in prior_dis.keys()}
     bounds=ed_guess.bounds(X,Y,parameters_set)
-    for para in parameters_set:
-        if para in prior_dis.keys():
-            prior_d=copy.deepcopy(prior_dis[para])
-            if len(prior_d)!=len(bounds[para]):
-                prior_d=[prior_d[0]]*len(bounds[para])
-            prior_lp[para]=np.array([prior_d[b].min_max(bound[0],bound[1]) for b,bound in enumerate(bounds[para])])
+    prior_lp={para:prior_dis[para].min_max(bounds[para][:,0],bounds[para][:,1]) for para in parameters_set if para in prior_dis.keys()}
     return prior_lp
 
 class Prior_distribution:
-    def __init__(self):
-        """ Prior probability distribution used for the hyperparameters """
+    def __init__(self,**kwargs):
+        """ Prior probability distribution used for each type of hyperparameters. 
+            If the type of the hyperparameter is multi dimensional (D) it is given in the axis=-1. 
+            If multiple values (M) of the hyperparameter(/s) are calculated simultaneously it has to be in a (M,D) array. 
+        """
         
     def pdf(self,x):
-        'Probability density function'
+        'Probability density function. '
         return np.exp(self.ln_pdf(x))
     
     def deriv(self,x):
@@ -41,7 +39,7 @@ class Prior_distribution:
         'The derivative of the log of the probability density function as respect to x'
         raise NotImplementedError()
     
-    def update(self,start=None,end=None,prob=None):
+    def update(self,**kwargs):
         'Update the parameters of distribution function'
         raise NotImplementedError()
             
@@ -52,9 +50,13 @@ class Prior_distribution:
     def min_max(self,min_v,max_v):
         'Obtain the parameters of the distribution function by the minimum and maximum values'
         raise NotImplementedError()
-
-    def copy(self):
-        return copy.deepcopy(self)
     
-    def __repr__(self):
+    def copy(self):
+        " Copy the prior distribution of the hyperparameter. "
+        return self.__class__()
+    
+    def __str__(self):
         return 'Prior()'
+
+    def __repr__(self):
+        return 'Prior_distribution()'

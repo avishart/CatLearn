@@ -1,14 +1,17 @@
 import numpy as np
-from copy import deepcopy
 
 class MLModel:
     def __init__(self,model=None,database=None,baseline=None,optimize=True,optimize_kwargs={},**kwargs):
         " ML model used for a ASE calculator. "
         self.set_model_database(model=model,database=database)
-        self.baseline=deepcopy(baseline)
+        if baseline is None:
+            self.baseline=None
+            self.use_baseline=False
+        else:
+            self.baseline=baseline.copy()
+            self.use_baseline=True
         self.optimize=optimize
         self.optimize_kwargs=optimize_kwargs.copy()
-        self.use_baseline=False if self.baseline is None else True
 
     def add_training(self,atoms_list):
         " Add training ase Atoms data to the database. "
@@ -18,7 +21,7 @@ class MLModel:
             self.database.add(atoms_list)
         return self
 
-    def train_model(self,verbose=False):
+    def train_model(self,verbose=False,**kwargs):
         " Train the ML model. "
         features=self.database.get_features()
         targets=self.database.get_targets()
@@ -29,15 +32,15 @@ class MLModel:
         self.model.train(features,targets)
         return self.model
 
-    def optimize_model(self,features,targets,retrain=True,hp=None,prior=None,verbose=False,update_prior_dist=False):
+    def optimize_model(self,features,targets,retrain=True,hp=None,pdis=None,verbose=False,update_pdis=False,**kwargs):
         " Optimize the ML model with the arguments set in optimize_kwargs. "
         # Update the prior distribution
-        if update_prior_dist and prior is not None:
+        if update_pdis and pdis is not None:
             from ..pdistributions.pdistributions import make_prior
-            prior=make_prior(self.model,list(prior.keys()),features,targets,prior_dis=prior,scale=1)
-        return self.model.optimize(features,targets,retrain=retrain,hp=hp,prior=prior,verbose=verbose)
+            pdis=make_prior(self.model,list(pdis.keys()),features,targets,prior_dis=pdis,scale=1)
+        return self.model.optimize(features,targets,retrain=retrain,hp=hp,pdis=pdis,verbose=verbose)
 
-    def baseline_correction(self,targets,atoms=None,add=False,use_derivatives=True,negative_forces=True):
+    def baseline_correction(self,targets,atoms=None,add=False,use_derivatives=True,negative_forces=True,**kwargs):
         " Baseline correction if a baseline is used. Either add the correction to an atom object or subtract it from training data. "
         # Whether the baseline is used to training or prediction
         if not add:
@@ -55,72 +58,44 @@ class MLModel:
             return targets+np.array(y_base)[0]
         return targets-np.array(y_base)
 
-    def calculate(self,atoms,get_variance=True,get_forces=True):
+    def calculate(self,atoms,get_variance=True,get_forces=True,**kwargs):
         """ Calculate the energy and also the uncertainties and forces if selected.
         If get_variance=False, variance is returned as None. """
         # Calculate fingerprint:
         fp=self.database.get_atoms_feature(atoms)
         # Calculate energy, forces, and uncertainty
-        pred=self.model.predict(np.array([fp]),get_variance=get_variance,get_derivatives=get_forces)
+        y,var=self.model.predict(np.array([fp]),get_variance=get_variance,get_derivatives=get_forces)
         # Get the uncertainty if it requested
+        uncertainty,uncertainty_forces=None,None
         if get_variance:
-            y,unc=pred[0][0].copy(),np.sqrt(pred[1][0])
-            uncertainty=unc[0]
-            uncertainty_forces=None if len(unc[1:])==0 else unc[1:]
-        else:
-            y,uncertainty,uncertainty_forces=pred[0].copy(),None,None
+            var=np.sqrt(var)
+            uncertainty=var[0][0]
+            if get_forces:
+                uncertainty_forces=var[0][1:].copy()
         # Correct with the baseline if it is used
         if self.use_baseline:
             y=self.baseline_correction(y,atoms=atoms,add=True,use_derivatives=get_forces,negative_forces=self.database.negative_forces)
         # Get energy
-        energy=y[0]
+        energy=y[0,0]
         # Get the forces if they are requested
         if get_forces:
+            natoms=len(atoms)
             not_masked=self.database.get_constrains(atoms)
-            if self.model.use_derivatives:
-                forces=-y[1:].reshape(-1,3)
-            else:
-                forces=-self.derivatives_fd(atoms,not_masked=not_masked).reshape(-1,3)
-            forces=self.not_masked_reshape(forces,not_masked,range(len(atoms)))
+            forces=-y[0,1:].reshape(-1,3)
+            forces=self.not_masked_reshape(forces,not_masked,natoms)
             if uncertainty_forces is not None:
                 uncertainty_forces=uncertainty_forces.reshape(-1,3)
-                uncertainty_forces=self.not_masked_reshape(uncertainty_forces,not_masked,range(len(atoms)))
+                uncertainty_forces=self.not_masked_reshape(uncertainty_forces,not_masked,natoms)
             return energy,forces,uncertainty,uncertainty_forces
-        return energy,None,uncertainty,None
+        return energy,None,uncertainty,uncertainty_forces
 
-    def not_masked_reshape(self,array,not_masked,indicies):
+    def not_masked_reshape(self,array,not_masked,natoms):
         " Reshape an array so that it works for all atom coordinates and set constrained indicies to 0. "
-        return np.array([array[not_masked.index(i)] if i in not_masked else [0.0,0.0,0.0] for i in indicies])
+        full_array=np.zeros((natoms,3))
+        full_array[not_masked]=array
+        return full_array
 
-    def derivatives_fd(self,atoms,d_step=1e-5,not_masked=[]):
-        " Calculate the derivatives of the energy (-forces) from finite difference "
-        # Copy atoms and get positions
-        atoms_c=atoms.copy()
-        pos=atoms_c.get_positions().reshape(-1)
-        pos_m=np.array([pos]*len(pos))
-        # Make the first finite difference
-        pred1=self.fd_part(pos_m.copy(),atoms_c,sign=1,d_step=d_step,not_masked=not_masked)
-        # Make the second finite difference
-        pred2=self.fd_part(pos_m.copy(),atoms_c,sign=-1,d_step=d_step,not_masked=not_masked)
-        # Calculate derivatives
-        return ((pred1-pred2)/(2*d_step)).reshape(-1,3)
-
-    def fd_part(self,pos_fd,atoms_c,sign=1,d_step=1e-5,not_masked=[]):
-        " Calculate the finite difference part "
-        # Make the first finite difference
-        pos_fd[range(len(pos_fd)),range(len(pos_fd))]+=sign*d_step
-        atoms_list=[]
-        for p,pos in enumerate(pos_fd):
-            if int(np.ceil(p/3)) not in not_masked:
-                atoms_c.set_positions(pos.reshape(-1,3))
-                atoms_list.append(atoms_c)
-        fps=np.array([self.database.get_atoms_feature(atoms_c2) for atoms_c2 in atoms_list])
-        pred_fd=self.model.predict(fps,get_variance=False,get_derivatives=False)
-        if self.use_baseline:
-            pred_fd=np.array([self.baseline_correction(pred_fd[i:i+1],atoms=atoms_list[i],add=True,use_derivatives=False) for i in range(len(atoms_list))])
-        return pred_fd.reshape(-1)
-
-    def set_model_database(self,model=None,database=None):
+    def set_model_database(self,model=None,database=None,**kwargs):
         " Set the ML model and the database and make sure it uses the same attributes. "
         # Get attributes from either the model or the database if one of them are defined
         if model is not None:
@@ -138,34 +113,52 @@ class MLModel:
         if database is None:
             database=self.get_default_database(use_derivatives=use_derivatives,use_fingerprint=use_fingerprint)
         # Save the model and database
-        self.model=deepcopy(model)
-        self.database=deepcopy(database)
+        self.model=model.copy()
+        self.database=database.copy()
         # Check the model and database have the same attributes
         self.check_attributes()
         return self
 
-    def get_default_model(self,use_derivatives=True,use_fingerprint=False):
+    def get_default_model(self,use_derivatives=True,use_fingerprint=False,**kwargs):
         " Get the ML model as a default GP model. "
-        from ..gp.gp import GaussianProcess
-        from ..kernel.se import SE,SE_Derivative
-        from ..means.median import Prior_median
+        from ..models.gp import GaussianProcess
+        from ..kernel.se import SE
+        from ..means.mean import Prior_mean
         from ..hpfitter import HyperparameterFitter
-        from ..objectfunctions.factorized_likelihood import FactorizedLogLikelihood
+        from ..objectivefunctions.gp.factorized_likelihood import FactorizedLogLikelihood
         from ..optimizers import run_golden,line_search_scale
         local_kwargs=dict(tol=1e-5,optimize=True,multiple_max=True)
         kwargs_optimize=dict(local_run=run_golden,maxiter=5000,jac=False,bounds=None,ngrid=80,use_bounds=True,local_kwargs=local_kwargs)
         hpfitter=HyperparameterFitter(FactorizedLogLikelihood(),optimization_method=line_search_scale,opt_kwargs=kwargs_optimize,distance_matrix=True)
-        kernel=SE_Derivative(use_fingerprint=use_fingerprint) if use_derivatives else SE(use_fingerprint=use_fingerprint)
-        model=GaussianProcess(prior=Prior_median(),kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter)
+        kernel=SE(use_derivatives=use_derivatives,use_fingerprint=use_fingerprint)
+        model=GaussianProcess(prior=Prior_mean(),kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter)
         return model
 
-    def get_default_database(self,use_derivatives=True,use_fingerprint=False):
+    def get_default_database(self,use_derivatives=True,use_fingerprint=False,**kwargs):
         " Get a default database used to keep track of the training systems. "
         from .database import Database
         from ..fingerprint.cartesian import Cartesian
         fp=Cartesian(reduce_dimensions=True,use_derivatives=use_derivatives)
-        database=Database(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,negative_forces=True,use_fingerprint=use_fingerprint)
+        database=Database(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,negative_forces=True,use_fingerprint=use_fingerprint,**kwargs)
         return database
+    
+    def save_data(self,trajectory='data.traj',**kwarg):
+        " Save the ASE atoms data to a trajectory. "
+        self.database.save_data(trajectory=trajectory,**kwarg)
+        return self
+    
+    def get_training_set_size(self):
+        " Get the number of atoms objects in the database. "
+        return len(self.database)
+
+    def copy(self):
+        " Copy the MLModel. "
+        clone=self.__class__(model=self.model,
+                             database=self.database,
+                             baseline=self.baseline,
+                             optimize=self.optimize,
+                             optimize_kwargs=self.optimize_kwargs)
+        return clone
 
     def check_attributes(self):
         " Check if all attributes agree between the class and subclasses. "
@@ -174,8 +167,4 @@ class MLModel:
         if self.model.use_derivatives!=self.database.use_derivatives:
             raise Exception('Model and Database do not agree whether to use derivatives/forces!')
         return
-
-
-
-
 

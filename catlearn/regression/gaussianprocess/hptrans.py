@@ -1,15 +1,18 @@
 import numpy as np
 
 class Variable_Transformation:
-    def __init__(self):
+    def __init__(self,hyper_var=None,**kwargs):
         " Make variable transformation of hyperparameters into an interval of (0,1)"
-        self.transf_para_no(['length','noise','prefactor'])
+        if hyper_var is None:
+            self.transf_para_no(['length','noise','prefactor'])
+        else:
+            self.hyper_var=hyper_var.copy()
     
-    def transf_para(self,parameters,GP,X,Y,use_bounds=True,s=0.14):
+    def transf_para(self,parameters,model,X,Y,use_bounds=True,s=0.14):
         " Make a dictionary of the parameters for the variable transformation "
         parameters_set=sorted(parameters)
         if use_bounds:
-            self.transf_para_bounds(parameters,parameters_set,GP,X,Y,s=s)
+            self.transf_para_bounds(parameters,parameters_set,model,X,Y,s=s)
         else:
             self.transf_para_no(parameters_set)
         return self
@@ -19,10 +22,10 @@ class Variable_Transformation:
         self.hyper_var={para:{'mean':np.array([0.0]),'std':np.array([4.51])} for para in parameters_set}
         return self
     
-    def transf_para_bounds(self,parameters,parameters_set,GP,X,Y,s=0.14):
+    def transf_para_bounds(self,parameters,parameters_set,model,X,Y,s=0.14):
         " Make a dictionary of the parameters for the variable transformation with information "
         from .educated import Educated_guess
-        bounds=Educated_guess(GP).bounds(X,Y,parameters)
+        bounds=Educated_guess(prior=model.prior,kernel=model.kernel,parameters=parameters).bounds(X,Y,parameters)
         self.hyper_var={para:{'mean':np.nanmean(bounds[para],axis=1).reshape(-1),'std':s*(bounds[para][:,1]-bounds[para][:,0]).reshape(-1)} for para in parameters_set}
         return self
     
@@ -58,6 +61,10 @@ class Variable_Transformation:
             count_para[i_para]+=1
         return np.array(lines_new)
     
+    def copy(self):
+        " Copy the object. "
+        return self.__class__(hyper_var=self.hyper_var)
+    
     def __repr__(self):
-        return str(self.hyper_var)
+        return "Variable_Transformation(hyper_var={})".format(self.hyper_var)
     
