@@ -5,21 +5,51 @@ from .geometry import get_all_distances
 
 class Inv_distances(Fingerprint):
     def __init__(self,reduce_dimensions=True,use_derivatives=True,mic=True,sorting=True,**kwargs):
-        """ The inverse distance fingerprint constructer class where the sizes are sorted and scaled with covalent radii. 
-            The class convert atoms object into a fingerprint object with vector and derivatives.
-            Parameters:
-                reduce_dimensions: bool
-                    Whether to reduce the fingerprint space if constrains are used.
-                use_derivatives: bool
-                    Calculate and store derivatives of the fingerprint wrt. the cartesian coordinates.
-                mic: bool
-                    Minimum Image Convention (Shortest distances when periodic boundary is used).
-                sorting: bool
-                    Whether to sort the inverse distances after size or not.
+        """ 
+        Fingerprint constructer class that convert atoms object into a fingerprint object with vector and derivatives.
+        The inverse distance fingerprint constructer class where the sizes are sorted and scaled with covalent radii. 
+        Parameters:
+            reduce_dimensions : bool
+                Whether to reduce the fingerprint space if constrains are used.
+            use_derivatives : bool
+                Calculate and store derivatives of the fingerprint wrt. the cartesian coordinates.
+            mic : bool
+                Minimum Image Convention (Shortest distances when periodic boundary is used).
+            sorting: bool
+                Whether to sort the inverse distances after size or not.
         """
-        super().__init__(reduce_dimensions=reduce_dimensions,use_derivatives=use_derivatives,mic=mic,**kwargs)
-        self.sorting=sorting
-    
+        # Set the arguments
+        super().__init__(reduce_dimensions=reduce_dimensions,
+                         use_derivatives=use_derivatives,
+                         mic=mic,
+                         sorting=sorting,
+                         **kwargs)
+        
+    def update_arguments(self,reduce_dimensions=None,use_derivatives=None,mic=None,sorting=None,**kwargs):
+        """
+        Update the class with its arguments. The existing arguments are used if they are not given.
+        Parameters:
+            reduce_dimensions : bool
+                Whether to reduce the fingerprint space if constrains are used.
+            use_derivatives : bool
+                Calculate and store derivatives of the fingerprint wrt. the cartesian coordinates.
+            mic : bool
+                Minimum Image Convention (Shortest distances when periodic boundary is used).
+            sorting: bool
+                Whether to sort the inverse distances after size or not.
+        Returns:
+            self: The updated object itself.
+        """
+        if reduce_dimensions is not None:
+            self.reduce_dimensions=reduce_dimensions
+        if use_derivatives is not None:
+            self.use_derivatives=use_derivatives
+        if mic is not None:
+            self.mic=mic
+        if sorting is not None:
+            self.sorting=sorting
+        return self
+                         
     def make_fingerprint(self,atoms,not_masked,**kwargs):
         " Calculate the fingerprint and its derivative. "
         # Set parameters of array sizes
@@ -157,10 +187,15 @@ class Inv_distances(Fingerprint):
             indicies_comb=indicies_comb+list(indicies_nm_nm[i_nm_ci,nmasked_indicies[cj]].reshape(-1))
         return indicies_comb,len(indicies_comb)
             
-    def copy(self):
-        " Copy the Fingerprint. "
-        return self.__class__(reduce_dimensions=self.reduce_dimensions,use_derivatives=self.use_derivatives,mic=self.mic,sorting=self.sorting)
-    
-    def __repr__(self):
-        return "Inv_distances(reduce_dimensions={},use_derivatives={},mic={},sorting={})".format(self.reduce_dimensions,self.use_derivatives,self.mic,self.sorting)
-    
+    def get_arguments(self):
+        " Get the arguments of the class itself. "
+        # Get the arguments given to the class in the initialization
+        arg_kwargs=dict(reduce_dimensions=self.reduce_dimensions,
+                        use_derivatives=self.use_derivatives,
+                        mic=self.mic,
+                        sorting=self.sorting)
+        # Get the constants made within the class
+        constant_kwargs=dict()
+        # Get the objects made within the class
+        object_kwargs=dict()
+        return arg_kwargs,constant_kwargs,object_kwargs

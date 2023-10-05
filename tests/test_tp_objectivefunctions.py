@@ -8,8 +8,7 @@ class TestTPObjectiveFunctions(unittest.TestCase):
     def test_local(self):
         "Test if the TP can be local optimized with all objective functions that does not use eigendecomposition"
         from catlearn.regression.gaussianprocess.models.tp import TProcess
-        from catlearn.regression.gaussianprocess.optimizers.local_opt import scipy_opt
-        from catlearn.regression.gaussianprocess.optimizers.global_opt import local_optimize
+        from catlearn.regression.gaussianprocess.optimizers.localoptimizer import ScipyOptimizer
         from catlearn.regression.gaussianprocess.hpfitter import HyperparameterFitter
         from catlearn.regression.gaussianprocess.objectivefunctions.tp import LogLikelihood
         # Create the data set
@@ -17,12 +16,14 @@ class TestTPObjectiveFunctions(unittest.TestCase):
         ## Whether to learn from the derivatives
         use_derivatives=False
         x_tr,f_tr,x_te,f_te=make_train_test_set(x,f,g,tr=20,te=1,use_derivatives=use_derivatives)
-        # Make the dictionary of the optimization
-        opt_kwargs=dict(local_run=scipy_opt,maxiter=500,jac=True,local_kwargs=dict(tol=1e-12,method='L-BFGS-B'))
+        # Make the optimizer
+        optimizer=ScipyOptimizer(maxiter=500,jac=True,method='l-bfgs-b',use_bounds=False,tol=1e-12)
         # Construct the hyperparameter fitter
-        hpfitter=HyperparameterFitter(func=LogLikelihood(),optimization_method=local_optimize,opt_kwargs=opt_kwargs)
+        hpfitter=HyperparameterFitter(func=LogLikelihood(),optimizer=optimizer)
         # Construct the Student t process
         tp=TProcess(hp=dict(length=2.0),hpfitter=hpfitter,use_derivatives=use_derivatives)
+        # Set random seed to give the same results every time
+        np.random.seed(1)
         # Optimize the hyperparameters
         sol=tp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
         # Test the solution deviation
@@ -32,44 +33,45 @@ class TestTPObjectiveFunctions(unittest.TestCase):
     def test_line_search_scale(self):
         "Test if the TP can be optimized from line search in the length-scale hyperparameter with all objective functions that uses eigendecomposition"
         from catlearn.regression.gaussianprocess.models.tp import TProcess
-        from catlearn.regression.gaussianprocess.optimizers.functions import calculate_list_values
-        from catlearn.regression.gaussianprocess.optimizers.local_opt import fine_grid_search
-        from catlearn.regression.gaussianprocess.optimizers.global_opt import line_search_scale
+        from catlearn.regression.gaussianprocess.optimizers.globaloptimizer import FactorizedOptimizer
+        from catlearn.regression.gaussianprocess.optimizers.linesearcher import FineGridSearch
+        from catlearn.regression.gaussianprocess.optimizers.noisesearcher import NoiseGrid,NoiseGoldenSearch,NoiseFineGridSearch
         from catlearn.regression.gaussianprocess.hpfitter import HyperparameterFitter
         from catlearn.regression.gaussianprocess.objectivefunctions.tp import FactorizedLogLikelihood,FactorizedLogLikelihoodSVD
+        from catlearn.regression.gaussianprocess.hpboundary.boundary import HPBoundaries
         # Create the data set
         x,f,g=create_func()
         ## Whether to learn from the derivatives
         use_derivatives=False
         x_tr,f_tr,x_te,f_te=make_train_test_set(x,f,g,tr=20,te=1,use_derivatives=use_derivatives)
+        # Make fixed boundary conditions for one of the tests
+        fixed_bounds=HPBoundaries(bounds_dict=dict(length=[[-3.0,3.0]],noise=[[-8.0,0.0]],prefactor=[[-2.0,4.0]]),log=True)
+        # Make the optimizers
+        line_optimizer=FineGridSearch(tol=1e-5,loops=3,ngrid=80,optimize=True,multiple_min=True)
+        optimizer=FactorizedOptimizer(line_optimizer=line_optimizer,maxiter=500,ngrid=80,parallel=False)
         # Define the list of objective function objects that are tested
-        obj_list=[FactorizedLogLikelihood(modification=False,ngrid=250,bounds=None,hptrans=True,use_bounds=True,s=0.14,noise_method="grid",method_kwargs={}),
-                  FactorizedLogLikelihood(modification=True,ngrid=250,bounds=None,hptrans=True,use_bounds=True,s=0.14,noise_method="grid",method_kwargs={}),
-                  FactorizedLogLikelihood(modification=False,ngrid=80,bounds=None,hptrans=True,use_bounds=True,s=0.14,noise_method="golden",method_kwargs={}),
-                  FactorizedLogLikelihood(modification=False,ngrid=80,bounds=None,hptrans=True,use_bounds=True,s=0.14,noise_method="finegrid",method_kwargs={}),
-                  FactorizedLogLikelihood(modification=True,ngrid=250,bounds=None,hptrans=True,use_bounds=False,s=0.14,noise_method="grid",method_kwargs={}),
-                  FactorizedLogLikelihood(modification=True,ngrid=250,bounds=None,hptrans=False,use_bounds=True,s=0.14,noise_method="grid",method_kwargs={}),
-                  FactorizedLogLikelihood(modification=True,ngrid=250,bounds=np.array([[-3.0,3.0],[-8.0,0.0],[-2.0,4.0]]),hptrans=True,use_bounds=True,s=0.14,noise_method="grid",method_kwargs={}),
-                  FactorizedLogLikelihoodSVD(modification=False,ngrid=250,bounds=None,hptrans=True,use_bounds=True,s=0.14,noise_method="grid",method_kwargs={})]
-        # Make the dictionary of the optimization
-        local_kwargs=dict(fun_list=calculate_list_values,tol=1e-5,loops=3,iterloop=80,optimize=True,multiple_min=True)
-        opt_kwargs=dict(local_run=fine_grid_search,bounds=None,hptrans=True,use_bounds=True,maxiter=500,jac=False,ngrid=80,local_kwargs=local_kwargs)
+        obj_list=[(None,FactorizedLogLikelihood(modification=False,ngrid=250,noise_optimizer=NoiseGrid())),
+                  (None,FactorizedLogLikelihood(modification=True,ngrid=250,noise_optimizer=NoiseGrid())),
+                  (None,FactorizedLogLikelihood(modification=False,ngrid=80,noise_optimizer=NoiseGoldenSearch())),
+                  (None,FactorizedLogLikelihood(modification=False,ngrid=80,noise_optimizer=NoiseFineGridSearch())),
+                  (fixed_bounds,FactorizedLogLikelihood(modification=False,ngrid=250,noise_optimizer=NoiseGrid())),
+                  (None,FactorizedLogLikelihoodSVD(modification=False,ngrid=250,noise_optimizer=NoiseGrid()))]
         # Make a list of the solution values that the test compares to
         sol_list=[{'fun':499.867,'x':np.array([2.55,-2.01])},
                   {'fun':499.867,'x':np.array([2.55,-2.01])},
                   {'fun':499.866,'x':np.array([2.55,-2.00])},
                   {'fun':499.866,'x':np.array([2.55,-1.99])},
-                  {'fun':499.869,'x':np.array([2.55,-2.03])},
-                  {'fun':499.868,'x':np.array([2.55,-2.02])},
                   {'fun':499.866,'x':np.array([2.55,-1.99])},
                   {'fun':499.867,'x':np.array([2.55,-2.01])}]
         # Test the objective function objects
-        for index,obj_func in enumerate(obj_list):
-            with self.subTest(obj_func=obj_func):
+        for index,(bounds,obj_func) in enumerate(obj_list):
+            with self.subTest(bounds=bounds,obj_func=obj_func):
                 # Construct the hyperparameter fitter
-                hpfitter=HyperparameterFitter(func=obj_func,optimization_method=line_search_scale,opt_kwargs=opt_kwargs)
+                hpfitter=HyperparameterFitter(func=obj_func,optimizer=optimizer,bounds=bounds)
                 # Construct the Student t process
                 tp=TProcess(hp=dict(length=2.0),hpfitter=hpfitter,use_derivatives=use_derivatives)
+                # Set random seed to give the same results every time
+                np.random.seed(1)
                 # Optimize the hyperparameters
                 sol=tp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
                 # Test the solution deviation

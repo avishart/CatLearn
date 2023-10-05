@@ -3,6 +3,7 @@ from ase.neb import NEB
 from ase.io import read
 from ase.io.trajectory import TrajectoryWriter
 from copy import deepcopy
+from ase.parallel import world,broadcast
 import datetime
 
 class MLNEB(object):
@@ -96,10 +97,13 @@ class MLNEB(object):
         self.full_output=full_output  
         # Setup the ML calculator
         if mlcalc is None:
-            from .default_mlcalc import get_default_mlcalc
-            self.mlcalc=get_default_mlcalc(model='tp',parallelize=(not save_memory),database_reduction=False,ensemble=False,npoints=50)
+            from ..regression.gaussianprocess.calculator.mlmodel import get_default_mlmodel
+            from ..regression.gaussianprocess.calculator.mlcalc import MLCalculator
+            mlmodel=get_default_mlmodel(model='tp',baseline=None,use_derivatives=True,parallel=(not save_memory),database_reduction=False)
+            self.mlcalc=MLCalculator(mlmodel=mlmodel)
         else:
             self.mlcalc=mlcalc.copy()
+        self.set_verbose(verbose=full_output)
         # Select an acquisition function 
         if acq is None:
             from .acquisition import AcqUME
@@ -263,10 +267,8 @@ class MLNEB(object):
     def parallel_setup(self,save_memory=False,**kwargs):
         " Setup the parallelization. "
         self.save_memory=save_memory
-        if self.save_memory:
-            from mpi4py import MPI
-            self.comm=MPI.COMM_WORLD
-            self.rank,self.size=self.comm.Get_rank(),self.comm.Get_size()
+        self.rank=world.rank
+        self.size=world.size
         return self
 
     def evaluate(self,candidate,**kwargs):
@@ -278,8 +280,7 @@ class MLNEB(object):
         if self.save_memory:
             if self.rank==0:
                 candidate=candidate.copy()
-            candidate=self.comm.bcast(candidate,root=0)
-            self.comm.barrier()
+            candidate=broadcast(candidate,root=0)
         # Calculate the energies and forces
         candidate.calc=self.ase_calc
         candidate.calc.reset()
@@ -306,8 +307,13 @@ class MLNEB(object):
         if self.save_memory:
             if self.rank!=0:
                 return self.mlcalc
-        self.mlcalc.train_model(verbose=self.full_output)
+        self.mlcalc.train_model()
         return self.mlcalc
+
+    def set_verbose(self,verbose,**kwargs):
+        " Set verbose of MLModel. "
+        self.mlcalc.mlmodel.verbose=verbose
+        return 
 
     def extra_initial_data(self,**kwargs):
         " If only initial and final state is given then a third data point is calculated. "
@@ -425,9 +431,7 @@ class MLNEB(object):
     def message_system(self,message,obj=None,end='\n'):
         " Print output once. "
         if self.full_output is True:
-            import threading
-            lock=threading.Lock()
-            with lock:
+            if self.rank==0:
                 if obj is None:
                     print(message,end=end)
                 else:
@@ -449,7 +453,7 @@ class MLNEB(object):
                         converged=True
         # Broadcast convergence statement if MPI is used
         if self.save_memory:
-            converged=self.comm.bcast(converged,root=0)
+            converged=broadcast(converged,root=0)
         return converged
 
     def converged(self):

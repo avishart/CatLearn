@@ -22,11 +22,13 @@ class TestGPEnsemble(unittest.TestCase):
         # Define the list of whether to use variance as the ensemble method, which are tested
         var_list=[False,True]
         # Make a list of the error values that the test compares to
-        error_list=[4.37976,1.71652]
-        for index,variance_ensemble in enumerate(var_list):
-            with self.subTest(variance_ensemble=variance_ensemble):
+        error_list=[3.90019,1.73281]
+        for index,use_variance_ensemble in enumerate(var_list):
+            with self.subTest(use_variance_ensemble=use_variance_ensemble):
                 # Construct the ensemble model
-                enmodel=EnsembleClustering(model=gp,clustering=clustering,variance_ensemble=variance_ensemble)
+                enmodel=EnsembleClustering(model=gp,clustering=clustering,use_variance_ensemble=use_variance_ensemble)
+                # Set random seed to give the same results every time
+                np.random.seed(1)
                 # Train the machine learning model
                 enmodel.train(x_tr,f_tr)
                 # Predict the energies 
@@ -56,12 +58,14 @@ class TestGPEnsemble(unittest.TestCase):
                          K_means_number(data_number=12,maxiter=20,tol=1e-3,metric='euclidean'),
                          DistanceClustering(centroids=np.array([[-30.0],[60.0]]),metric='euclidean')]
         # Make a list of the error values that the test compares to
-        error_list=[1.72226,1.74409,1.73401,1.74409]
+        error_list=[1.73289,1.75136,1.73401,1.74409]
         # Test the baseline objects
         for index,clustering in enumerate(clustering_list):
             with self.subTest(clustering=clustering):
                 # Construct the ensemble model
-                enmodel=EnsembleClustering(model=gp,clustering=clustering,variance_ensemble=True)
+                enmodel=EnsembleClustering(model=gp,clustering=clustering,use_variance_ensemble=True)
+                # Set random seed to give the same results every time
+                np.random.seed(1)
                 # Train the machine learning model
                 enmodel.train(x_tr,f_tr)
                 # Predict the energies and uncertainties
@@ -91,11 +95,13 @@ class TestGPEnsembleDerivatives(unittest.TestCase):
         # Define the list of whether to use variance as the ensemble method, which are tested
         var_list=[False,True]
         # Make a list of the error values that the test compares to
-        error_list=[4.24169,0.17778]
-        for index,variance_ensemble in enumerate(var_list):
-            with self.subTest(variance_ensemble=variance_ensemble):
+        error_list=[3.66417,0.17265]
+        for index,use_variance_ensemble in enumerate(var_list):
+            with self.subTest(use_variance_ensemble=use_variance_ensemble):
                 # Construct the ensemble model
-                enmodel=EnsembleClustering(model=gp,clustering=clustering,variance_ensemble=variance_ensemble)
+                enmodel=EnsembleClustering(model=gp,clustering=clustering,use_variance_ensemble=use_variance_ensemble)
+                # Set random seed to give the same results every time
+                np.random.seed(1)
                 # Train the machine learning model
                 enmodel.train(x_tr,f_tr)
                 # Predict the energies 
@@ -125,12 +131,14 @@ class TestGPEnsembleDerivatives(unittest.TestCase):
                          K_means_number(data_number=12,maxiter=20,tol=1e-3,metric='euclidean'),
                          DistanceClustering(centroids=np.array([[-30.0],[60.0]]),metric='euclidean')]
         # Make a list of the error values that the test compares to
-        error_list=[0.22293,0.16393,0.14095,0.16393]
+        error_list=[0.17265,0.15492,0.14095,0.16393]
         # Test the baseline objects
         for index,clustering in enumerate(clustering_list):
             with self.subTest(clustering=clustering):
                 # Construct the ensemble model
-                enmodel=EnsembleClustering(model=gp,clustering=clustering,variance_ensemble=True)
+                enmodel=EnsembleClustering(model=gp,clustering=clustering,use_variance_ensemble=True)
+                # Set random seed to give the same results every time
+                np.random.seed(1)
                 # Train the machine learning model
                 enmodel.train(x_tr,f_tr)
                 # Predict the energies and uncertainties

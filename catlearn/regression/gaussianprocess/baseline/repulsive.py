@@ -3,16 +3,54 @@ from .baseline import Baseline_calculator
 from ..fingerprint.geometry import get_all_distances
         
 class Repulsion_calculator(Baseline_calculator):
-    implemented_properties = ['energy', 'forces']
-    nolabel = True
+    implemented_properties=['energy', 'forces']
+    nolabel=True
     
-    def __init__(self,r_scale=0.7,power=12,mic=True,reduce_dimensions=True,**kwargs):
-        """ A baseline calculator for ASE atoms object. 
-        It uses a repulsive Lennard-Jones potential baseline.    
+    def __init__(self,mic=True,reduce_dimensions=True,r_scale=0.7,power=12,**kwargs):
+        """ 
+        A baseline calculator for ASE atoms object. 
+        It uses a repulsive Lennard-Jones potential baseline.  
+        The power and the scaling of the repulsive Lennard-Jones potential can be selected.
+
+        Parameters: 
+            mic : bool
+                Minimum Image Convention (Shortest distances when periodic boundary is used).
+            reduce_dimensions: bool
+                Whether to reduce the dimensions to only moving atoms if constrains are used.
+            r_scale : float
+                The scaling of the covalent radii. 
+                A smaller value will move the repulsion to a lower distances. 
+            power : int
+                The power of the repulsion.
         """
-        super().__init__(mic=mic,reduce_dimensions=reduce_dimensions,**kwargs)
-        self.r_scale=r_scale
-        self.power=power
+        super().__init__(mic=mic,
+                         reduce_dimensions=reduce_dimensions,
+                         r_scale=r_scale,
+                         power=power,
+                         **kwargs)
+
+    def update_arguments(self,mic=None,reduce_dimensions=None,r_scale=None,power=None,**kwargs):
+        """
+        Update the class with its arguments. The existing arguments are used if they are not given.
+
+        Parameters: 
+            mic : bool
+                Minimum Image Convention (Shortest distances when periodic boundary is used).
+            reduce_dimensions: bool
+                Whether to reduce the dimensions to only moving atoms if constrains are used.
+                
+        Returns:
+            self: The updated object itself.
+        """
+        if mic is not None:
+            self.mic=mic
+        if reduce_dimensions is not None:
+            self.reduce_dimensions=reduce_dimensions
+        if r_scale is not None:
+            self.r_scale=r_scale
+        if power is not None:
+            self.power=int(power)
+        return self
     
     def get_energy(self,atoms,**kwargs):
         " Get the energy. "
@@ -81,7 +119,16 @@ class Repulsion_calculator(Baseline_calculator):
         cov_dis[i_nm,not_masked]=0.0
         return cov_dis,distances,vec_distances
     
-    def copy(self):
-        " Copy the calculator. "
-        return self.__class__(r_scale=self.r_scale,mic=self.mic,reduce_dimensions=self.reduce_dimensions)
+    def get_arguments(self):
+        " Get the arguments of the class itself. "
+        # Get the arguments given to the class in the initialization
+        arg_kwargs=dict(mic=self.mic,
+                        reduce_dimensions=self.reduce_dimensions,
+                        r_scale=self.r_scale,
+                        power=self.power)
+        # Get the constants made within the class
+        constant_kwargs=dict()
+        # Get the objects made within the class
+        object_kwargs=dict()
+        return arg_kwargs,constant_kwargs,object_kwargs
     

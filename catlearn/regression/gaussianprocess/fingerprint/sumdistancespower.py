@@ -3,22 +3,57 @@ from .sumdistances import Sum_distances
 
 class Sum_distances_power(Sum_distances):
     def __init__(self,reduce_dimensions=True,use_derivatives=True,mic=True,power=2,use_roots=True,**kwargs):
-        """ The sum of inverse distance fingerprint scaled with covalent radii in different powers.
-            Parameters:
-                reduce_dimensions: bool
-                    Whether to reduce the fingerprint space if constrains are used.
-                use_derivatives: bool
-                    Calculate and store derivatives of the fingerprint wrt. the cartesian coordinates.
-                mic: bool
-                    Minimum Image Convention (Shortest distances when periodic boundary is used).
-                power: int
-                    The power of the inverse distances.
-                use_roots: bool
-                    Whether to use roots of the power elements.
+        """ 
+        Fingerprint constructer class that convert atoms object into a fingerprint object with vector and derivatives.
+        The sum of inverse distance fingerprint scaled with covalent radii in different powers.
+        Parameters:
+            reduce_dimensions : bool
+                Whether to reduce the fingerprint space if constrains are used.
+            use_derivatives : bool
+                Calculate and store derivatives of the fingerprint wrt. the cartesian coordinates.
+            mic : bool
+                Minimum Image Convention (Shortest distances when periodic boundary is used).
+            power: int
+                The power of the inverse distances.
+            use_roots: bool
+                Whether to use roots of the power elements.
         """
-        super().__init__(reduce_dimensions=reduce_dimensions,use_derivatives=use_derivatives,mic=mic,**kwargs)
-        self.power=power
-        self.use_roots=use_roots
+        # Set the arguments
+        super().__init__(reduce_dimensions=reduce_dimensions,
+                         use_derivatives=use_derivatives,
+                         mic=mic,
+                         power=power,
+                         use_roots=use_roots,
+                         **kwargs)
+        
+    def update_arguments(self,reduce_dimensions=None,use_derivatives=None,mic=None,power=None,use_roots=None,**kwargs):
+        """
+        Update the class with its arguments. The existing arguments are used if they are not given.
+        Parameters:
+            reduce_dimensions : bool
+                Whether to reduce the fingerprint space if constrains are used.
+            use_derivatives : bool
+                Calculate and store derivatives of the fingerprint wrt. the cartesian coordinates.
+            mic : bool
+                Minimum Image Convention (Shortest distances when periodic boundary is used).
+            power: int
+                The power of the inverse distances.
+            use_roots: bool
+                Whether to use roots of the power elements.
+        Returns:
+            self: The updated object itself.
+        """
+        if reduce_dimensions is not None:
+            self.reduce_dimensions=reduce_dimensions
+        if use_derivatives is not None:
+            self.use_derivatives=use_derivatives
+        if mic is not None:
+            self.mic=mic
+        if power is not None:
+            self.power=int(power)
+        if use_roots is not None:
+            self.use_roots=use_roots
+        return self
     
     def make_fingerprint(self,atoms,not_masked,**kwargs):
         " Calculate the fingerprint and its derivative. "
@@ -73,9 +108,17 @@ class Sum_distances_power(Sum_distances):
                 g.extend(powers[1:].reshape(-1,1)*fg_prod)
         return f,g
             
-    def copy(self):
-        " Copy the Fingerprint. "
-        return self.__class__(reduce_dimensions=self.reduce_dimensions,use_derivatives=self.use_derivatives,mic=self.mic,power=self.power,use_roots=self.use_roots)
+    def get_arguments(self):
+        " Get the arguments of the class itself. "
+        # Get the arguments given to the class in the initialization
+        arg_kwargs=dict(reduce_dimensions=self.reduce_dimensions,
+                        use_derivatives=self.use_derivatives,
+                        mic=self.mic,
+                        power=self.power,
+                        use_roots=self.use_roots)
+        # Get the constants made within the class
+        constant_kwargs=dict()
+        # Get the objects made within the class
+        object_kwargs=dict()
+        return arg_kwargs,constant_kwargs,object_kwargs
     
-    def __repr__(self):
-        return "Sum_distances_power(reduce_dimensions={},use_derivatives={},mic={},power={},use_roots={})".format(self.reduce_dimensions,self.use_derivatives,self.mic,self.power,self.use_roots)

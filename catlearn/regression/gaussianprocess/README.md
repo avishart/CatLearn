@@ -7,8 +7,11 @@ The Gaussian process class and the Student T process are imported from the model
 The baseline class used for the Gaussian process is implemeted in the Baseline module. 
 The repulisive part of the Lennard-Jones potential as a baseline is implemeted as a baseline class. 
 
-## Boundary
-The boundary class used for constructing boundary conditions for the hyperparameters.
+## HPBoundary
+### Boundary conditions
+The boundary classes used for constructing boundary conditions for the hyperparameters. 
+### Hptrans
+A variable transformation of the hyperparameters is performed with Variable_Transformation class. The region of interest in hyperparameter space is enlarged without restricting any value.
 
 ## Calculator 
 The calculator module include the scripts needed for converging the Gaussian process to an ASE calculator. 
@@ -40,10 +43,7 @@ The Fingerprint class convert ASE Atoms into a FingerprintObject class. The Fing
 
 ## Hpfitter
 The hyperparameter fitter class that optimize the hyperparameters of the Gaussian process. The hyperparameter fitter needs an objective function and a optimization method as arguments. 
-A fully-Bayesian mimicking Gaussian process can be achived by the fbpmgp class. 
-
-## Hptrans
-A variable transformation of the hyperparameters is performed with Variable_Transformation class. The region of interest in hyperparameter space is enlarged without restricting any value. 
+A fully-Bayesian mimicking Gaussian process can be achived by the fbpmgp class.  
 
 ## Kernel 
 The kernel function is a fundamental part of the Gaussian process. The kernel function uses a distance meassure.

@@ -15,7 +15,9 @@ class TestGPFP(unittest.TestCase):
         ## Whether to learn from the derivatives
         use_derivatives=False
         # Construct the Gaussian process
-        gp=GaussianProcess(hp=dict(length=2.0),use_derivatives=use_derivatives,kernel=SE(use_derivatives=use_derivatives,use_fingerprint=True))
+        gp=GaussianProcess(hp=dict(length=2.0),
+                           use_derivatives=use_derivatives,
+                           kernel=SE(use_derivatives=use_derivatives,use_fingerprint=True))
         # Define the list of fingerprint objects that are tested
         fp_kwarg_list=[Cartesian(reduce_dimensions=True,use_derivatives=use_derivatives,mic=True),
                        Coulomb(reduce_dimensions=True,use_derivatives=use_derivatives,mic=True),
@@ -33,6 +35,8 @@ class TestGPFP(unittest.TestCase):
                 # Construct the fingerprints
                 fps=[fp(xi) for xi in x]
                 x_tr,f_tr,x_te,f_te=make_train_test_set(fps,f,g,tr=10,te=10,use_derivatives=use_derivatives)
+                # Set random seed to give the same results every time
+                np.random.seed(1)
                 # Train the machine learning model
                 gp.train(x_tr,f_tr)
                 # Predict the energies and uncertainties
@@ -73,6 +77,8 @@ class TestGPFPDerivatives(unittest.TestCase):
                 # Construct the fingerprints
                 fps=[fp(xi) for xi in x]
                 x_tr,f_tr,x_te,f_te=make_train_test_set(fps,f,g,tr=10,te=10,use_derivatives=use_derivatives)
+                # Set random seed to give the same results every time
+                np.random.seed(1)
                 # Train the machine learning model
                 gp.train(x_tr,f_tr)
                 # Predict the energies and uncertainties

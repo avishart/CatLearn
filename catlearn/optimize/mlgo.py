@@ -2,6 +2,7 @@ import numpy as np
 from ase.io import read
 from scipy.optimize import dual_annealing
 import datetime
+from ase.parallel import world,broadcast
 
 class MLGO:
     def __init__(self,slab,ads,ase_calc,ads2=None,mlcalc=None,acq=None,\
@@ -97,13 +98,16 @@ class MLGO:
         self.tabletxt=tabletxt
         # Setup the ML calculator
         if mlcalc is None:
-            from .default_mlcalc import get_default_mlcalc
+            from ..regression.gaussianprocess.calculator.mlmodel import get_default_mlmodel
+            from ..regression.gaussianprocess.calculator.mlcalc import MLCalculator
             from ..regression.gaussianprocess.fingerprint.invdistances import Inv_distances
             from ..regression.gaussianprocess.baseline.repulsive import Repulsion_calculator
             fp=Inv_distances(reduce_dimensions=True,use_derivatives=True,mic=True,sorting=True)
-            self.mlcalc=get_default_mlcalc(model='gp',fp=fp,baseline=Repulsion_calculator(),parallelize=(not save_memory),database_reduction=False,ensemble=False,npoints=50)
+            mlmodel=get_default_mlmodel(model='gp',fp=fp,baseline=Repulsion_calculator(),use_derivatives=True,parallel=(not save_memory),database_reduction=False)
+            self.mlcalc=MLCalculator(mlmodel=mlmodel)
         else:
             self.mlcalc=mlcalc.copy()
+        self.set_verbose(verbose=full_output)
         # Select an acquisition function 
         if acq is None:
             from .acquisition import AcqLCB
@@ -180,10 +184,8 @@ class MLGO:
     def parallel_setup(self,save_memory=False,**kwargs):
         " Setup the parallelization. "
         self.save_memory=save_memory
-        if self.save_memory:
-            from mpi4py import MPI
-            self.comm=MPI.COMM_WORLD
-            self.rank,self.size=self.comm.Get_rank(),self.comm.Get_size()
+        self.rank=world.rank
+        self.size=world.size
         return self
         
     def place_ads(self,pos_angles):
@@ -223,8 +225,7 @@ class MLGO:
         if self.save_memory:
             if self.rank==0:
                 candidate=candidate.copy()
-            candidate=self.comm.bcast(candidate,root=0)
-            self.comm.barrier()
+            candidate=broadcast(candidate,root=0)
         # Calculate the energies and forces
         candidate.calc=self.ase_calc
         candidate.calc.reset()
@@ -257,7 +258,7 @@ class MLGO:
                 self.best_x=self.x.copy()
         # Broadcast convergence statement if MPI is used
         if self.save_memory:
-            self.best_candidate,self.emin=self.comm.bcast([self.best_candidate,self.emin],root=0)
+            self.best_candidate,self.emin=broadcast([self.best_candidate,self.emin],root=0)
         return self.best_candidate
     
     def add_random_ads(self):
@@ -288,17 +289,21 @@ class MLGO:
     def train_mlmodel(self):
         " Train the ML-Model on 1 CPU"
         if self.rank==0:
-            self.mlcalc.mlmodel.train_model(verbose=self.full_output)
-        self.mlcalc=self.comm.bcast(self.mlcalc,root=0)
-        self.comm.barrier()
+            self.mlcalc.mlmodel.train_model()
+        self.mlcalc=broadcast(self.mlcalc,root=0)
         pass
+
+    def set_verbose(self,verbose,**kwargs):
+        " Set verbose of MLModel. "
+        self.mlcalc.mlmodel.verbose=verbose
+        return 
 
     def train_mlmodel(self):
         " Train the ML model "
         if not self.save_memory or self.rank==0:
-            self.mlcalc.train_model(verbose=self.full_output)
+            self.mlcalc.train_model()
         if self.save_memory:
-            self.mlcalc=self.comm.bcast(self.mlcalc,root=0)
+            self.mlcalc=broadcast(self.mlcalc,root=0)
         return self.mlcalc
 
     def find_next_candidate(self,ml_chains,ml_steps,max_unc,relax,fmax,local_steps,**kwargs):
@@ -366,13 +371,13 @@ class MLGO:
                         converged=True
         # Broadcast convergence statement if MPI is used
         if self.save_memory:
-            converged=self.comm.bcast(converged,root=0)
+            converged=broadcast(converged,root=0)
         return converged
     
     def dual_annealing(self,maxiter=5000,**opt_kwargs):
         " Find the candidates structures, energy and forces using dual annealing "
         # Deactivate force predictions
-        self.mlcalc.set_parameters(calculate_forces=False)
+        self.mlcalc.update_arguments(calculate_forces=False)
         # Perform simulated annealing
         sol=dual_annealing(self.dual_func,bounds=self.bounds,maxfun=maxiter,**opt_kwargs)
         # Reconstruct the final structure
@@ -396,7 +401,7 @@ class MLGO:
     def local_relax(self,candidate,fmax,max_unc,local_steps=200,rank=0,**kwargs):
         " Perform a local relaxation of the candidate "
         # Activate force predictions and reset calculator
-        self.mlcalc.set_parameters(calculate_forces=True)
+        self.mlcalc.update_arguments(calculate_forces=True)
         self.mlcalc.reset()
         candidate=candidate.copy()
         candidate.calc=self.mlcalc
@@ -460,7 +465,7 @@ class MLGO:
         " Broadcast candidates with energies, uncertainties, and positions. "
         candidates_broad={'candidates':[],'energies':[],'uncertainties':[],'x':[]}
         for r in range(self.size):
-            cand_r=self.comm.bcast(candidates,root=r)
+            cand_r=broadcast(candidates,root=r)
             for n in range(len(cand_r['candidates'])):
                 candidates_broad=self.append_candidates(candidates_broad,cand_r['candidates'][n],
                                                         cand_r['energy'][n],
@@ -481,9 +486,7 @@ class MLGO:
                 else:
                     print(message,obj,end=end)
             else:
-                import threading
-                lock=threading.Lock()
-                with lock:
+                if self.rank==0:
                     if obj is None:
                         print(message,end=end)
                     else:

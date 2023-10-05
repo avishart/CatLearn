@@ -2,35 +2,68 @@ import numpy as np
 from .clustering import Clustering
 
 class K_means(Clustering):
-    def __init__(self,k=4,maxiter=100,tol=1e-4,metric='euclidean',**kwargs):
-        " The K-means++ algorithm for clustering. "
-        super().__init__(metric=metric,**kwargs)
-        self.k=int(k)
-        self.maxiter=int(maxiter)
-        self.tol=tol
-        
-    def fit(self,X,**kwargs):
-        " Fit the clustering algorithm. "
-        if self.k==1:
-            self.centroids=np.array([np.mean(X,axis=0)])
-            return self
-        centroids=self.initiate_centroids(X)
-        self.centroids=self.optimize_centroids(X,centroids)
-        return self
+    def __init__(self,metric='euclidean',n_clusters=4,maxiter=100,tol=1e-4,**kwargs):
+        """
+        Clustering class object for data sets.
+        The K-means++ algorithm for clustering.
+        Parameters:
+            metric : str
+                The metric used to calculate the distances of the data.
+            n_clusters : int
+                The number of used clusters.
+            maxiter : int
+                The maximum number of iterations used to fit the clusters.
+            tol : float
+                The tolerance before the cluster fit is converged.
+        """
+        super().__init__(metric=metric,
+                         n_clusters=n_clusters,
+                         maxiter=maxiter,
+                         tol=tol,
+                         **kwargs)
     
     def cluster_fit_data(self,X,**kwargs):
-        " Cluster the data used for fitting the algorithm. "
-        if self.k==1:
+        # If only one cluster is used give the full data 
+        if self.n_clusters==1:
             self.centroids=np.array([np.mean(X,axis=0)])
-            return [list(range(len(X)))]
-        self.fit(X)
+            return [np.arange(len(X))]
+        # Initiate the centroids
+        centroids=self.initiate_centroids(X)
+        # Optimize position of the centroids
+        self.centroids=self.optimize_centroids(X,centroids)
+        # Return the cluster indicies
         return self.cluster(X)
     
+    def update_arguments(self,metric=None,n_clusters=None,maxiter=None,tol=None,**kwargs):
+        """
+        Update the class with its arguments. The existing arguments are used if they are not given.
+        Parameters:
+            metric : str
+                The metric used to calculate the distances of the data.
+            n_clusters : int
+                The number of used clusters.
+            maxiter : int
+                The maximum number of iterations used to fit the clusters.
+            tol : float
+                The tolerance before the cluster fit is converged.
+        Returns:
+            self: The updated object itself.
+        """
+        if metric is not None:
+            self.metric=metric
+        if n_clusters is not None:
+            self.n_clusters=int(n_clusters)
+        if maxiter is not None:
+            self.maxiter=int(maxiter)
+        if tol is not None:
+            self.tol=tol
+        return self
+    
     def initiate_centroids(self,X,**kwargs):
-        " Initial centroids from K-mean++ method. "
+        " Initial the centroids from the K-mean++ method. "
         # Get the first centroid randomly 
         centroids=np.array(X[np.random.choice(len(X),size=1)])
-        for ki in range(1,self.k):
+        for ki in range(1,self.n_clusters):
             # Calculate the maximum nearest neighbor
             i_max=np.argmax(np.min(self.calculate_distances(X,centroids),axis=1))
             centroids=np.append(centroids,[X[i_max]],axis=0)
@@ -43,23 +76,21 @@ class K_means(Clustering):
             centroids_old=centroids.copy()
             # Calculate which centroids that are closest
             i_min=np.argmin(self.calculate_distances(X,centroids),axis=1)
-            centroids=np.array([np.mean(X[i_min==ki],axis=0) for ki in range(self.k)])
+            centroids=np.array([np.mean(X[i_min==ki],axis=0) for ki in range(self.n_clusters)])
             # Check if it is converged
             if np.linalg.norm(centroids-centroids_old)<=self.tol:
                 break
         return centroids
     
-    def set_centroids(self,centroids):
-        " Set the centroids. "
-        self.centroids=centroids.copy()
-        return self
-    
-    def copy(self):
-        " Copy the cluster object. "
-        clone=self.__class__(k=self.k,maxiter=self.maxiter,tol=self.tol,metric=self.metric)
-        if 'centroids' in self.__dict__.keys():
-            clone.centroids=self.centroids.copy()
-        return clone
-        
-    def __repr__(self):
-        return "K_means(k={},maxiter={},tol={},metric={})".format(self.k,self.maxiter,self.tol,self.metric)
+    def get_arguments(self):
+        " Get the arguments of the class itself. "
+        # Get the arguments given to the class in the initialization
+        arg_kwargs=dict(metric=self.metric,
+                        n_clusters=self.n_clusters,
+                        maxiter=self.maxiter,
+                        tol=self.tol)
+        # Get the constants made within the class
+        constant_kwargs=dict()
+        # Get the objects made within the class
+        object_kwargs=dict(centroids=self.centroids)
+        return arg_kwargs,constant_kwargs,object_kwargs

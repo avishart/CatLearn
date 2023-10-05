@@ -3,7 +3,23 @@ from .fingerprint import Fingerprint
 from .geometry import get_all_distances
 
 class Coulomb(Fingerprint):
-    " The Coulomb matrix fingerprint "
+    def __init__(self,reduce_dimensions=True,use_derivatives=True,mic=True,**kwargs):
+        """ 
+        Fingerprint constructer class that convert atoms object into a fingerprint object with vector and derivatives.
+        The Coulomb matrix fingerprint is generated.
+        Parameters:
+            reduce_dimensions : bool
+                Whether to reduce the fingerprint space if constrains are used.
+            use_derivatives : bool
+                Calculate and store derivatives of the fingerprint wrt. the cartesian coordinates.
+            mic : bool
+                Minimum Image Convention (Shortest distances when periodic boundary is used).
+        """
+        # Set the arguments
+        super().__init__(reduce_dimensions=reduce_dimensions,
+                         use_derivatives=use_derivatives,
+                         mic=mic,
+                         **kwargs)
     
     def make_fingerprint(self,atoms,not_masked,**kwargs):
         " The calculation of the coulomb matrix fingerprint "
@@ -59,5 +75,3 @@ class Coulomb(Fingerprint):
             g.append(gij)
         return np.array(g)
     
-    def __repr__(self):
-        return "Coulomb(reduce_dimensions={},use_derivatives={},mic={})".format(self.reduce_dimensions,self.use_derivatives,self.mic)

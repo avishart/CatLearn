@@ -1,49 +1,68 @@
 import numpy as np
-from .clustering import Clustering
+from .k_means import K_means
 
-class K_means_number(Clustering):
-    def __init__(self,data_number=40,maxiter=100,tol=1e-4,metric='euclidean',**kwargs):
-        " The K-means++ algorithm for clustering, but where the number of clusters are updated from a fixed number data point in each cluster. "
-        super().__init__(metric=metric,**kwargs)
-        self.data_number=int(data_number)
-        self.maxiter=int(maxiter)
-        self.tol=tol
+class K_means_number(K_means):
+    def __init__(self,metric='euclidean',data_number=25,maxiter=100,tol=1e-4,**kwargs):
+        """
+        Clustering class object for data sets.
+        The K-means++ algorithm for clustering, but where the number of clusters are updated from a fixed number data point in each cluster.
+        Parameters:
+            metric : str
+                The metric used to calculate the distances of the data.
+            data_number : int
+                The number of data point in each cluster.
+            maxiter : int
+                The maximum number of iterations used to fit the clusters.
+            tol : float
+                The tolerance before the cluster fit is converged.
+        """
+        super().__init__(metric=metric,
+                         data_number=data_number,
+                         maxiter=maxiter,
+                         tol=tol,
+                         **kwargs)
         
-    def fit(self,X,**kwargs):
-        " Fit the clustering algorithm. "
-        n_data=len(X)
-        self.k=int(n_data//self.data_number)
-        if n_data-(self.k*self.data_number):
-            self.k=self.k+1
-        if self.k==1:
-            self.centroids=np.array([np.mean(X,axis=0)])
-            return self
-        centroids=self.initiate_centroids(X)
-        self.centroids,cluster_indicies=self.optimize_centroids(X,centroids)
-        return self
-    
     def cluster_fit_data(self,X,**kwargs):
-        " Cluster the data used for fitting the algorithm. "
+        # Calculate the number of clusters
         n_data=len(X)
-        self.k=int(n_data//self.data_number)
-        if n_data-(self.k*self.data_number):
-            self.k=self.k+1
-        if self.k==1:
+        self.n_clusters=int(n_data//self.data_number)
+        if n_data-(self.n_clusters*self.data_number):
+            self.n_clusters=self.n_clusters+1
+        # If only one cluster is used give the full data 
+        if self.n_clusters==1:
             self.centroids=np.array([np.mean(X,axis=0)])
-            return [list(range(n_data))]
+            return [np.arange(n_data)]
+        # Initiate the centroids
         centroids=self.initiate_centroids(X)
+        # Optimize position of the centroids
         self.centroids,cluster_indicies=self.optimize_centroids(X,centroids)
+        # Return the cluster indicies
         return cluster_indicies
     
-    def initiate_centroids(self,X,**kwargs):
-        " Initial centroids from K-mean++ method. "
-        # Get the first centroid randomly 
-        centroids=np.array(X[np.random.choice(len(X),size=1)])
-        for ki in range(1,self.k):
-            # Calculate the maximum nearest neighbor
-            i_max=np.argmax(np.min(self.calculate_distances(X,centroids),axis=1))
-            centroids=np.append(centroids,[X[i_max]],axis=0)
-        return centroids
+    def update_arguments(self,metric=None,data_number=None,maxiter=None,tol=None,**kwargs):
+        """
+        Update the class with its arguments. The existing arguments are used if they are not given.
+        Parameters:
+            metric : str
+                The metric used to calculate the distances of the data.
+            data_number : int
+                The number of data point in each cluster.
+            maxiter : int
+                The maximum number of iterations used to fit the clusters.
+            tol : float
+                The tolerance before the cluster fit is converged.
+        Returns:
+            self: The updated object itself.
+        """
+        if metric is not None:
+            self.metric=metric
+        if data_number is not None:
+            self.data_number=int(data_number)
+        if maxiter is not None:
+            self.maxiter=int(maxiter)
+        if tol is not None:
+            self.tol=tol
+        return self
     
     def optimize_centroids(self,X,centroids,**kwargs):
         " Optimize the positions of the centroids. "
@@ -61,11 +80,13 @@ class K_means_number(Clustering):
         return centroids,cluster_indicies
     
     def count_clusters(self,X,indicies,distance_matrix,**kwargs):
-        """ Get the indicies for each of the clusters.
-            The number of data points in each cluster is counted and restricted 
-            between the minimum and maximum number of allowed cluster sizes. """
+        """ 
+        Get the indicies for each of the clusters.
+        The number of data points in each cluster is counted and restricted 
+        between the minimum and maximum number of allowed cluster sizes. 
+        """
         # Make a list cluster indicies
-        klist=np.arange(self.k).reshape(-1,1)
+        klist=np.arange(self.n_clusters).reshape(-1,1)
         # Find the cluster that each point is closest to
         k_indicies=np.argmin(distance_matrix,axis=1)
         indicies_ki_bool=(klist==k_indicies)
@@ -74,23 +95,18 @@ class K_means_number(Clustering):
         indicies_sorted=indicies[d_indicies.T]
         indicies_ki_bool=indicies_ki_bool[klist,indicies_sorted]
         # Prioritize the points that is part of each cluster
-        cluster_indicies=[np.append(indicies_sorted[ki,indicies_ki_bool[ki]],indicies_sorted[ki,~indicies_ki_bool[ki]])[:self.data_number] for ki in range(self.k)]
+        cluster_indicies=[np.append(indicies_sorted[ki,indicies_ki_bool[ki]],indicies_sorted[ki,~indicies_ki_bool[ki]])[:self.data_number] for ki in range(self.n_clusters)]
         return cluster_indicies
-    
-    def set_centroids(self,centroids):
-        " Set the centroids. "
-        self.centroids=centroids.copy()
-        return self
-    
-    def copy(self):
-        " Copy the cluster object. "
-        clone=self.__class__(data_number=self.data_number,maxiter=self.maxiter,tol=self.tol,metric=self.metric)
-        if 'k' in self.__dict__.keys():
-            clone.k=self.k
-        if 'centroids' in self.__dict__.keys():
-            clone.centroids=self.centroids.copy()
-        return clone
-        
-    def __repr__(self):
-        return "K_means_number(data_number={},maxiter={},tol={},metric={})".format(self.data_number,self.maxiter,self.tol,self.metric)
-        
+
+    def get_arguments(self):
+        " Get the arguments of the class itself. "
+        # Get the arguments given to the class in the initialization
+        arg_kwargs=dict(metric=self.metric,
+                        data_number=self.data_number,
+                        maxiter=self.maxiter,
+                        tol=self.tol)
+        # Get the constants made within the class
+        constant_kwargs=dict(n_clusters=self.n_clusters)
+        # Get the objects made within the class
+        object_kwargs=dict(centroids=self.centroids)
+        return arg_kwargs,constant_kwargs,object_kwargs

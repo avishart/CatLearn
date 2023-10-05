@@ -23,6 +23,8 @@ class TestGPMeans(unittest.TestCase):
             with self.subTest(prior=prior):
                 # Construct the Gaussian process
                 gp=GaussianProcess(prior=prior(),hp=dict(length=2.0),use_derivatives=use_derivatives)
+                # Set random seed to give the same results every time
+                np.random.seed(1)
                 # Train the machine learning model
                 gp.train(x_tr,f_tr)
                 # Predict the energies and uncertainties
@@ -49,6 +51,8 @@ class TestGPMeans(unittest.TestCase):
             with self.subTest(prior=prior):
                 # Construct the Gaussian process
                 gp=GaussianProcess(prior=prior(),hp=dict(length=2.0),use_derivatives=use_derivatives)
+                # Set random seed to give the same results every time
+                np.random.seed(1)
                 # Train the machine learning model
                 gp.train(x_tr,f_tr)
                 # Predict the energies and uncertainties

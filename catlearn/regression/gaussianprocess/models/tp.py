@@ -1,159 +1,68 @@
 import numpy as np
-from scipy.linalg import cho_factor,cho_solve
 from .model import ModelProcess
 
 class TProcess(ModelProcess):
-    def __init__(self,prior=None,kernel=None,hp={},use_derivatives=False,correction=True,hpfitter=None,a=1e-20,b=1e-20,**kwargs):
-        """The Student's T Process Regressor solver with Cholesky decomposition and optimization of hyperparameters.
-            Parameters:
-                prior: Prior class
-                    The prior given for new data.
-                kernel: Kernel class
-                    The kernel function used for the kernel matrix.
-                hp: dictionary
-                    A dictionary of hyperparameters like noise and length-scale.
-                use_derivatives: bool
-                    Use derivatives/gradients for training and predictions.
-                hpfitter: HyperparameterFitter class
-                    A class to optimize hyperparameters.
-                a: float
-                    Hyperprior parameter for the inverse-gamma distribution of the prefactor.
-                b: float
-                    Hyperprior parameter for the inverse-gamma distribution of the prefactor.
+    def __init__(self,prior=None,kernel=None,hpfitter=None,hp={},use_derivatives=False,use_correction=True,a=1e-20,b=1e-20,**kwargs):
         """
-        # Set the prior mean class
+        The Student's T Process Regressor.
+        The Student's T process uses Cholesky decomposition for inverting the kernel matrix.
+        The hyperparameters can be optimized.
+        Parameters:
+            prior: Prior class
+                The prior given for new data.
+            kernel: Kernel class
+                The kernel function used for the kernel matrix.
+            hpfitter: HyperparameterFitter class
+                A class to optimize hyperparameters
+            hp: dictionary
+                A dictionary of hyperparameters like noise and length scale.
+                The hyperparameters are used in the log-space.
+            use_derivatives: bool
+                Use derivatives/gradients for training and predictions.
+            use_correction : bool
+                Use the noise correction on the covariance matrix.
+            a: float
+                Hyperprior shape parameter for the inverse-gamma distribution of the prefactor.
+            b: float
+                Hyperprior scale parameter for the inverse-gamma distribution of the prefactor.
+        """
+        # Set default descriptors
+        self.trained_model=False
+        self.corr=0.0
+        self.features=[]
+        self.L=np.array([])
+        self.low=False
+        self.coef=np.array([])
+        self.prefactor=1.0
+        # Set default relative-noise hyperparameters
+        self.hp={'noise':np.array([-8.0])}
+        # Set the default prior mean class
         if prior is None:
             from ..means.mean import Prior_mean
             prior=Prior_mean()
-        self.prior=prior.copy()
-        # Set the kernel class
+        # Set the default kernel class
         if kernel is None:
             from ..kernel import SE
             kernel=SE(use_derivatives=use_derivatives,use_fingerprint=False)
-        self.kernel=kernel.copy()
-        #Whether to use derivatives or not for the target
-        self.use_derivatives=use_derivatives
-        # Use noise correction
-        self.correction=correction
-        #The hyperparameter optimization method
+        # The default hyperparameter optimization method
         if hpfitter is None:
             from ..hpfitter import HyperparameterFitter
-            from ..objectivefunctions.tp import LogLikelihood
-            hpfitter=HyperparameterFitter(LogLikelihood())
-        self.set_hpfitter(hpfitter)
-        # Check if the attributes agree
-        self.check_attributes()
-        # Set the hyperprior parameters of the prefactor 
-        self.a=a
-        self.b=b
-        #Set hyperparameters
+            from ..objectivefunctions.tp.likelihood import LogLikelihood
+            hpfitter=HyperparameterFitter(func=LogLikelihood())
+        # Set noise hyperparameters
         self.hp={'noise':np.array([-8.0])}
-        self.set_hyperparams(hp)
-
-    
-    def train(self,features,targets,**kwargs):
-        """Train the Student's T process with training features and targets. 
-        Parameters:
-            features: (N,D) array or (N) list of fingerprint objects
-                Training features with N data points.
-            targets: (N,1) array
-                Training targets with N data points 
-            or 
-            targets: (N,1+D) array
-                Training targets in first column and derivatives of each feature in the next columns if use_derivatives is True
-        Returns trained T process:
-        """
-        #Make kernel matrix with noise
-        self.features=features.copy()
-        K=self.kernel(features,get_derivatives=self.use_derivatives)
-        K=self.add_regularization(K,len(features))
-        self.L,self.low=cho_factor(K)
-        #Subtracting prior mean from target 
-        targets=targets.copy()
-        self.prior.update(features,targets,L=self.L,low=self.low)
-        targets=targets-self.prior.get(features,targets,get_derivatives=self.use_derivatives)
-        #Rearrange targets if derivatives are used
-        if self.use_derivatives:
-            targets=targets.T.reshape(-1,1)
-        else:
-            targets=targets[:,0:1].copy()
-        #Calculate the coefficients
-        self.coef=cho_solve((self.L,self.low),targets,check_finite=False)
-        n2=float(len(targets)-2) if len(targets)>1 else 0.0
-        self.prefactor=(2.0*self.b+np.matmul(targets.T,self.coef).item(0))/(2.0*self.a+n2)
-        return self
-
-    def predict(self,features,get_variance=False,get_derivatives=False,include_noise=False,**kwargs):
-        """Predict the mean and variance for test features by using data and coefficients from training data.
-        Parameters:
-            features: (M,D) array or (M) list of fingerprint objects
-                Test features with M data points.
-            get_variance: bool
-                Whether to predict the vartiance
-            get_derivatives: bool
-                Whether to predict the derivative mean and uncertainty
-            include_noise: bool
-                Whether to include the noise of data in the predicted variance
-        Returns:
-            Y_predict: (M,1) or (M,1+D) array 
-                The predicted mean values and or without derivatives
-            var: (M,1) or (M,1+D) array
-                The predicted variance of values and or without derivatives.
-        """
-        #Calculate the kernel matrix of test and training data
-        KQX=self.kernel(features,self.features,get_derivatives=get_derivatives)
-        n_data=len(features)
-        #Calculate the predicted values
-        Y_predict=np.matmul(KQX,self.coef)
-        Y_predict=Y_predict.reshape(n_data,-1,order='F')
-        Y_predict=Y_predict+self.prior.get(features,Y_predict,get_derivatives=get_derivatives)
-        #Calculate the predicted variance
-        if get_variance:
-            var=self.calculate_variance(features,KQX,get_derivatives=get_derivatives,include_noise=include_noise)
-            return Y_predict,var
-        return Y_predict,None
-
-    def calculate_variance(self,features,KQX,get_derivatives=False,include_noise=False,**kwargs):
-        """Calculate the predicted variance
-        Parameters:
-            features: (M,D) array or (M) list of fingerprint objects
-                Test features with M data points.
-            KQX: (M,N) array or (M*(1+D),N*(1+D)) array or (M,N*(1+D))
-                The kernel matrix of test and training data.
-            get_derivatives: bool
-                Whether to predict the derivative uncertainty.
-            include_noise: bool
-                Whether to include the noise of data in the predicted variance
-        Returns:
-            var: (M,1) or (M,1+D) array
-                The predicted variance of values and or without derivatives.
-        """
-        #Calculate the diagonal elements of the kernel matrix without noise 
-        n_data=len(features)
-        k=self.kernel.diag(features,get_derivatives=get_derivatives)
-        if include_noise:
-            if get_derivatives and 'noise_deriv' in self.hp:
-                k[range(n_data)]+=(np.nan_to_num(np.exp(2*self.hp['noise'].item(0)))+self.corr)
-                k[range(n_data,len(k))]+=(np.nan_to_num(np.exp(2*self.hp['noise_deriv'].item(0)))+self.corr)
-            else:
-                k+=(np.nan_to_num(np.exp(2*self.hp['noise'].item(0)))+self.corr)
-        #Calculate predicted variance
-        var=(k-np.einsum('ij,ji->i',KQX,cho_solve((self.L,self.low),KQX.T,check_finite=False))).reshape(-1,1)
-        var=var*self.prefactor
-        if get_derivatives:
-            return var.reshape(n_data,-1,order='F')
-        return var
+        # Set all the arguments
+        self.update_arguments(prior=prior,
+                              kernel=kernel,
+                              hpfitter=hpfitter,
+                              hp=hp,
+                              use_derivatives=use_derivatives,
+                              use_correction=use_correction,
+                              a=a,
+                              b=b,
+                              **kwargs)
 
     def set_hyperparams(self,new_params={},**kwargs):
-        """Set or update the hyperparameters for the TP.
-            Parameters:
-                new_params: dictionary
-                    A dictionary of hyperparameters that are added or updated.
-            Returns:
-                hp: dictionary
-                    An updated dictionary of hyperparameters with noise, kernel hyperparameters (like length) 
-                    and noise_deriv for the derivative part of the kernel if specified.
-        """
         self.kernel.set_hyperparams(new_params)
         # Noise is always in the TP
         if 'noise' in new_params:
@@ -161,51 +70,102 @@ class TProcess(ModelProcess):
         if 'noise_deriv' in new_params:
             self.hp['noise_deriv']=np.array(new_params['noise_deriv'],dtype=float).reshape(-1)
         return self
+    
+    def update_arguments(self,prior=None,kernel=None,hpfitter=None,hp={},use_derivatives=None,use_correction=None,a=None,b=None,**kwargs):
+        """
+        Update the Model Process Regressor with its arguments. The existing arguments are used if they are not given.
+        Parameters:
+            prior : Prior class
+                The prior given for new data.
+            kernel : Kernel class
+                The kernel function used for the kernel matrix.
+            hpfitter : HyperparameterFitter class
+                A class to optimize hyperparameters
+            hp : dictionary
+                A dictionary of hyperparameters like noise and length scale.
+                The hyperparameters are used in the log-space.
+            use_derivatives : bool
+                Use derivatives/gradients for training and predictions.
+            use_correction : bool
+                Use the noise correction on the covariance matrix.
+            a: float
+                Hyperprior shape parameter for the inverse-gamma distribution of the prefactor.
+            b: float
+                Hyperprior scale parameter for the inverse-gamma distribution of the prefactor.
+        Returns:
+            self: The updated object itself.
+        """
+        # Set the prior mean class
+        if prior is not None:
+            self.prior=prior.copy()
+        # Set the kernel class
+        if kernel is not None:
+            self.kernel=kernel.copy()
+        # Set whether to use derivatives for the target
+        if use_derivatives is not None:
+            self.use_derivatives=use_derivatives
+        # Set noise correction
+        if use_correction is not None:
+            self.use_correction=use_correction
+        # The hyperparameter optimization method
+        if hpfitter is not None:
+            self.hpfitter=hpfitter.copy()
+        # The hyperprior shape parameter
+        if a is not None:
+            self.a=float(a)
+        # The hyperprior scale parameter
+        if b is not None:
+            self.b=float(b)
+        #Set hyperparameters
+        self.set_hyperparams(hp)
+        # Check if the attributes agree
+        self.check_attributes()
+        return self
 
     def get_gradients(self,X,hp,KXX,**kwargs):
-        """Get the gradients of the T Process with respect to the hyperparameters.
-            Parameters:
-                X: (N,D) array
-                    Features with N data points and D dimensions.
-                hp: list
-                    A list with elements of the hyperparameters that are optimized.
-                KXX: (N,N) array
-                    The kernel matrix of training data.
-                dis_m: (N,N) array (optional)
-                    Can be given the distance matrix to avoid recaulcating it.
-        """
         hp_deriv={}
         n_data,m_data=len(X),len(KXX)
         if 'noise' in hp:
+            K_deriv=np.full(m_data,2.0*np.exp(2.0*self.hp['noise'][0]))
             if 'noise_deriv' in self.hp:
-                hp_deriv['noise']=np.array([np.diag(np.array([2.0*np.exp(2.0*self.hp['noise'][0])]*n_data+[0.0]*int(m_data-n_data)).reshape(-1))])
+                K_deriv[n_data:]=0.0
+                hp_deriv['noise']=np.array([np.diag(K_deriv)])
             else:
-                hp_deriv['noise']=np.array([np.diag(np.array([2.0*np.exp(2.0*self.hp['noise'][0])]*m_data).reshape(-1))])
+                hp_deriv['noise']=np.array([np.diag(K_deriv)])
         if 'noise_deriv' in hp:
-            hp_deriv['noise_deriv']=np.array([np.diag(np.array([0.0]*n_data+[2*np.exp(2*self.hp['noise_deriv'][0])]*int(m_data-n_data)).reshape(-1))])
+            K_deriv=np.full(m_data,2.0*np.exp(2.0*self.hp['noise_deriv'][0]))
+            K_deriv[:n_data]=0.0
+            hp_deriv['noise_deriv']=np.array([np.diag(K_deriv)])
         hp_deriv.update(self.kernel.get_gradients(X,hp,KXX=KXX))
         return hp_deriv
     
-    def copy(self):
-        " Copy the Model object. "
-        clone=self.__class__(prior=self.prior,
-                             kernel=self.kernel,
-                             hp=self.hp,
-                             use_derivatives=self.use_derivatives,
-                             correction=self.correction,
-                             hpfitter=self.hpfitter,
-                             a=self.a,
-                             b=self.b)
-        # Inherit floats or bools
-        for key in ['corr','low','prefactor']:
-            if key in self.__dict__.keys():
-                clone.__dict__[key]=self.__dict__[key]
-        # Inherit ndarrays
-        for key in ['features','L','coef']:
-            if key in self.__dict__.keys():
-                clone.__dict__[key]=self.__dict__[key].copy()
-        return clone
+    def get_hyperprior_parameters(self,**kwargs):
+        " Get the hyperprior parameters from the Student's T Process. "
+        return self.a,self.b
+    
+    def calculate_prefactor(self,features,targets,**kwargs):
+        " Calculate the prefactor that the prediction uncertainty is scaled with. "
+        n2=float(len(targets)-2) if len(targets)>1 else 0.0
+        return (2.0*self.b+np.matmul(targets.T,self.coef).item(0))/(2.0*self.a+n2)
 
-    def __repr__(self):
-        return "TProcess(prior={}, kernel={}, hp={}, use_derivatives={}, correction={}, hpfitter={}, a={}, b={})".format(self.prior,self.kernel,self.hp,self.use_derivatives,self.correction,self.hpfitter,self.a,self.b)
-
+    def get_arguments(self):
+        " Get the arguments of the class itself. "
+        # Get the arguments given to the class in the initialization
+        arg_kwargs=dict(prior=self.prior,
+                        kernel=self.kernel,
+                        hpfitter=self.hpfitter,
+                        hp=self.get_hyperparams(),
+                        use_derivatives=self.use_derivatives,
+                        use_correction=self.use_correction,
+                        a=self.a,
+                        b=self.b)
+        # Get the constants made within the class
+        constant_kwargs=dict(trained_model=self.trained_model,
+                             corr=self.corr,
+                             low=self.low,
+                             prefactor=self.prefactor)
+        # Get the objects made within the class
+        object_kwargs=dict(features=self.features,
+                           L=self.L,
+                           coef=self.coef)
+        return arg_kwargs,constant_kwargs,object_kwargs
