@@ -38,10 +38,10 @@ class TestGPPdis(unittest.TestCase):
                   {'fun':47.042,'x':np.array([1.97,-16.18,1.79])},
                   {'fun':44.702,'x':np.array([2.55,-2.00,1.69])},
                   {'fun':47.042,'x':np.array([1.97,-16.95,1.79])},
-                  {'fun':47.042,'x':np.array([1.97,-11.43,1.79])},
-                  {'fun':47.042,'x':np.array([1.97,-17.24,1.79])},
-                  {'fun':47.042,'x':np.array([1.97,-16.75,1.79])},
-                  {'fun':47.042,'x':np.array([1.97,-16.83,1.79])}]
+                  {'fun':47.042,'x':np.array([1.97,-11.09,1.79])},
+                  {'fun':44.702,'x':np.array([2.55,-2.00,1.69])},
+                  {'fun':47.042,'x':np.array([1.97,-17.33,1.79])},
+                  {'fun':47.042,'x':np.array([1.97,-17.42,1.79])}]
         # Test the prior distributions
         for index,(use_update_pdis,pdis_d) in enumerate(test_pdis):
             with self.subTest(use_update_pdis=use_update_pdis,pdis_d=pdis_d):
@@ -98,10 +98,10 @@ class TestGPPdis(unittest.TestCase):
                   {'fun':50.481,'x':np.array([2.55,-2.00,1.69])},
                   {'fun':48.905,'x':np.array([2.53,-1.94,1.65])},
                   {'fun':51.039,'x':np.array([2.55,-1.99,1.69])},
-                  {'fun':67.728,'x':np.array([2.55,-1.99,1.69])},
-                  {'fun':49.743,'x':np.array([2.55,-1.93,1.66])},
-                  {'fun':67.728,'x':np.array([2.55,-1.99,1.69])},
-                  {'fun':79.960,'x':np.array([2.52,-1.97,1.66])}]
+                  {'fun':66.343,'x':np.array([2.55,-1.99,1.69])},
+                  {'fun':48.801,'x':np.array([2.52,-1.85,1.62])},
+                  {'fun':66.342,'x':np.array([2.55,-1.99,1.69])},
+                  {'fun':78.574,'x':np.array([2.52,-1.97,1.66])}]
         # Test the prior distributions
         for index,(use_update_pdis,pdis_d) in enumerate(test_pdis):
             with self.subTest(use_update_pdis=use_update_pdis,pdis_d=pdis_d):
