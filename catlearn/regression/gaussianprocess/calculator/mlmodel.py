@@ -449,7 +449,8 @@ def get_default_mlmodel(model='tp',fp=None,baseline=None,prior='median',use_deri
     else:
         use_fingerprint=True
     # Make the model
-    model=get_default_model(model=model,prior=prior,use_derivatives=use_derivatives,use_fingerprint=use_fingerprint,parallel=parallel)
+    if isinstance(model,str):
+        model=get_default_model(model=model,prior=prior,use_derivatives=use_derivatives,use_fingerprint=use_fingerprint,parallel=parallel)
     # Make the database
     database=get_default_database(fp=fp,use_derivatives=use_derivatives,database_reduction=database_reduction,database_reduction_kwargs=database_reduction_kwargs)
     # Make prior distributions for the hyperparameters if specified
