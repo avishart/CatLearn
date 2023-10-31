@@ -13,69 +13,70 @@ class MLNEB(object):
                  use_restart_path=True,check_path_unc=True,save_memory=False,
                  force_consistent=None,local_opt=None,local_opt_kwargs=dict(),
                  trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',tabletxt=None,full_output=False,**kwargs):
-        """ Nudged elastic band (NEB) with Machine Learning as active learning.
-            Parameters:
-                start: Atoms object with calculated energy or ASE Trajectory file.
-                    Initial end-point of the NEB path.
-                end: Atoms object with calculated energy or ASE Trajectory file.
-                    Final end-point of the NEB path.
-                ase_calc: ASE calculator Object.
-                    ASE calculator as implemented in ASE.
-                    See https://wiki.fysik.dtu.dk/ase/ase/calculators/calculators.html
-                mlcalc: ML-calculator Object.
-                    The ML-calculator object used as surrogate surface. A default ML-model is used
-                    if mlcalc is None.
-                acq: Acquisition Object.
-                    The Acquisition object used for calculating the acq. function and choose a candidate
-                    to calculate next. A default Acquisition object is used if acq is None.
-                interpolation: string or list of ASE Atoms or ASE Trajectory file.
-                    Automatic interpolation can be done ('idpp' and 'linear' as
-                    implemented in ASE).
-                    See https://wiki.fysik.dtu.dk/ase/ase/neb.html.
-                    Manual: Trajectory file (in ASE format) or list of Atoms.
-                interpolation_kwargs: dict.
-                    A dictionary with the arguments used in the interpolation.
-                    See https://wiki.fysik.dtu.dk/ase/ase/neb.html. 
-                climb : bool
-                    Whether to use climbing image in the ML-NEB. It is strongly recommended to have climb=True. 
-                    It is only activated when the uncertainty is low and a NEB without climbing image can converge.
-                neb_kwargs: dict.
-                    A dictionary with the arguments used in the NEB method. climb can not be included.
-                    See https://wiki.fysik.dtu.dk/ase/ase/neb.html. 
-                n_images: int.
-                    Number of images of the path (if not included a path before).
-                    The number of images include the 2 end-points of the NEB path.
-                prev_calculations: Atoms list or ASE Trajectory file.
-                    (optional) The user can feed previously calculated data for the
-                    same hypersurface. The previous calculations must be fed as an
-                    Atoms list or Trajectory file.
-                use_restart_path: bool
-                    Use the path from last robust iteration (low uncertainty).
-                check_path_unc: bool
-                    Check if the uncertainty is large for the restarted path and
-                    if it is then use the initial interpolation.
-                save_memory: bool
-                    Whether to only train the ML calculator and store all objects on one CPU. 
-                    If save_memory==True then parallel optimization of the hyperparameters can not be achived.
-                    If save_memory==False no MPI object is used.  
-                force_consistent: boolean or None.
-                    Use force-consistent energy calls (as opposed to the energy
-                    extrapolated to 0 K). By default (force_consistent=None) uses
-                    force-consistent energies if available in the calculator, but
-                    falls back to force_consistent=False if not.
-                local_opt: ASE local optimizer Object. 
-                    A local optimizer object from ASE. If None is given then FIRE is used.
-                local_opt_kwargs: dict
-                    Arguments used for the ASE local optimizer.
-                trainingset: string.
-                    Trajectory filename to store the evaluated training data.
-                trajectory: string
-                    Trajectory filename to store the predicted NEB path.
-                tabletxt: string
-                    Name of the .txt file where the summary table is printed. 
-                    It is not saved to the file if tabletxt=None.
-                full_output: boolean
-                    Whether to print on screen the full output (True) or not (False).
+        """ 
+        Nudged elastic band (NEB) with Machine Learning as active learning.
+        Parameters:
+            start: Atoms object with calculated energy or ASE Trajectory file.
+                Initial end-point of the NEB path.
+            end: Atoms object with calculated energy or ASE Trajectory file.
+                Final end-point of the NEB path.
+            ase_calc: ASE calculator Object.
+                ASE calculator as implemented in ASE.
+                See https://wiki.fysik.dtu.dk/ase/ase/calculators/calculators.html
+            mlcalc: ML-calculator Object.
+                The ML-calculator object used as surrogate surface. A default ML-model is used
+                if mlcalc is None.
+            acq: Acquisition Object.
+                The Acquisition object used for calculating the acq. function and choose a candidate
+                to calculate next. A default Acquisition object is used if acq is None.
+            interpolation: string or list of ASE Atoms or ASE Trajectory file.
+                Automatic interpolation can be done ('idpp' and 'linear' as
+                implemented in ASE).
+                See https://wiki.fysik.dtu.dk/ase/ase/neb.html.
+                Manual: Trajectory file (in ASE format) or list of Atoms.
+            interpolation_kwargs: dict.
+                A dictionary with the arguments used in the interpolation.
+                See https://wiki.fysik.dtu.dk/ase/ase/neb.html. 
+            climb : bool
+                Whether to use climbing image in the ML-NEB. It is strongly recommended to have climb=True. 
+                It is only activated when the uncertainty is low and a NEB without climbing image can converge.
+            neb_kwargs: dict.
+                A dictionary with the arguments used in the NEB method. climb can not be included.
+                See https://wiki.fysik.dtu.dk/ase/ase/neb.html. 
+            n_images: int.
+                Number of images of the path (if not included a path before).
+                The number of images include the 2 end-points of the NEB path.
+            prev_calculations: Atoms list or ASE Trajectory file.
+                (optional) The user can feed previously calculated data for the
+                same hypersurface. The previous calculations must be fed as an
+                Atoms list or Trajectory file.
+            use_restart_path: bool
+                Use the path from last robust iteration (low uncertainty).
+            check_path_unc: bool
+                Check if the uncertainty is large for the restarted path and
+                if it is then use the initial interpolation.
+            save_memory: bool
+                Whether to only train the ML calculator and store all objects on one CPU. 
+                If save_memory==True then parallel optimization of the hyperparameters can not be achived.
+                If save_memory==False no MPI object is used.  
+            force_consistent: boolean or None.
+                Use force-consistent energy calls (as opposed to the energy
+                extrapolated to 0 K). By default (force_consistent=None) uses
+                force-consistent energies if available in the calculator, but
+                falls back to force_consistent=False if not.
+            local_opt: ASE local optimizer Object. 
+                A local optimizer object from ASE. If None is given then FIRE is used.
+            local_opt_kwargs: dict
+                Arguments used for the ASE local optimizer.
+            trainingset: string.
+                Trajectory filename to store the evaluated training data.
+            trajectory: string
+                Trajectory filename to store the predicted NEB path.
+            tabletxt: string
+                Name of the .txt file where the summary table is printed. 
+                It is not saved to the file if tabletxt=None.
+            full_output: boolean
+                Whether to print on screen the full output (True) or not (False).
         """
         # Setup parallelization
         self.parallel_setup(save_memory)
@@ -134,20 +135,21 @@ class MLNEB(object):
               
 
     def run(self,fmax=0.05,unc_convergence=0.05,steps=500,ml_steps=750,max_unc=0.05,**kwargs):
-        """ Run the active learning NEB process. 
-            Parameters:
-                fmax : float
-                    Convergence criteria (in eV/Angs).
-                unc_convergence: float
-                    Maximum uncertainty for convergence (in eV).
-                steps : int
-                    Maximum number of evaluations.
-                ml_steps: int
-                    Maximum number of steps for the NEB optimization on the
-                    predicted landscape.
-                max_unc: float
-                    Early stopping criteria. Maximum uncertainty before stopping the
-                    optimization on the surrogate surface.
+        """ 
+        Run the active learning NEB process. 
+        Parameters:
+            fmax : float
+                Convergence criteria (in eV/Angs).
+            unc_convergence: float
+                Maximum uncertainty for convergence (in eV).
+            steps : int
+                Maximum number of evaluations.
+            ml_steps: int
+                Maximum number of steps for the NEB optimization on the
+                predicted landscape.
+            max_unc: float
+                Early stopping criteria. Maximum uncertainty before stopping the
+                optimization on the surrogate surface.
         """
         # Active learning parameters
         candidate=None
