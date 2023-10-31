@@ -19,11 +19,11 @@ class Invgamma_prior(Prior_distribution):
     
     def ln_pdf(self,x):
         if self.nosum:
-            return self.lnpre-2*self.a*x-self.b*np.exp(-2*x)
-        return np.sum(self.lnpre-2*self.a*x-self.b*np.exp(-2*x),axis=-1)
+            return self.lnpre-2.0*self.a*x-self.b*np.exp(-2.0*x)
+        return np.sum(self.lnpre-2.0*self.a*x-self.b*np.exp(-2.0*x),axis=-1)
     
     def ln_deriv(self,x):
-        return -2*self.a+2*self.b*np.exp(-2*x)
+        return -2.0*self.a+2.0*self.b*np.exp(-2.0*x)
     
     def update_arguments(self,a=None,b=None,**kwargs):
         """
@@ -48,7 +48,7 @@ class Invgamma_prior(Prior_distribution):
                 self.b=b
             else:
                 self.b=np.array(b).reshape(-1)
-        self.lnpre=self.a*np.log(self.b)-loggamma(self.a)
+        self.lnpre=np.log(2.0)+self.a*np.log(self.b)-loggamma(self.a)
         if isinstance(self.a,(float,int)) and isinstance(self.b,(float,int)):
             self.nosum=True
         else:
@@ -56,12 +56,12 @@ class Invgamma_prior(Prior_distribution):
         return self
             
     def mean_var(self,mean,var):
-        mean,var=np.exp(mean),np.exp(2*np.sqrt(var))
-        min_v=mean-np.sqrt(var)*2
+        mean,var=np.exp(mean),np.exp(2.0*np.sqrt(var))
+        min_v=mean-np.sqrt(var)*2.0
         return self.update_arguments(a=min_v,b=min_v)
     
     def min_max(self,min_v,max_v):
-        b=np.exp(2*min_v)
+        b=np.exp(2.0*min_v)
         return self.update_arguments(a=b,b=b)
     
     def copy(self):

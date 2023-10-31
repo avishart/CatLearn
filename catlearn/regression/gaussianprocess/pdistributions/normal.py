@@ -19,8 +19,8 @@ class Normal_prior(Prior_distribution):
     
     def ln_pdf(self,x):
         if self.nosum:
-            return -np.log(self.std)-0.5*np.log(2*np.pi)-0.5*((x-self.mu)/self.std)**2
-        return np.sum(-np.log(self.std)-0.5*np.log(2*np.pi)-0.5*((x-self.mu)/self.std)**2,axis=-1)
+            return -np.log(self.std)-0.5*np.log(2.0*np.pi)-0.5*((x-self.mu)/self.std)**2
+        return np.sum(-np.log(self.std)-0.5*np.log(2.0*np.pi)-0.5*((x-self.mu)/self.std)**2,axis=-1)
     
     def ln_deriv(self,x):
         return -(x-self.mu)/self.std**2
@@ -57,7 +57,7 @@ class Normal_prior(Prior_distribution):
     
     def min_max(self,min_v,max_v):
         mu=0.5*(min_v+max_v)
-        return self.update_arguments(mu=mu,std=np.sqrt(2)*(max_v-mu))
+        return self.update_arguments(mu=mu,std=np.sqrt(2.0)*(max_v-mu))
     
     def get_arguments(self):
         " Get the arguments of the class itself. "

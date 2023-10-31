@@ -26,7 +26,7 @@ class Gen_normal_prior(Prior_distribution):
         return np.sum(-((x-self.mu)/self.s)**(2*self.v)-np.log(self.s)+np.log(0.52),axis=-1)
     
     def ln_deriv(self,x):
-        return (-(2*self.v)*((x-self.mu)**(2*self.v-1)))/(self.s**(2*self.v))
+        return (-(2.0*self.v)*((x-self.mu)**(2*self.v-1)))/(self.s**(2*self.v))
     
     def update_arguments(self,mu=None,s=None,v=None,**kwargs):
         """
@@ -67,7 +67,7 @@ class Gen_normal_prior(Prior_distribution):
     
     def min_max(self,min_v,max_v):
         mu=(max_v+min_v)/2.0
-        return self.update_arguments(mu=mu,s=np.sqrt(2/0.32)*(max_v-mu))
+        return self.update_arguments(mu=mu,s=np.sqrt(2.0/0.32)*(max_v-mu))
     
     def get_arguments(self):
         " Get the arguments of the class itself. "

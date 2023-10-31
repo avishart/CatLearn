@@ -65,7 +65,7 @@ class Uniform_prior(Prior_distribution):
             
     def mean_var(self,mean,var):
         std=np.sqrt(var)
-        return self.update_arguments(start=mean-4.0*std,end=mean+4.0*std,prob=1/(8.0*std))
+        return self.update_arguments(start=mean-4.0*std,end=mean+4.0*std,prob=1.0/(8.0*std))
     
     def min_max(self,min_v,max_v):
         return self.update_arguments(start=min_v,end=max_v,prob=1.0/(max_v-min_v))

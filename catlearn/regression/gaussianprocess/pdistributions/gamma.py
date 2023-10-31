@@ -21,11 +21,11 @@ class Gamma_prior(Prior_distribution):
     
     def ln_pdf(self,x):
         if self.nosum:
-            return self.lnpre+self.a*x-self.b*np.exp(x)
-        return np.sum(self.lnpre+self.a*x-self.b*np.exp(x),axis=-1)
+            return self.lnpre+2.0*self.a*x-self.b*np.exp(2.0*x)
+        return np.sum(self.lnpre+2.0*self.a*x-self.b*np.exp(2.0*x),axis=-1)
 
     def ln_deriv(self,x):
-        return self.a-self.b*np.exp(x)
+        return 2.0*self.a-2.0*self.b*np.exp(2.0*x)
     
     def update_arguments(self,a=None,b=None,**kwargs):
         """
@@ -48,7 +48,7 @@ class Gamma_prior(Prior_distribution):
                 self.b=b
             else:
                 self.b=np.array(b).reshape(-1)
-        self.lnpre=self.a*np.log(self.b)-loggamma(self.a)
+        self.lnpre=np.log(2.0)+self.a*np.log(self.b)-loggamma(self.a)
         if isinstance(self.a,(float,int)) and isinstance(self.b,(float,int)):
             self.nosum=True
         else:
@@ -56,8 +56,8 @@ class Gamma_prior(Prior_distribution):
         return self
             
     def mean_var(self,mean,var):
-        mean,var=np.exp(mean),np.exp(2*np.sqrt(var))
-        a=mean**2/var
+        mean,var=np.exp(mean),np.exp(2.0*np.sqrt(var))
+        a=mean**2.0/var
         if a==0:
             a=1
         return self.update_arguments(a=a,b=mean/var)
