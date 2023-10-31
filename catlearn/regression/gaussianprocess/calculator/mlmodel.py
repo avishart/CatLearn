@@ -206,7 +206,10 @@ class MLModel:
 
     def model_optimization(self,features,targets,**kwargs):
         " Optimize the ML model with the arguments set in optimize_kwargs. "
-        self.model.optimize(features,targets,retrain=True,hp=self.hp,pdis=self.pdis,verbose=self.verbose,**kwargs)
+        sol=self.model.optimize(features,targets,retrain=True,hp=self.hp,pdis=self.pdis,verbose=False,**kwargs)
+        if self.verbose:
+            from ase.parallel import parprint
+            parprint(sol)
         return self.model
     
     def model_training(self,features,targets,**kwargs):
