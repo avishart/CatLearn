@@ -361,7 +361,7 @@ def get_default_model(model='tp',prior='median',use_derivatives=True,use_fingerp
         from ..models.tp import TProcess
         from ..objectivefunctions.tp.factorized_likelihood import FactorizedLogLikelihood
         hpfitter=HyperparameterFitter(func=FactorizedLogLikelihood(),optimizer=optimizer)
-        model=TProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter)
+        model=TProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter,a=1e-3,b=1e-4)
     else:
         from ..models.gp import GaussianProcess
         from ..objectivefunctions.gp.factorized_likelihood import FactorizedLogLikelihood
