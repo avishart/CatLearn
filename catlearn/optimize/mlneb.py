@@ -15,6 +15,7 @@ class MLNEB(object):
                  trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',tabletxt=None,full_output=False,**kwargs):
         """ 
         Nudged elastic band (NEB) with Machine Learning as active learning.
+
         Parameters:
             start: Atoms object with calculated energy or ASE Trajectory file.
                 Initial end-point of the NEB path.
@@ -137,6 +138,7 @@ class MLNEB(object):
     def run(self,fmax=0.05,unc_convergence=0.05,steps=500,ml_steps=750,max_unc=0.05,**kwargs):
         """ 
         Run the active learning NEB process. 
+        
         Parameters:
             fmax : float
                 Convergence criteria (in eV/Angs).
