@@ -10,63 +10,65 @@ class MLGO:
                  local_opt=None,local_opt_kwargs={},opt_kwargs={},\
                  bounds=None,initial_points=2,norelax_points=10,min_steps=8,\
                  trajectory='evaluated.traj',tabletxt=None,full_output=False,**kwargs):
-        """ Machine learning accelerated global adsorption optimization with active learning.
-            Parameters:
-                slab: ASE Atoms object.
-                    The object of the surface or nanoparticle that the adsorbate is adsorped to. 
-                    The energy and forces for the structure is not needed.
-                ads: ASE Atoms object.
-                    The object of the adsorbate in vacuum with same cell size and pbc as for the slab. 
-                    The energy and forces for the structure is not needed.
-                ase_calc: ASE calculator Object.
-                    ASE calculator as implemented in ASE.
-                    See https://wiki.fysik.dtu.dk/ase/ase/calculators/calculators.html
-                ads2: ASE Atoms object (optional).
-                    The object of a second adsorbate in vacuum that is adsorbed simultaneously with the other adsorbate.
-                mlcalc: ML-calculator Object.
-                    The ML-calculator object used as surrogate surface. A default ML-model is used if mlcalc is None.
-                acq: Acquisition Object.
-                    The Acquisition object used for calculating the acq. function and choose a candidate
-                    to calculate next. A default Acquisition object is used if acq is None.
-                prev_calculations: Atoms list or ASE Trajectory file.
-                    (optional) The user can feed previously calculated data for the
-                    same hypersurface. The previous calculations must be fed as an
-                    Atoms list or Trajectory file.
-                force_consistent: boolean or None.
-                    Use force-consistent energy calls (as opposed to the energy
-                    extrapolated to 0 K). By default (force_consistent=None) uses
-                    force-consistent energies if available in the calculator, but
-                    falls back to force_consistent=False if not.
-                save_memory: bool
-                    Whether to only train the ML calculator and store all objects on one CPU. 
-                    If save_memory==True then parallel optimization of the hyperparameters can not be achived.
-                    If save_memory==False no MPI object is used.  
-                local_opt: ASE local optimizer Object. 
-                    A local optimizer object from ASE. If None is given then FIRE is used.
-                local_opt_kwargs: dict.
-                    Arguments used for the ASE local optimizer.
-                default_mlcalc_kwargs: dict.
-                    A dictonary with kwargs for construction of the default ML calculator
-                    if it is chosen to be used.
-                bounds: (6,2) or (12,2) ndarray (optional).
-                    The boundary conditions used for the global optimization in form of the simulated annealing.
-                    The boundary conditions are the x, y, and z coordinates of the center of the adsorbate and 3 rotations.
-                    Same boundary conditions can be set for the second adsorbate if chosen.
-                initial_points: int.
-                    Number of generated initial structures used for training the ML calculator if no previous data is given.
-                norelax_points: int.
-                    The number of structures used for training before local relaxation of the structures after the global optimization is activated.
-                min_steps: int.
-                    The minimum number of iterations before convergence is checked.
-                opt_kwargs: dict.
-                    Arguments used for the simulated annealing method.
-                trajectory: string.
-                    Trajectory filename to store the evaluated training data.
-                tabletxt: string
-                    Name of the .txt file where the summary table is printed. 
-                    It is not saved to the file if tabletxt=None.
-                full_output: bool.
-                    Whether to print on screen the full output (True) or not (False).
+        """ 
+        Machine learning accelerated global adsorption optimization with active learning.
+
+        Parameters:
+            slab: ASE Atoms object.
+                The object of the surface or nanoparticle that the adsorbate is adsorped to. 
+                The energy and forces for the structure is not needed.
+            ads: ASE Atoms object.
+                The object of the adsorbate in vacuum with same cell size and pbc as for the slab. 
+                The energy and forces for the structure is not needed.
+            ase_calc: ASE calculator Object.
+                ASE calculator as implemented in ASE.
+                See https://wiki.fysik.dtu.dk/ase/ase/calculators/calculators.html
+            ads2: ASE Atoms object (optional).
+                The object of a second adsorbate in vacuum that is adsorbed simultaneously with the other adsorbate.
+            mlcalc: ML-calculator Object.
+                The ML-calculator object used as surrogate surface. A default ML-model is used if mlcalc is None.
+            acq: Acquisition Object.
+                The Acquisition object used for calculating the acq. function and choose a candidate
+                to calculate next. A default Acquisition object is used if acq is None.
+            prev_calculations: Atoms list or ASE Trajectory file.
+                (optional) The user can feed previously calculated data for the
+                same hypersurface. The previous calculations must be fed as an
+                Atoms list or Trajectory file.
+            force_consistent: boolean or None.
+                Use force-consistent energy calls (as opposed to the energy
+                extrapolated to 0 K). By default (force_consistent=None) uses
+                force-consistent energies if available in the calculator, but
+                falls back to force_consistent=False if not.
+            save_memory: bool
+                Whether to only train the ML calculator and store all objects on one CPU. 
+                If save_memory==True then parallel optimization of the hyperparameters can not be achived.
+                If save_memory==False no MPI object is used.  
+            local_opt: ASE local optimizer Object. 
+                A local optimizer object from ASE. If None is given then FIRE is used.
+            local_opt_kwargs: dict.
+                Arguments used for the ASE local optimizer.
+            default_mlcalc_kwargs: dict.
+                A dictonary with kwargs for construction of the default ML calculator
+                if it is chosen to be used.
+            bounds: (6,2) or (12,2) ndarray (optional).
+                The boundary conditions used for the global optimization in form of the simulated annealing.
+                The boundary conditions are the x, y, and z coordinates of the center of the adsorbate and 3 rotations.
+                Same boundary conditions can be set for the second adsorbate if chosen.
+            initial_points: int.
+                Number of generated initial structures used for training the ML calculator if no previous data is given.
+            norelax_points: int.
+                The number of structures used for training before local relaxation of the structures after the global optimization is activated.
+            min_steps: int.
+                The minimum number of iterations before convergence is checked.
+            opt_kwargs: dict.
+                Arguments used for the simulated annealing method.
+            trajectory: string.
+                Trajectory filename to store the evaluated training data.
+            tabletxt: string
+                Name of the .txt file where the summary table is printed. 
+                It is not saved to the file if tabletxt=None.
+            full_output: bool.
+                Whether to print on screen the full output (True) or not (False).
         """
         # Setup parallelization
         self.parallel_setup(save_memory)
@@ -126,7 +128,29 @@ class MLGO:
         self.local_opt_kwargs=local_opt_kwargs_default.copy()
         
     def run(self,fmax=0.05,unc_convergence=0.025,steps=200,max_unc=0.050,ml_steps=2000,ml_chains=3,relax=True,local_steps=500,seed=0,**kwargs):
-        " Run the ML adsorption optimizer "
+        """ 
+        Run the ML adsorption optimizer 
+
+        Parameters:
+            fmax : float
+                Convergence criteria (in eV/Angs).
+            unc_convergence: float
+                Maximum uncertainty for convergence (in eV).
+            steps : int
+                Maximum number of evaluations.
+            max_unc: float
+                Early stopping criteria. Maximum uncertainty allowed before local optimization.
+            ml_steps: int
+                Maximum number of steps for the global optimization on the predicted landscape.
+            ml_chains : int
+                The number of parallel chains in the simulated annealing.
+            relax : bool
+                Whether to perform local optimization after the global optimization.
+            local_steps : int
+                Maximum number of steps for the local optimization on the predicted landscape.
+            seed : int
+                The random seed.
+        """
         # Set the random seed
         np.random.seed(seed)
         # Update the acquisition function
