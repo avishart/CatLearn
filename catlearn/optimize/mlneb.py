@@ -138,7 +138,7 @@ class MLNEB(object):
     def run(self,fmax=0.05,unc_convergence=0.05,steps=500,ml_steps=750,max_unc=0.05,**kwargs):
         """ 
         Run the active learning NEB process. 
-        
+
         Parameters:
             fmax : float
                 Convergence criteria (in eV/Angs).
@@ -502,7 +502,8 @@ class MLNEB(object):
         " Save the summary table in the .txt file. "
         if self.tabletxt is not None:
             with open(self.tabletxt,'w') as thefile:
-                thefile.write(self.print_neb_list)
+                msg='\n'.join(self.print_neb_list)
+                thefile.writelines(msg)
         return
     
     def print_statement(self,step,**kwargs):
