@@ -518,7 +518,8 @@ class MLGO:
         " Save the summary table in the .txt file. "
         if self.tabletxt is not None:
             with open(self.tabletxt,'w') as thefile:
-                thefile.write(self.print_list)
+                msg='\n'.join(self.print_list)
+                thefile.writelines(msg)
         return
     
     def print_statement(self,step,**kwargs):
