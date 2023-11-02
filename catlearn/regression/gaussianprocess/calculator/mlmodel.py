@@ -353,10 +353,10 @@ def get_default_model(model='tp',prior='median',use_derivatives=True,use_fingerp
     from ..optimizers.globaloptimizer import FactorizedOptimizer
     if parallel:
         from ..optimizers.linesearcher import FineGridSearch
-        line_optimizer=FineGridSearch(optimize=True,multiple_min=True,ngrid=80,loops=3,parallel=True)
+        line_optimizer=FineGridSearch(optimize=True,multiple_min=False,ngrid=80,loops=3,parallel=True)
     else:
         from ..optimizers.linesearcher import GoldenSearch
-        line_optimizer=GoldenSearch(optimize=True,multiple_min=True,parallel=False)
+        line_optimizer=GoldenSearch(optimize=True,multiple_min=False,parallel=False)
     optimizer=FactorizedOptimizer(line_optimizer=line_optimizer,ngrid=80,calculate_init=False,parallel=parallel)
     # Use either the Student t process or the Gaussian process
     from ..hpfitter import HyperparameterFitter    
