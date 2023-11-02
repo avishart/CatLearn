@@ -159,7 +159,7 @@ class Inv_distances(Fingerprint):
                 i_g=np.repeat(np.arange(n_nm_m,n_total),3)
                 j_gi=(3*nmi.reshape(-1,1)+np.array([0,1,2])).reshape(-1)
                 j_gj=(3*nmj.reshape(-1,1)+np.array([0,1,2])).reshape(-1)
-                gij[i_g,j_gi]=(vec_distances[nmi,nmj_ind]*(cov_dis[nmi,nmj_ind]/(distances[nmi,nmj_ind]**3))).reshape(-1)
+                gij[i_g,j_gi]=(vec_distances[nmi,nmj_ind]*(cov_dis[nmi,nmj_ind]/(distances[nmi,nmj_ind]**3)).reshape(-1,1)).reshape(-1)
                 gij[i_g,j_gj]=-gij[i_g,j_gi]
         return fij,gij,nmi,nmj
     
