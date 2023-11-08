@@ -101,7 +101,7 @@ class MLNEB(object):
         if mlcalc is None:
             from ..regression.gaussianprocess.calculator.mlmodel import get_default_mlmodel
             from ..regression.gaussianprocess.calculator.mlcalc import MLCalculator
-            mlmodel=get_default_mlmodel(model='tp',baseline=None,use_derivatives=True,parallel=(not save_memory),database_reduction=False)
+            mlmodel=get_default_mlmodel(model='tp',prior='max',baseline=None,use_derivatives=True,parallel=(not save_memory),database_reduction=False)
             self.mlcalc=MLCalculator(mlmodel=mlmodel)
         else:
             self.mlcalc=mlcalc.copy()
