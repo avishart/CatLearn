@@ -322,7 +322,7 @@ class MLNEB(object):
     def extra_initial_data(self,**kwargs):
         " If only initial and final state is given then a third data point is calculated. "
         candidate=None
-        if self.mlcalc.get_training_set_size()==2:
+        if self.mlcalc.get_training_set_size()<=2:
             images=self.make_interpolation(interpolation=self.interpolation)
             middle=int((self.n_images-2)/3.0) if self.start_energy>=self.end_energy else int((self.n_images-2)*2.0/3.0)
             candidate=images[1+middle].copy()
