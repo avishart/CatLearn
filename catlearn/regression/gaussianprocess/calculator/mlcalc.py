@@ -155,8 +155,8 @@ class MLCalculator(Calculator):
         " Get the arguments of the class itself. "
         # Get the arguments given to the class in the initialization
         arg_kwargs=dict(mlmodel=self.mlmodel,
-                        calculate_uncertainty=True,
-                        calculate_forces=True)
+                        calculate_uncertainty=self.calculate_uncertainty,
+                        calculate_forces=self.calculate_forces)
         # Get the constants made within the class
         constant_kwargs=dict()
         # Get the objects made within the class
