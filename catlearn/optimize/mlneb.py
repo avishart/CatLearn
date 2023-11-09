@@ -167,7 +167,6 @@ class MLNEB(object):
             # Train and optimize ML model
             self.train_mlmodel()
             # Perform NEB on ML surrogate surface
-            #max_u=((max_unc*(self.steps-1))+unc_convergence)/self.steps
             candidate,neb_converged=self.run_mlneb(fmax=fmax*0.8,ml_steps=ml_steps,max_unc=max_unc)
             # Evaluate candidate
             self.evaluate(candidate)
