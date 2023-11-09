@@ -267,9 +267,6 @@ class MLGO:
 
     def add_training(self,atoms_list):
         " Add atoms_list data to ML model on rank=0. "
-        if self.save_memory:
-            if self.rank!=0:
-                return self.mlcalc
         self.mlcalc.add_training(atoms_list)
         return self.mlcalc
 

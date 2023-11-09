@@ -300,9 +300,6 @@ class MLNEB(object):
 
     def add_training(self,atoms_list,**kwargs):
         " Add atoms_list data to ML model on rank=0. "
-        if self.save_memory:
-            if self.rank!=0:
-                return self.mlcalc
         self.mlcalc.add_training(atoms_list)
         return self.mlcalc
 
@@ -322,7 +319,7 @@ class MLNEB(object):
     def extra_initial_data(self,**kwargs):
         " If only initial and final state is given then a third data point is calculated. "
         candidate=None
-        if self.mlcalc.get_training_set_size()<=2:
+        if self.get_training_set_size()<=2:
             images=self.make_interpolation(interpolation=self.interpolation)
             middle=int((self.n_images-2)/3.0) if self.start_energy>=self.end_energy else int((self.n_images-2)*2.0/3.0)
             candidate=images[1+middle].copy()
@@ -351,6 +348,10 @@ class MLNEB(object):
         # Get the candidate
         candidate=self.choose_candidate(images)
         return candidate,neb_converged
+
+    def get_training_set_size(self):
+        " Get the size of the training set "
+        return self.mlcalc.get_training_set_size()
 
     def get_predictions(self,images,**kwargs):
         " Calculate the energies and uncertainties with the ML calculator "
