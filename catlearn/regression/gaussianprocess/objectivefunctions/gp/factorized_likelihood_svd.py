@@ -1,0 +1,42 @@
+import numpy as np
+from .factorized_likelihood import FactorizedLogLikelihood
+from numpy.linalg import svd
+
+class FactorizedLogLikelihoodSVD(FactorizedLogLikelihood):
+    def __init__(self,get_prior_mean=False,modification=False,ngrid=80,bounds=None,noise_optimizer=None,**kwargs):
+        """ 
+        The factorized log-likelihood objective function that is used to optimize the hyperparameters. 
+        The prefactor hyperparameter is determined from an analytical expression. 
+        A SVD is performed to get the eigenvalues. 
+        The relative-noise hyperparameter can be searched from a single eigendecomposition for each length-scale hyperparameter. 
+        Parameters:
+            get_prior_mean: bool
+                Whether to save the parameters of the prior mean in the solution.
+            modification: bool
+                Whether to modify the analytical prefactor value in the end.
+                The prefactor hyperparameter becomes larger if modification=True.
+            ngrid: int
+                Number of grid points that are searched in the relative-noise hyperparameter. 
+            bounds: Boundary_conditions class
+                A class of the boundary conditions of the relative-noise hyperparameter.
+            noise_optimizer : Noise line search optimizer class
+                A line search optimization method for the relative-noise hyperparameter.
+        """
+        super().__init__(get_prior_mean=get_prior_mean,
+                         modification=modification,
+                         ngrid=ngrid,
+                         bounds=bounds,
+                         noise_optimizer=noise_optimizer,
+                         **kwargs)
+    
+    def get_eig(self,model,X,Y):
+        " Calculate the eigenvalues " 
+        # Calculate the kernel with and without noise
+        KXX,n_data=self.kxx_corr(model,X)
+        # SVD
+        U,D,Vt=svd(KXX,hermitian=True)
+        # Subtract the prior mean to the training target
+        Y_p=self.y_prior(X,Y,model,D=D,U=U)
+        UTY=np.matmul(Vt,Y_p).reshape(-1)**2
+        return D,U,Y_p,UTY,KXX,n_data
+      

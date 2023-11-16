@@ -1,9 +1,10 @@
 *.pyc
 *.pyc.*
 *.pickle
-
+__pycache__
 docs/_*
-
+*.egg-info
+build
 .idea/
 .ipynb_checkpoints/
 

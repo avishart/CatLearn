@@ -1,63 +1,97 @@
 import numpy as np
-import copy
-from scipy.linalg import eigh
+from numpy.linalg import eigh
 from scipy.spatial.distance import pdist
 from scipy.optimize import OptimizeResult
-from ..hptrans import Variable_Transformation
+from .hpfitter import HyperparameterFitter
 
-class FBPMGP:
-    def __init__(self,Q=None,ngrid=100,use_bounds=True,n_test=50,distance_matrix=True):
-        """ Get the best GP that mimic the Full-Bayesian predictive distribution. 
+class FBPMGP(HyperparameterFitter):
+    def __init__(self,Q=None,n_test=50,ngrid=80,bounds=None,get_prior_mean=False,**kwargs):
+        """ 
+        Get the best Gaussian Process that mimic the Full-Bayesian predictive distribution. 
+        It only works with a Gaussian Process.
         Parameters:
-            Q : (M,D) array
+            Q: (M,D) array
                 Test features to check the predictive distribution 
-            ngrid : int
-                Number of points in each hyperparameter to evaluate the posterior distribution
-            use_bounds : bool
-                Use an educated bound to make grid in each hyperparameter.
-            n_test : int
+            n_test: int (optional)
                 n_test is used to make test features if the test features is not given
-            distance_matrix : bool
-                Whether to reuse the distance matrix for the optimization.
+            ngrid: int
+                Number of points in each hyperparameter to evaluate the posterior distribution
+            bounds: Boundary_conditions class
+                A class that calculates the boundary conditions of the hyperparameter.
+            get_prior_mean: bool
+                Whether to get the prior arguments in the solution.
         """
-        self.Q=Q
-        self.ngrid=ngrid
-        self.use_bounds=use_bounds
-        self.n_test=n_test
-        self.distance_matrix=distance_matrix
+        # Set the default test points
+        self.Q=None
+        # Set the default boundary conditions
+        if bounds is None:
+            from ..hpboundary.hptrans import VariableTransformation
+            self.bounds=VariableTransformation(bounds=None)
+        # Set the solution form
+        self.update_arguments(Q=Q,
+                              n_test=n_test,
+                              ngrid=ngrid,
+                              bounds=bounds,
+                              get_prior_mean=get_prior_mean,
+                              **kwargs)
         
-    def fit(self,X,Y,GP,hp=None,prior=None):
-        """ Optimize the hyperparameters 
+    def fit(self,X,Y,model,hp=None,pdis=None,**kwargs):
+        """ 
+        Optimize the hyperparameters 
         Parameters:
-            X : (N,D) array
+            X: (N,D) array
                 Training features with N data points and D dimensions.
-            Y : (N,1) array or (N,D+1) array
+            Y: (N,1) array or (N,D+1) array
                 Training targets with or without derivatives with N data points.
-            GP : GaussianProcess
+            model: Model Process
                 The Gaussian Process with kernel and prior that are optimized.
-            hp : dict
+            hp: dict
                 Use a set of hyperparameters to optimize from else the current set is used.
-            prior : dict
-                A dict of prior distributions for each hyperparameter.
-        """        
-        if hp is None:
-            hp=GP.hp.copy()
-        theta,parameters=self.hp_to_theta(hp)
-        gp=copy.deepcopy(GP)
-        # Whether to use distance matrix
-        dis_m=gp.kernel.distances(X) if self.distance_matrix else None
-        sol=self.fbpmgp(theta,GP,parameters,X,Y,prior=prior,dis_m=dis_m,Q=self.Q,ngrid=self.ngrid,use_bounds=self.use_bounds)
+            pdis: dict
+                A dict of prior distributions for each hyperparameter type.
+        Returns: 
+            dict: A solution dictionary with objective function value, optimized hyperparameters,
+                success statement, and number of used evaluations.
+        """
+        # Copy the model so it is not changed outside of the optimization
+        model=self.copy_model(model)
+        # Get hyperparameters
+        hp,theta,parameters=self.get_hyperparams(hp,model)
+        # Find FBMGP solution
+        sol=self.fbpmgp(theta,model,parameters,X,Y,pdis=pdis,Q=self.Q,ngrid=self.ngrid)
+        sol=self.get_full_hp(sol,model)
         return sol
     
-    def hp_to_theta(self,hp):
-        " Transform a dictionary of hyperparameters to a list of values and a list of parameter categories " 
-        parameters_set=sorted(set(hp.keys()))
-        theta=[list(np.array(hp[para]).reshape(-1)) for para in parameters_set]
-        parameters=sum([[para]*len(theta[p]) for p,para in enumerate(parameters_set)],[])
-        theta=np.array(sum(theta,[]))
-        return theta,parameters
+    def update_arguments(self,Q=None,n_test=None,ngrid=None,bounds=None,get_prior_mean=None,**kwargs):
+        """
+        Update the class with its arguments. The existing arguments are used if they are not given.
+        Parameters:
+            Q: (M,D) array
+                Test features to check the predictive distribution 
+            n_test: int (optional)
+                n_test is used to make test features if the test features is not given
+            ngrid: int
+                Number of points in each hyperparameter to evaluate the posterior distribution
+            bounds: Boundary_conditions class
+                A class that calculates the boundary conditions of the hyperparameter.
+            get_prior_mean: bool
+                Whether to get the prior arguments in the solution.
+        Returns:
+            self: The updated object itself.
+        """
+        if Q is not None:
+            self.Q=Q.copy()
+        if n_test is not None:
+            self.n_test=int(n_test)
+        if ngrid is not None:
+            self.ngrid=int(ngrid)
+        if bounds is not None:
+            self.bounds=bounds.copy()
+        if get_prior_mean is not None:
+            self.get_prior_mean=get_prior_mean
+        return self
         
-    def hp(self,theta,parameters):
+    def get_hp(self,theta,parameters,**kwargs):
         " Make hyperparameter dictionary from lists"
         theta,parameters=np.array(theta),np.array(parameters)
         parameters_set=sorted(set(parameters))
@@ -68,81 +102,82 @@ class FBPMGP:
         " Replace hyperparameters if they are outside of the numeric limits in log-space "
         return np.where(-dh<array,np.where(array<dh,array,dh),-dh)
     
-    def update(self,GP,hp):
-        " Update GP "
-        GP=copy.deepcopy(GP)
-        GP.set_hyperparams(hp)
-        return GP
+    def update_model(self,model,hp,**kwargs):
+        " Update model "
+        model.set_hyperparams(hp)
+        return model
     
-    def kxx_corr(self,GP,X,dis_m=None):
+    def kxx_corr(self,model,X,**kwargs):
         " Get covariance matrix with or without noise correction"
         # Calculate the kernel with and without noise
-        KXX=GP.kernel(X,get_derivatives=GP.use_derivatives,dists=dis_m)
+        KXX=model.kernel(X,get_derivatives=model.use_derivatives)
         n_data=len(KXX)
-        KXX=self.add_correction(GP,KXX,n_data)
+        KXX=self.add_correction(model,KXX,n_data)
         return KXX,n_data
     
-    def add_correction(self,GP,KXX,n_data):
+    def add_correction(self,model,KXX,n_data,**kwargs):
         " Add noise correction to covariance matrix"
-        if GP.correction:
-            corr=GP.get_correction(np.diag(KXX))
+        corr=model.get_correction(np.diag(KXX))
+        if corr!=0.0:
             KXX[range(n_data),range(n_data)]+=corr
         return KXX
         
-    def y_prior(self,X,Y,GP):
+    def y_prior(self,X,Y,model,L=None,low=None,**kwargs):
         " Update prior and subtract target "
         Y_p=Y.copy()
-        GP.prior.update(X,Y_p)
-        Y_p=Y_p-GP.prior.get(X)
-        if GP.use_derivatives:
+        model.prior.update(X,Y_p,**kwargs)
+        if model.use_derivatives:
+            Y_p=Y_p-model.prior.get(X,Y_p,get_derivatives=True)
             Y_p=Y_p.T.reshape(-1,1)
-        return Y_p,GP
+        else:
+            Y_p=Y_p-model.prior.get(X,Y_p,get_derivatives=False)
+        return Y_p,model
     
-    def get_eig(self,GP,X,Y,dis_m):
+    def get_eig(self,model,X,Y,**kwargs):
         " Calculate the eigenvalues " 
         # Calculate the kernel with and without noise
-        KXX=GP.kernel(X,get_derivatives=GP.use_derivatives,dists=dis_m)
+        KXX=model.kernel(X,get_derivatives=model.use_derivatives)
         n_data=len(KXX)
-        KXX[range(n_data),range(n_data)]+=GP.get_correction(np.diag(KXX))
+        KXX[range(n_data),range(n_data)]+=model.get_correction(np.diag(KXX))
         # Eigendecomposition
         D,U=eigh(KXX)
         # Subtract the prior mean to the training target
-        Y_p,GP=self.y_prior(X,Y,GP)
+        Y_p,model=self.y_prior(X,Y,model,D=D,U=U)
         UTY=np.matmul(U.T,Y_p)
         UTY2=UTY.reshape(-1)**2
-        return D,U,UTY,UTY2,Y_p,KXX,n_data,GP.prior.yp
+        return D,U,UTY,UTY2,Y_p,KXX,n_data
     
-    def get_eig_without_Yp(self,GP,X,Y_p,dis_m,n_data):
+    def get_eig_without_Yp(self,model,X,Y_p,n_data,**kwargs):
         " Calculate the eigenvalues without using the prior mean " 
         # Calculate the kernel with and without noise
-        KXX=GP.kernel(X,get_derivatives=GP.use_derivatives,dists=dis_m)
-        KXX[range(n_data),range(n_data)]+=GP.get_correction(np.diag(KXX))
+        KXX=model.kernel(X,get_derivatives=model.use_derivatives)
+        KXX[range(n_data),range(n_data)]+=model.get_correction(np.diag(KXX))
         # Eigendecomposition
-        D,U=eigh(KXX)
+        try:
+            D,U=eigh(KXX)
+        except Exception as e:
+            import logging
+            import scipy.linalg
+            logging.error("An error occurred: %s", str(e))
+            # More robust but slower eigendecomposition
+            D,U=scipy.linalg.eigh(KXX,driver='ev')
         UTY=np.matmul(U.T,Y_p)
         UTY2=UTY.reshape(-1)**2
         return D,U,UTY,UTY2,Y_p,KXX
     
-    def pred_unc(self,UKQX,UTY,D_n,KQQ,yp):
-        " Make prediction mean and uncertainty from eigendecomposition "
-        UKQXD=UKQX/D_n
-        pred=yp+np.matmul(UKQXD,UTY)
-        var=(KQQ-np.einsum('ij,ji->i',UKQXD,UKQX.T))
-        return pred.reshape(-1),var.reshape(-1)
-    
-    def get_grids(self,GP,X,Y,parameters_set,para_bool,ngrid=100,use_bounds=True):
+    def get_grids(self,model,X,Y,parameters,para_bool,ngrid=100,**kwargs):
         " Make a grid for each hyperparameter in the variable transformed space "
-        hyper_var=Variable_Transformation().transf_para(parameters_set,GP,X,Y,use_bounds=use_bounds)
-        dl=np.finfo(float).eps
+        self.bounds.update_bounds(model,X,Y,parameters)
+        lines=self.bounds.make_lines(ngrid=ngrid)
         grids={}
-        for para,pbool in para_bool.items():
-            if pbool:
-                grids[para]=hyper_var.transform_t_to_hyper(np.linspace(0.0+dl,1.0-dl,ngrid),para)
+        for p,para in enumerate(parameters):
+            if para_bool[para]:
+                grids[para]=lines[p].copy()
             else:
-                grids[para]=np.array([GP.hp['prefactor'].item(0)])
+                grids[para]=np.array([model.hp[para][0]])
         return grids
     
-    def trapz_coef(self,grids,para_bool):
+    def trapz_coef(self,grids,para_bool,**kwargs):
         " Make the weights for the weighted averages from the trapezoidal rule "
         cs={}
         for para,pbool in para_bool.items():
@@ -152,35 +187,35 @@ class FBPMGP:
                 cs[para]=np.array([0.0])
         return cs
     
-    def prior_grid(self,grids,prior=None,i=0):
+    def prior_grid(self,grids,pdis=None,i=0,**kwargs):
         " Get prior distribution of hyperparameters on the grid "
-        if prior is None:
+        if pdis is None:
             return {para:np.array([0.0]*len(grid)) for para,grid in grids.items()}
         pr_grid={}
         for para,grid in grids.items():
-            if para in prior.keys():
-                pr_grid[para]=prior[para][i].ln_pdf(grid)
+            if para in pdis.keys():
+                pr_grid[para]=pdis[para].ln_pdf(grid)
             else:
                 pr_grid[para]=np.array([0.0]*len(grid))
         return pr_grid
     
-    def get_all_grids(self,parameters_set,GP,X,Y,ngrid=100,use_bounds=True,prior=None):
+    def get_all_grids(self,parameters_set,model,X,Y,ngrid=100,pdis=None,**kwargs):
         " Get the grids in the hyperparameter space, weights from the trapezoidal rule, and prior grid "
         # Check whether all hyperparameters are optimized or fixed
-        parameters_need=['length','noise','prefactor']
+        parameters_need=sorted(['length','noise','prefactor'])
         para_bool={para:para in parameters_set for para in parameters_need}
         # Make grid and transform hyperparameters into another space
-        grids=self.get_grids(GP,X,Y,parameters_set,para_bool,ngrid=ngrid,use_bounds=use_bounds)
+        grids=self.get_grids(model,X,Y,parameters_need,para_bool,ngrid=ngrid)
         # Make the weights for the weighted averages 
         cs=self.grid_sum_pn(self.trapz_coef(grids,para_bool))
-        pr_grid=self.grid_sum_pn(self.prior_grid(grids,prior))
+        pr_grid=self.grid_sum_pn(self.prior_grid(grids,pdis))
         return grids,cs,pr_grid
     
-    def trapz_append(self,grid):
+    def trapz_append(self,grid,**kwargs):
         " Get the weights in linear space from the trapezoidal rule "
         return np.append([grid[1]-grid[0]],np.append(grid[2:]-grid[:-2],grid[-1]-grid[-2]))*0.5
     
-    def get_test_points(self,Q,X_tr):
+    def get_test_points(self,Q,X_tr,**kwargs):
         " Get the test point if they are not given "
         if Q is not None:
             return Q
@@ -191,42 +226,38 @@ class FBPMGP:
         r=r/np.sum(r,axis=0)
         return np.array([X_tr[i]*r[0,k]+X_tr[j]*r[1,k] for k,(i,j) in enumerate(zip(i_list,j_list))])
     
-    def get_test_KQ(self,GP,Q,X_tr,use_derivatives=False):
+    def get_test_KQ(self,model,Q,X_tr,use_derivatives=False,**kwargs):
         " Get the test point if they are not given and get the covariance matrix "
         Q=self.get_test_points(Q,X_tr).copy()
-        KQQ=GP.kernel.diag(Q,get_derivatives=use_derivatives)
+        KQQ=model.kernel.diag(Q,get_derivatives=use_derivatives)
         return Q,KQQ
     
-    def get_prefactors(self,grids,n_data):
+    def get_prefactors(self,grids,n_data,**kwargs):
         " Get the prefactor values for log-likelihood "
         prefactors=np.exp(2*grids['prefactor']).reshape(-1,1)
         ln_prefactor=(n_data*grids['prefactor']).reshape(-1,1)
         return prefactors,ln_prefactor
     
-    def grid_sum_pn(self,the_grids):
+    def grid_sum_pn(self,the_grids,**kwargs):
         " Make a grid of prefactor and noise at the same time and a grid of length-scale "
         return {'length':the_grids['length'],'np':the_grids['prefactor'].reshape(-1,1)+the_grids['noise']}
     
-    def get_grid_sum(self,the_grids,l,n):
-        " Sum together the grid value of length-scale and the merged prefactor and noise grid "
-        return the_grids['length'][l]+the_grids['np'][:,n:n+1]
-    
-    def get_all_eig_matrices(self,length,GP,X,Y_p,dis_m,n_data,Q,get_derivatives=False):
+    def get_all_eig_matrices(self,length,model,X,Y_p,n_data,Q,get_derivatives=False,**kwargs):
         " Get all the matrices from eigendecomposition that must be used to posterior distribution and predictions "
-        GP.set_hyperparams({'length':[length]})
+        model.set_hyperparams({'length':[length]})
         # Training part
-        D,U,UTY,UTY2,Y_p,KXX=self.get_eig_without_Yp(GP,X,Y_p,dis_m,n_data)
+        D,U,UTY,UTY2,Y_p,KXX=self.get_eig_without_Yp(model,X,Y_p,n_data)
         # Test part
-        KQQ=GP.kernel.diag(Q,get_derivatives=get_derivatives)
-        KQX=GP.kernel(Q,X,get_derivatives=get_derivatives)
+        KQQ=model.kernel.diag(Q,get_derivatives=get_derivatives)
+        KQX=model.kernel(Q,X,get_derivatives=get_derivatives)
         UKQX=np.matmul(KQX,U)
         return D,UTY,UTY2,KQQ,UKQX
     
-    def posterior_value(self,like_sum,lp_max,UTY2,D_n,prefactors,ln_prefactor,ln2pi,pr_grid,cs,l,n):
+    def posterior_value(self,like_sum,lp_max,UTY2,D_n,prefactors,ln_prefactor,ln2pi,pr_grid,cs,l,**kwargs):
         " Get the posterior distribution value and add it to the existing sum "
-        nlp1=0.5*np.sum(UTY2/D_n)
-        nlp2=0.5*np.sum(np.log(D_n))
-        like=-((nlp1/prefactors+ln_prefactor)+(nlp2+ln2pi))+self.get_grid_sum(pr_grid,l,n)
+        nlp1=0.5*np.sum(UTY2/D_n,axis=1)
+        nlp2=0.5*np.sum(np.log(D_n),axis=1)
+        like=-((nlp1/prefactors+ln_prefactor)+(nlp2+ln2pi))+self.get_grid_sum(pr_grid,l)
         like_max=np.nanmax(like)
         if like_max>lp_max:
             ll_scale=np.exp(lp_max-like_max)
@@ -234,28 +265,47 @@ class FBPMGP:
         else:
             ll_scale=1.0
         like=like-lp_max
-        like=np.exp(like+self.get_grid_sum(cs,l,n))
+        like=np.exp(like+self.get_grid_sum(cs,l))
         like_sum=like_sum*ll_scale+np.sum(like)
         return like_sum,like,lp_max,ll_scale
     
-    def update_df_ybar(self,df,ybar,y2bar_ubar,pred,var,like,ll_scale,prefactors,length,noise):
+    def get_grid_sum(self,the_grids,l):
+        " Sum together the grid value of length-scale and the merged prefactor and noise grid "
+        return the_grids['length'][l]+the_grids['np']
+    
+    def pred_unc(self,UKQX,UTY,D_n,KQQ,yp,**kwargs):
+        " Make prediction mean and uncertainty from eigendecomposition "
+        UKQXD=UKQX/D_n[:,None,:]
+        pred=yp+np.einsum('dij,ji->di',UKQXD,UTY,optimize=True)
+        var=(KQQ-np.einsum('dij,ji->di',UKQXD,UKQX.T))
+        return pred,var
+    
+    def update_df_ybar(self,df,ybar,y2bar_ubar,pred,var,like,ll_scale,prefactors,length,noises,**kwargs):
         " Update the dict and add values to ybar and y2bar_ubar "
-        ybar=(ybar*ll_scale)+np.sum(pred*like,axis=0)
-        y2bar_ubar=(y2bar_ubar*ll_scale)+(np.sum((pred**2)*like,axis=0)+np.sum(prefactors*var*like,axis=0))        
+        ybar=(ybar*ll_scale)+np.einsum('nj,pn->j',pred,like)
+        y2bar_ubar=(y2bar_ubar*ll_scale)+(np.einsum('nj,pn->j',pred**2,like)+np.einsum('nj,pn->j',var,prefactors*like))     
         # Store the hyperparameters and prediction mean and variance
-        df['length'].append(length)
-        df['noise'].append(noise)
-        df['pred'].append(pred)
-        df['var'].append(var)
+        df['length']=np.append(df['length'],np.full(np.shape(noises),length))
+        df['noise']=np.append(df['noise'],noises)
+        df['pred']=np.append(df['pred'],pred,axis=0)
+        df['var']=np.append(df['var'],var,axis=0)
         return df,ybar,y2bar_ubar
     
-    def get_solution(self,df,ybar,y2bar_ubar,like_sum,n_test,GP,len_l):
+    def evaluate_for_noise(self,df,ybar,y2bar_ubar,like_sum,lp_max,grids,UTY,UTY2,D,UKQX,KQQ,yp,prefactors,ln_prefactor,ln2pi,pr_grid,cs,l,length,**kwargs):
+        " Evaluate log-posterior and update the data frame for all noise hyperparameter in grid simulatenously. "
+        D_n=D+np.exp(2*grids['noise']).reshape(-1,1)
+        # Calculate log-posterior
+        like_sum,like,lp_max,ll_scale=self.posterior_value(like_sum,lp_max,UTY2,D_n,prefactors,ln_prefactor,ln2pi,pr_grid,cs,l)
+        # Calculate prediction mean and variance
+        pred,var=self.pred_unc(UKQX,UTY,D_n,KQQ,yp)
+        # Store and update the hyperparameters and prediction mean and variance
+        df,ybar,y2bar_ubar=self.update_df_ybar(df,ybar,y2bar_ubar,pred,var,like,ll_scale,prefactors,length,grids['noise'])
+        return df,ybar,y2bar_ubar,like_sum,lp_max
+    
+    def get_solution(self,df,ybar,y2bar_ubar,like_sum,n_test,model,len_l,**kwargs):
         " Find the hyperparameters that gives the lowest Kullback-Leibler divergence "
-        # Make df to numpy array
-        df['pred']=np.array(df['pred'])
-        df['var']=np.array(df['var'])
         # Normalize the weighted sums
-        ybar=ybar/like_sum
+        ybar=ybar/like_sum        
         y2bar_ubar=y2bar_ubar/like_sum
         # Get the analytic solution to the prefactor 
         prefactor=np.mean((y2bar_ubar+(df['pred']**2)-(2*df['pred']*ybar))/df['var'],axis=1)
@@ -267,42 +317,54 @@ class FBPMGP:
         hp_best=dict(length=np.array([df['length'][i_min]]),noise=np.array([df['noise'][i_min]]),prefactor=np.array([0.5*np.log(prefactor[i_min])]))
         theta=np.array([hp_best[para] for para in hp_best.keys()]).reshape(-1)
         sol={'fun':kl_min,'hp':hp_best,'x':theta,'nfev':len_l,'success':True}
-        sol['GP']=self.update(GP,hp_best)
+        if self.get_prior_mean:
+            sol['prior']=model.prior.get_parameters()
         return sol
     
-    def fbpmgp(self,theta,GP,parameters,X,Y,prior=None,dis_m=None,Q=None,ngrid=100,use_bounds=True):
+    def fbpmgp(self,theta,model,parameters,X,Y,pdis=None,Q=None,ngrid=100,**kwargs):
         " Only works with the FBPMGP object function " 
         np.random.seed(12)
         # Update hyperparameters
-        hp,parameters_set=self.hp(theta,parameters)
-        GP=self.update(GP,hp)
+        hp,parameters_set=self.get_hp(theta,parameters)
+        model=self.update_model(model,hp)
         # Make grids of hyperparameters, weights from the trapezoidal rule, and prior distribution grid
-        grids,cs,pr_grid=self.get_all_grids(parameters_set,GP,X,Y,ngrid=ngrid,use_bounds=use_bounds,prior=prior)
-        # Update prior mean 
-        Y_p,GP=self.y_prior(X,Y,GP)
-        yp=GP.prior.yp
-        use_derivatives=GP.use_derivatives
-        n_data=len(Y_p)
+        grids,cs,pr_grid=self.get_all_grids(parameters_set,model,X,Y,ngrid=ngrid,pdis=pdis)
         # Get test data
         Q=self.get_test_points(Q,X).copy()
+        # Update prior mean 
+        Y_p,model=self.y_prior(X,Y,model)
+        use_derivatives=model.use_derivatives
+        yp=model.prior.get(Q,np.zeros((len(Q),len(Y[0]))),get_derivatives=use_derivatives).reshape(-1)
+        n_data=len(Y_p)
         # Initialize fb
-        df={'ll':[],'length':[],'noise':[],'prefactor':[],'pred':[],'var':[]}
-        like_sum,ybar,y2bar_ubar=0,0,0
+        df={key:np.array([]) for key in ['ll','length','noise','prefactor']}
+        if model.use_derivatives:
+            df['pred']=np.empty((0,len(Q)*len(Y[0])))
+            df['var']=np.empty((0,len(Q)*len(Y[0])))
+        else:
+            df['pred']=np.empty((0,len(Q)))
+            df['var']=np.empty((0,len(Q)))
+        like_sum,ybar,y2bar_ubar=0.0,0.0,0.0
         lp_max=-np.inf
         prefactors,ln_prefactor=self.get_prefactors(grids,n_data)
         ln2pi=0.5*n_data*np.log(2*np.pi)
         for l,length in enumerate(grids['length']):
-            D,UTY,UTY2,KQQ,UKQX=self.get_all_eig_matrices(length,GP,X,Y_p,dis_m,n_data,Q,get_derivatives=use_derivatives)
-            for n,noise in enumerate(grids['noise']):
-                D_n=D+np.exp(2*noise)
-                # Calculate log-posterior
-                like_sum,like,lp_max,ll_scale=self.posterior_value(like_sum,lp_max,UTY2,D_n,prefactors,ln_prefactor,ln2pi,pr_grid,cs,l,n)
-                # Calculate prediction mean and variance
-                pred,var=self.pred_unc(UKQX,UTY,D_n,KQQ,yp)
-                # Store and update the hyperparameters and prediction mean and variance
-                df,ybar,y2bar_ubar=self.update_df_ybar(df,ybar,y2bar_ubar,pred,var,like,ll_scale,prefactors,length,noise)
-        sol=self.get_solution(df,ybar,y2bar_ubar,like_sum,len(KQQ),GP,len(grids['length']))
+            D,UTY,UTY2,KQQ,UKQX=self.get_all_eig_matrices(length,model,X,Y_p,n_data,Q,get_derivatives=use_derivatives)
+            df,ybar,y2bar_ubar,like_sum,lp_max=self.evaluate_for_noise(df,ybar,y2bar_ubar,like_sum,lp_max,grids,UTY,UTY2,D,UKQX,KQQ,yp,prefactors,ln_prefactor,ln2pi,pr_grid,cs,l,length)
+        sol=self.get_solution(df,ybar,y2bar_ubar,like_sum,len(KQQ),model,len(grids['length']))
         return OptimizeResult(**sol)
-
-                
-                
+    
+    def get_arguments(self):
+        " Get the arguments of the class itself. "
+        # Get the arguments given to the class in the initialization
+        arg_kwargs=dict(Q=self.Q,
+                        n_test=self.n_test,
+                        ngrid=self.ngrid,
+                        bounds=self.bounds,
+                        get_prior_mean=self.get_prior_mean)
+        # Get the constants made within the class
+        constant_kwargs=dict()
+        # Get the objects made within the class
+        object_kwargs=dict()
+        return arg_kwargs,constant_kwargs,object_kwargs
+    
