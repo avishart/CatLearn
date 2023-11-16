@@ -245,11 +245,12 @@ class MLGO:
         self.message_system('Performing evaluation.',end='\r')
         # Reset calculator results
         self.ase_calc.reset()
+        # Ensure that the candidate is not already in the database
+        candidate=self.ensure_not_in_database(candidate)
         # Broadcast the system to all cpus
-        if self.save_memory:
-            if self.rank==0:
-                candidate=candidate.copy()
-            candidate=broadcast(candidate,root=0)
+        if self.rank==0:
+            candidate=candidate.copy()
+        candidate=broadcast(candidate,root=0)
         # Calculate the energies and forces
         candidate.calc=self.ase_calc
         candidate.calc.reset()
@@ -326,6 +327,24 @@ class MLGO:
         if self.save_memory:
             self.mlcalc=broadcast(self.mlcalc,root=0)
         return self.mlcalc
+    
+    def is_in_database(self,atoms,**kwargs):
+        " Check if the ASE Atoms is in the database. "
+        return self.mlcalc.is_in_database(atoms,**kwargs)
+    
+    def ensure_not_in_database(self,atoms,perturb=0.01,**kwargs):
+        " Ensure the ASE Atoms object is not in database by perturb it if it is. "
+        # Return atoms if it does not exist
+        if atoms is None:
+            return atoms
+        # Check if atoms object is in the database
+        if self.is_in_database(atoms,**kwargs):
+            # Get positions
+            pos=atoms.get_positions()
+            # Rattle the positions
+            pos=pos+np.random.uniform(low=-perturb,high=perturb,size=pos.shape)
+            atoms.set_positions(pos)
+        return atoms
 
     def find_next_candidate(self,ml_chains,ml_steps,max_unc,relax,fmax,local_steps,**kwargs):
         " Find the next candidates by using simulated annealing and then chose the candidate from acquisition "

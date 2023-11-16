@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '5.0.7' 
+VERSION = '5.0.8' 
 DESCRIPTION = 'Machine Learning using atomic-scale calculations'
 LONG_DESCRIPTION = 'Machine Learning using atomic-scale calculations'
 

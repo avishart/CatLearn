@@ -158,6 +158,19 @@ class MLModel:
         """
         return len(self.database)
     
+    def is_in_database(self,atoms,**kwargs):
+        """ 
+        Check if the ASE Atoms is in the database.
+
+        Parameters:
+            atoms : ASE Atoms
+                The ASE Atoms object with a calculator.
+
+        Returns:
+            bool: Whether the ASE Atoms object is within the database.
+        """
+        return self.database.is_in_database(atoms=atoms,**kwargs)
+    
     def update_arguments(self,model=None,database=None,baseline=None,optimize=None,hp=None,pdis=None,verbose=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.

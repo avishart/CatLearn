@@ -95,6 +95,19 @@ class MLCalculator(Calculator):
             int: The number of atoms objects in the ML model.
         """
         return self.mlmodel.get_training_set_size()
+    
+    def is_in_database(self,atoms,**kwargs):
+        """ 
+        Check if the ASE Atoms is in the database.
+
+        Parameters:
+            atoms : ASE Atoms
+                The ASE Atoms object with a calculator.
+
+        Returns:
+            bool: Whether the ASE Atoms object is within the database.
+        """
+        return self.mlmodel.is_in_database(atoms=atoms,**kwargs)
 
     def calculate(self,atoms=None,properties=['energy','forces','uncertainty','force uncertainty'],system_changes=all_changes):
         """ 

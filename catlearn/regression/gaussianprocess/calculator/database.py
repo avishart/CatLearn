@@ -192,6 +192,38 @@ class Database:
         self.targets=[]
         return self
     
+    def is_in_database(self,atoms,dtol=1e-10,**kwargs):
+        """ 
+        Check if the ASE Atoms is in the database.
+
+        Parameters:
+            atoms : ASE Atoms
+                The ASE Atoms object with a calculator.
+            dtol : float
+                The tolerance value to determine identical Atoms. 
+
+        Returns:
+            bool: Whether the ASE Atoms object is within the database.
+        """
+        from scipy.spatial.distance import cdist
+        # Make the atoms object into a fingerprint
+        fp_atoms=self.make_atoms_feature(atoms)
+        # Get the fingerprints of the atoms in the database
+        fp_database=self.get_features()
+        # Check if the database is empty
+        if len(fp_database)==0:
+            return False
+        # Transform the fingerprints into vectors
+        if self.use_fingerprint:
+            fp_atoms=fp_atoms.get_vector()
+            fp_database=np.array([fp.get_vector() for fp in fp_database])
+        # Get the minimum distance between atoms object and the database
+        dis_min=np.min(cdist([fp_atoms],fp_database))
+        # Check if the atoms object is in the database
+        if dis_min<dtol:
+            return True
+        return False
+    
     def append(self,atoms,**kwargs):
         " Append the atoms object, the fingerprint, and target(s) to lists. "
         # Copy the Atoms object
