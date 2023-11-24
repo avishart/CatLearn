@@ -192,7 +192,7 @@ class Database:
         self.targets=[]
         return self
     
-    def is_in_database(self,atoms,dtol=1e-10,**kwargs):
+    def is_in_database(self,atoms,dtol=1e-8,**kwargs):
         """ 
         Check if the ASE Atoms is in the database.
 
