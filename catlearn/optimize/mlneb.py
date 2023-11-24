@@ -12,7 +12,8 @@ class MLNEB(object):
                  climb=True,neb_method=BaseNEB,neb_kwargs=dict(),n_images=15,
                  prev_calculations=None,use_database_check=True,
                  use_restart_path=True,check_path_unc=True,save_memory=False,
-                 force_consistent=None,local_opt=None,local_opt_kwargs=dict(),
+                 force_consistent=None,scale_fmax=0.5,
+                 local_opt=None,local_opt_kwargs=dict(),
                  trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',
                  tabletxt=None,full_output=False,**kwargs):
         """ 
@@ -73,6 +74,9 @@ class MLNEB(object):
                 extrapolated to 0 K). By default (force_consistent=None) uses
                 force-consistent energies if available in the calculator, but
                 falls back to force_consistent=False if not.
+            scale_fmax : float
+                The scaling of the fmax for the ML-NEB runs. 
+                It makes the path converge tighter on surrogate surface. 
             local_opt: ASE local optimizer Object. 
                 A local optimizer object from ASE. If None is given then FIRE is used.
             local_opt_kwargs: dict
@@ -127,6 +131,8 @@ class MLNEB(object):
         # Save the ASE calculator
         self.ase_calc=ase_calc
         self.force_consistent=force_consistent
+        # Scale the fmax on the surrogate surface
+        self.scale_fmax=scale_fmax
         # Save local optimizer
         local_opt_kwargs_default=dict(trajectory='surrogate_neb.traj')
         if local_opt is None:
@@ -177,7 +183,7 @@ class MLNEB(object):
             # Train and optimize ML model
             self.train_mlmodel()
             # Perform NEB on ML surrogate surface
-            candidate,neb_converged=self.run_mlneb(fmax=fmax*0.8,ml_steps=ml_steps,max_unc=max_unc)
+            candidate,neb_converged=self.run_mlneb(fmax=fmax*self.scale_fmax,ml_steps=ml_steps,max_unc=max_unc)
             # Evaluate candidate
             self.evaluate(candidate)
             # Print the results for this iteration
@@ -417,7 +423,7 @@ class MLNEB(object):
         neb_opt=self.local_opt(neb,**self.local_opt_kwargs)
         # Run the ML NEB fully without consider the uncertainty
         if max_unc==False:
-            neb_opt.run(fmax=fmax*0.8,steps=ml_steps)
+            neb_opt.run(fmax=fmax,steps=ml_steps)
             self.message_system('NEB on surrogate surface converged!')
             return images,neb_opt.converged()
         # Stop the ML NEB if the uncertainty becomes too large
