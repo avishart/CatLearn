@@ -96,7 +96,7 @@ class MLNEB(object):
         self.n_images=n_images
         self.climb=climb
         self.neb_method=neb_method
-        self.neb_kwargs=dict(k=3.0,method='improvedtangent',remove_rotation_and_translation=False)
+        self.neb_kwargs=dict(k=3.0,method='improvedtangent',remove_rotation_and_translation=True)
         self.neb_kwargs.update(neb_kwargs)
         # General parameter settings
         self.use_database_check=use_database_check
