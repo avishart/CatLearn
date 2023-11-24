@@ -5,10 +5,11 @@ import datetime
 from ase.parallel import world,broadcast
 
 class MLGO:
-    def __init__(self,slab,ads,ase_calc,ads2=None,mlcalc=None,acq=None,\
-                 prev_calculations=None,force_consistent=None,save_memory=False,\
-                 local_opt=None,local_opt_kwargs={},opt_kwargs={},\
-                 bounds=None,initial_points=2,norelax_points=10,min_steps=8,\
+    def __init__(self,slab,ads,ase_calc,ads2=None,mlcalc=None,acq=None,
+                 prev_calculations=None,use_database_check=True,
+                 force_consistent=None,save_memory=False,
+                 local_opt=None,local_opt_kwargs={},opt_kwargs={},
+                 bounds=None,initial_points=2,norelax_points=10,min_steps=8,
                  trajectory='evaluated.traj',tabletxt=None,full_output=False,**kwargs):
         """ 
         Machine learning accelerated global adsorption optimization with active learning.
@@ -20,20 +21,23 @@ class MLGO:
             ads: ASE Atoms object.
                 The object of the adsorbate in vacuum with same cell size and pbc as for the slab. 
                 The energy and forces for the structure is not needed.
-            ase_calc: ASE calculator Object.
+            ase_calc: ASE calculator instance.
                 ASE calculator as implemented in ASE.
                 See https://wiki.fysik.dtu.dk/ase/ase/calculators/calculators.html
             ads2: ASE Atoms object (optional).
                 The object of a second adsorbate in vacuum that is adsorbed simultaneously with the other adsorbate.
-            mlcalc: ML-calculator Object.
-                The ML-calculator object used as surrogate surface. A default ML-model is used if mlcalc is None.
-            acq: Acquisition Object.
-                The Acquisition object used for calculating the acq. function and choose a candidate
-                to calculate next. A default Acquisition object is used if acq is None.
+            mlcalc: ML-calculator instance.
+                The ML-calculator instance used as surrogate surface. A default ML-model is used if mlcalc is None.
+            acq: Acquisition instance.
+                The Acquisition instance used for calculating the acq. function and choose a candidate
+                to calculate next. A default Acquisition instance is used if acq is None.
             prev_calculations: Atoms list or ASE Trajectory file.
                 (optional) The user can feed previously calculated data for the
                 same hypersurface. The previous calculations must be fed as an
                 Atoms list or Trajectory file.
+            use_database_check : bool
+                Whether to check if the new structure is within the database.
+                If it is in the database, the structure is rattled. 
             force_consistent: boolean or None.
                 Use force-consistent energy calls (as opposed to the energy
                 extrapolated to 0 K). By default (force_consistent=None) uses
@@ -78,6 +82,7 @@ class MLGO:
         self.opt_kwargs=opt_kwargs
         self.norelax_points=norelax_points
         self.min_steps=min_steps
+        self.use_database_check=use_database_check
         self.force_consistent=force_consistent
         self.initial_points=initial_points
         self.full_output=full_output
@@ -242,16 +247,17 @@ class MLGO:
     
     def evaluate(self,candidate):
         " Caculate energy and forces and add training system to ML-model "
-        self.message_system('Performing evaluation.',end='\r')
         # Reset calculator results
         self.ase_calc.reset()
         # Ensure that the candidate is not already in the database
-        candidate=self.ensure_not_in_database(candidate)
+        if self.use_database_check:
+            candidate=self.ensure_not_in_database(candidate)
         # Broadcast the system to all cpus
         if self.rank==0:
             candidate=candidate.copy()
         candidate=broadcast(candidate,root=0)
         # Calculate the energies and forces
+        self.message_system('Performing evaluation.',end='\r')
         candidate.calc=self.ase_calc
         candidate.calc.reset()
         forces=candidate.get_forces()
@@ -344,6 +350,7 @@ class MLGO:
             # Rattle the positions
             pos=pos+np.random.uniform(low=-perturb,high=perturb,size=pos.shape)
             atoms.set_positions(pos)
+            self.message_system('The system is rattled, since it is already in the database.')
         return atoms
 
     def find_next_candidate(self,ml_chains,ml_steps,max_unc,relax,fmax,local_steps,**kwargs):
