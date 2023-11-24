@@ -21,7 +21,7 @@ class TestMLNEB(unittest.TestCase):
         # Get the initial and final states
         initial,final=get_endstructures()
         # Initialize MLNEB
-        mlneb=MLNEB(start=initial,end=final,ase_calc=EMT(),interpolation='linear',n_images=11,use_restart_path=True,check_path_unc=True,full_output=False,local_opt_kwargs=dict(logfile='temp.txt'))
+        mlneb=MLNEB(start=initial,end=final,ase_calc=EMT(),interpolation='linear',n_images=11,use_restart_path=True,check_path_unc=True,full_output=False,local_opt_kwargs=dict(logfile=None))
         # Test if the MLNEB can be run
         mlneb.run(fmax=0.05,unc_convergence=0.05,steps=50,ml_steps=250,max_unc=0.05)
         # Check that MLNEB converged
@@ -36,7 +36,7 @@ class TestMLNEB(unittest.TestCase):
         # Get the initial and final states
         initial,final=get_endstructures()
         # Initialize MLNEB
-        mlneb=MLNEB(start=initial,end=final,ase_calc=EMT(),interpolation='linear',n_images=11,use_restart_path=False,full_output=False,local_opt_kwargs=dict(logfile='temp.txt'))
+        mlneb=MLNEB(start=initial,end=final,ase_calc=EMT(),interpolation='linear',n_images=11,use_restart_path=False,full_output=False,local_opt_kwargs=dict(logfile=None))
         # Test if the MLNEB can be run
         mlneb.run(fmax=0.05,unc_convergence=0.05,steps=50,ml_steps=250,max_unc=0.05)
         # Check that MLNEB converged
@@ -51,7 +51,7 @@ class TestMLNEB(unittest.TestCase):
         # Get the initial and final states
         initial,final=get_endstructures()
         # Initialize MLNEB
-        mlneb=MLNEB(start=initial,end=final,ase_calc=EMT(),interpolation='linear',n_images=11,use_restart_path=True,check_path_unc=True,save_memory=True,full_output=False,local_opt_kwargs=dict(logfile='temp.txt'))
+        mlneb=MLNEB(start=initial,end=final,ase_calc=EMT(),interpolation='linear',n_images=11,use_restart_path=True,check_path_unc=True,save_memory=True,full_output=False,local_opt_kwargs=dict(logfile=None))
         # Test if the MLNEB can be run
         mlneb.run(fmax=0.05,unc_convergence=0.05,steps=50,ml_steps=250,max_unc=0.05)
         # Check that MLNEB converged
