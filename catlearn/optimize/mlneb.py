@@ -1,5 +1,5 @@
 import numpy as np
-from ase.neb import NEB
+from ase.neb import BaseNEB
 from ase.io import read
 from ase.io.trajectory import TrajectoryWriter
 from copy import deepcopy
@@ -7,9 +7,10 @@ from ase.parallel import world,broadcast
 import datetime
 
 class MLNEB(object):
-
-    def __init__(self,start,end,ase_calc,mlcalc=None,acq=None,interpolation='idpp',interpolation_kwargs=dict(),
-                 climb=True,neb_kwargs=dict(),n_images=15,prev_calculations=None,
+    def __init__(self,start,end,ase_calc,mlcalc=None,acq=None,
+                 interpolation='idpp',interpolation_kwargs=dict(),
+                 climb=True,neb_method=BaseNEB,neb_kwargs=dict(),n_images=15,
+                 prev_calculations=None,
                  use_restart_path=True,check_path_unc=True,save_memory=False,
                  force_consistent=None,local_opt=None,local_opt_kwargs=dict(),
                  trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',tabletxt=None,full_output=False,**kwargs):
@@ -21,15 +22,15 @@ class MLNEB(object):
                 Initial end-point of the NEB path.
             end: Atoms object with calculated energy or ASE Trajectory file.
                 Final end-point of the NEB path.
-            ase_calc: ASE calculator Object.
+            ase_calc: ASE calculator instance.
                 ASE calculator as implemented in ASE.
                 See https://wiki.fysik.dtu.dk/ase/ase/calculators/calculators.html
-            mlcalc: ML-calculator Object.
-                The ML-calculator object used as surrogate surface. A default ML-model is used
+            mlcalc: ML-calculator instance.
+                The ML-calculator instance used as surrogate surface. A default ML-model is used
                 if mlcalc is None.
-            acq: Acquisition Object.
-                The Acquisition object used for calculating the acq. function and choose a candidate
-                to calculate next. A default Acquisition object is used if acq is None.
+            acq: Acquisition class instance.
+                The Acquisition instance used for calculating the acq. function and choose a candidate
+                to calculate next. A default Acquisition instance is used if acq is None.
             interpolation: string or list of ASE Atoms or ASE Trajectory file.
                 Automatic interpolation can be done ('idpp' and 'linear' as
                 implemented in ASE).
@@ -41,8 +42,11 @@ class MLNEB(object):
             climb : bool
                 Whether to use climbing image in the ML-NEB. It is strongly recommended to have climb=True. 
                 It is only activated when the uncertainty is low and a NEB without climbing image can converge.
+            neb_method : class object.
+                The NEB implemented class object used for the ML-NEB. 
             neb_kwargs: dict.
-                A dictionary with the arguments used in the NEB method. climb can not be included.
+                A dictionary with the arguments used in the NEB object to create the instance. 
+                Climb must not be included.
                 See https://wiki.fysik.dtu.dk/ase/ase/neb.html. 
             n_images: int.
                 Number of images of the path (if not included a path before).
@@ -87,6 +91,7 @@ class MLNEB(object):
         self.interpolation_kwargs.update(interpolation_kwargs)
         self.n_images=n_images
         self.climb=climb
+        self.neb_method=neb_method
         self.neb_kwargs=dict(k=3.0,method='improvedtangent',remove_rotation_and_translation=False)
         self.neb_kwargs.update(neb_kwargs)
         # General parameter settings
@@ -216,7 +221,7 @@ class MLNEB(object):
             if interpolation in ['linear','idpp']:
                 # Make path by the NEB methods interpolation
                 images=[self.start.copy() for i in range(self.n_images-1)]+[self.end.copy()]
-                neb=NEB(images,**self.neb_kwargs)
+                neb=self.neb_method(images,**self.neb_kwargs)
                 if interpolation.lower()=='linear':
                     neb.interpolate(**self.interpolation_kwargs)
                 elif interpolation.lower()=='idpp':
@@ -401,7 +406,7 @@ class MLNEB(object):
 
     def mlneb_opt(self,images,fmax=0.05,ml_steps=750,max_unc=0.25,climb=False,**kwargs):
         " Run the ML NEB with checking uncertainties if selected. "
-        neb=NEB(images,climb=climb,**self.neb_kwargs)
+        neb=self.neb_method(images,climb=climb,**self.neb_kwargs)
         neb_opt=self.local_opt(neb,**self.local_opt_kwargs)
         # Run the ML NEB fully without consider the uncertainty
         if max_unc==False:
