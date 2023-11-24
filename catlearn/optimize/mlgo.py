@@ -7,7 +7,7 @@ from ase.parallel import world,broadcast
 class MLGO:
     def __init__(self,slab,ads,ase_calc,ads2=None,mlcalc=None,acq=None,
                  prev_calculations=None,use_database_check=True,
-                 force_consistent=None,save_memory=False,
+                 force_consistent=None,scale_fmax=0.5,save_memory=False,
                  local_opt=None,local_opt_kwargs={},opt_kwargs={},
                  bounds=None,initial_points=2,norelax_points=10,min_steps=8,
                  trajectory='evaluated.traj',tabletxt=None,full_output=False,**kwargs):
@@ -43,6 +43,9 @@ class MLGO:
                 extrapolated to 0 K). By default (force_consistent=None) uses
                 force-consistent energies if available in the calculator, but
                 falls back to force_consistent=False if not.
+            scale_fmax : float
+                The scaling of the fmax for the ML-NEB runs. 
+                It makes the path converge tighter on surrogate surface. 
             save_memory: bool
                 Whether to only train the ML calculator and store all objects on one CPU. 
                 If save_memory==True then parallel optimization of the hyperparameters can not be achived.
@@ -121,6 +124,8 @@ class MLGO:
             self.acq=AcqLCB(objective='min',kappa=3.0,kappamax=5.0)
         else:
             self.acq=acq.copy()
+        # Scale the fmax on the surrogate surface
+        self.scale_fmax=scale_fmax
         # Use restart structures or make one initial point
         self.use_prev_calculations(prev_calculations)
         # Define local optimizer
@@ -167,7 +172,7 @@ class MLGO:
             # Train ML-Model
             self.train_mlmodel()
             # Search after and find the next candidate for calculation
-            candidate=self.find_next_candidate(ml_chains,ml_steps,max_unc,relax,fmax,local_steps)
+            candidate=self.find_next_candidate(ml_chains,ml_steps,max_unc,relax,fmax*self.scale_fmax,local_steps)
             # Evaluate candidate
             self.evaluate(candidate)
             # Make print of table
@@ -456,14 +461,14 @@ class MLGO:
         dyn=self.local_opt(candidate,**self.local_opt_kwargs)
         # Run the local optimization without checking uncertainties
         if max_unc==False:
-            dyn.run(fmax=fmax*0.8,steps=local_steps)
+            dyn.run(fmax=fmax,steps=local_steps)
             energy,unc=self.get_predictions(candidate)
             return candidate.copy(),energy,unc
         # Run the local optimization with checking uncertainties
         for i in range(1,local_steps+1):
             candidate_backup=candidate.copy()
             # Take a step in local relaxation on surrogate surface
-            dyn.run(fmax=fmax*0.8,steps=i)
+            dyn.run(fmax=fmax,steps=i)
             energy,unc=self.get_predictions(candidate)
             # Check if the uncertainty is too large
             if unc>=max_unc:
