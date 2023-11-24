@@ -423,7 +423,8 @@ class MLNEB(object):
         # Stop the ML NEB if the uncertainty becomes too large
         for i in range(1,ml_steps+1):
             # Make backup of images before NEB step that can be used as a restart interpolation
-            self.last_images_tmp=[image.copy() for image in images]
+            if not climb:
+                self.last_images_tmp=[image.copy() for image in images]
             # Run the NEB on the surrogate surface
             neb_opt.run(fmax=fmax,steps=i)
             # Calculate energy and uncertainty
