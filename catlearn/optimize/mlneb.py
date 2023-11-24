@@ -10,10 +10,11 @@ class MLNEB(object):
     def __init__(self,start,end,ase_calc,mlcalc=None,acq=None,
                  interpolation='idpp',interpolation_kwargs=dict(),
                  climb=True,neb_method=BaseNEB,neb_kwargs=dict(),n_images=15,
-                 prev_calculations=None,
+                 prev_calculations=None,use_database_check=True,
                  use_restart_path=True,check_path_unc=True,save_memory=False,
                  force_consistent=None,local_opt=None,local_opt_kwargs=dict(),
-                 trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',tabletxt=None,full_output=False,**kwargs):
+                 trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',
+                 tabletxt=None,full_output=False,**kwargs):
         """ 
         Nudged elastic band (NEB) with Machine Learning as active learning.
 
@@ -55,6 +56,9 @@ class MLNEB(object):
                 (optional) The user can feed previously calculated data for the
                 same hypersurface. The previous calculations must be fed as an
                 Atoms list or Trajectory file.
+            use_database_check : bool
+                Whether to check if the new structure is within the database.
+                If it is in the database, the structure is rattled. 
             use_restart_path: bool
                 Use the path from last robust iteration (low uncertainty).
             check_path_unc: bool
@@ -95,6 +99,7 @@ class MLNEB(object):
         self.neb_kwargs=dict(k=3.0,method='improvedtangent',remove_rotation_and_translation=False)
         self.neb_kwargs.update(neb_kwargs)
         # General parameter settings
+        self.use_database_check=use_database_check
         self.use_restart_path=use_restart_path
         self.check_path_unc=check_path_unc
         # Set initial parameters
@@ -281,16 +286,17 @@ class MLNEB(object):
 
     def evaluate(self,candidate,**kwargs):
         " Evaluate the ASE atoms with the ASE calculator. "
-        self.message_system('Performing evaluation.',end='\r')
         # Reset calculator results
         self.ase_calc.reset()
         # Ensure that the candidate is not already in the database
-        candidate=self.ensure_not_in_database(candidate)
+        if self.use_database_check:
+            candidate=self.ensure_not_in_database(candidate)
         # Broadcast the system to all cpus
         if self.rank==0:
             candidate=candidate.copy()
         candidate=broadcast(candidate,root=0)
         # Calculate the energies and forces
+        self.message_system('Performing evaluation.',end='\r')
         candidate.calc=self.ase_calc
         candidate.calc.reset()
         forces=candidate.get_forces()
@@ -337,6 +343,7 @@ class MLNEB(object):
             # Rattle the positions
             pos=pos+np.random.uniform(low=-perturb,high=perturb,size=pos.shape)
             atoms.set_positions(pos)
+            self.message_system('The system is rattled, since it is already in the database.')
         return atoms
 
     def extra_initial_data(self,**kwargs):
