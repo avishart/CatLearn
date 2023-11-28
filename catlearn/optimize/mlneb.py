@@ -95,12 +95,14 @@ class MLNEB(object):
         self.parallel_setup(save_memory)
         # NEB parameters
         self.interpolation=interpolation
-        self.interpolation_kwargs=dict(mic=True)
+        remove_rotation_and_translation=False if len(start)==1 else True
+
+        self.interpolation_kwargs=dict(mic=True,remove_rotation_and_translation=remove_rotation_and_translation)
         self.interpolation_kwargs.update(interpolation_kwargs)
         self.n_images=n_images
         self.climb=climb
         self.neb_method=neb_method
-        self.neb_kwargs=dict(k=3.0,method='improvedtangent',remove_rotation_and_translation=True)
+        self.neb_kwargs=dict(k=3.0,method='improvedtangent',remove_rotation_and_translation=remove_rotation_and_translation)
         self.neb_kwargs.update(neb_kwargs)
         # General parameter settings
         self.use_database_check=use_database_check
@@ -225,21 +227,9 @@ class MLNEB(object):
 
     def make_interpolation(self,interpolation='idpp',**kwargs):
         " Make the NEB interpolation path "
-        # Use a premade interpolation path
-        if isinstance(interpolation,(list,np.ndarray)):
-            images=interpolation.copy()
-        else:
-            if interpolation in ['linear','idpp']:
-                # Make path by the NEB methods interpolation
-                images=[self.start.copy() for i in range(self.n_images-1)]+[self.end.copy()]
-                neb=self.neb_method(images,**self.neb_kwargs)
-                if interpolation.lower()=='linear':
-                    neb.interpolate(**self.interpolation_kwargs)
-                elif interpolation.lower()=='idpp':
-                    neb.interpolate(method='idpp',**self.interpolation_kwargs)
-            else:
-                # Import interpolation from a trajectory file
-                images=read(interpolation,'-{}:'.format(self.n_images))
+        from .interpolate_band import make_interpolation
+        # Make the interpolation path
+        images=make_interpolation(self.start.copy(),self.end.copy(),n_images=self.n_images,method=interpolation,**self.interpolation_kwargs)
         # Attach the ML calculator to all images
         images=self.attach_mlcalc(images)
         return images
