@@ -28,12 +28,13 @@ class Coulomb(Fingerprint):
     
     def calculate_coulomb(self,atoms,not_masked,use_derivatives=True,mic=True):
         " The actually calculation of the coulomb matrix fingerprint "
-        cmatrix,distances,vec_distances=self.get_coulomb(atoms,use_derivatives=False)
+        cmatrix,distances,vec_distances=self.get_coulomb(atoms,use_derivatives=use_derivatives,mic=mic)
         i_sort=np.argsort(np.linalg.norm(cmatrix,axis=0))[::-1]
         i_triu=list(zip(*np.triu_indices(len(cmatrix))))
+        cmatrix=(cmatrix[i_sort,:])[:,i_sort].copy()
         if use_derivatives:
-            atoms_sort=atoms[i_sort]
-            cmatrix,distances,vec_distances=self.get_coulomb(atoms_sort,use_derivatives=use_derivatives,mic=mic)
+            distances=(distances[i_sort,:])[:,i_sort].copy()
+            vec_distances=(vec_distances[i_sort,:])[:,i_sort].copy()
             n_atoms_g=len(not_masked)
             g=self.fp_deriv_iter(i_triu,cmatrix,distances,vec_distances,n_atoms_g,not_masked)
         else:
