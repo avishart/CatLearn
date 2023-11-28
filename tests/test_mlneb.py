@@ -1,4 +1,5 @@
 import unittest
+import numpy as np
 from .functions import get_endstructures
 
 
@@ -11,6 +12,8 @@ class TestMLNEB(unittest.TestCase):
         from ase.calculators.emt import EMT
         # Get the initial and final states
         initial,final=get_endstructures()
+        # Set random seed
+        np.random.seed(1)
         # Initialize MLNEB
         mlneb=MLNEB(start=initial,end=final,ase_calc=EMT(),interpolation='linear',n_images=11,use_restart_path=True,check_path_unc=True,full_output=False)
         
@@ -20,6 +23,8 @@ class TestMLNEB(unittest.TestCase):
         from ase.calculators.emt import EMT
         # Get the initial and final states
         initial,final=get_endstructures()
+        # Set random seed
+        np.random.seed(1)
         # Initialize MLNEB
         mlneb=MLNEB(start=initial,end=final,ase_calc=EMT(),interpolation='linear',n_images=11,use_restart_path=True,check_path_unc=True,full_output=False,local_opt_kwargs=dict(logfile=None))
         # Test if the MLNEB can be run
@@ -28,13 +33,15 @@ class TestMLNEB(unittest.TestCase):
         self.assertTrue(mlneb.converged()==True) 
         # Check that MLNEB used the right number of iterations
         self.assertTrue(mlneb.step==6)
-
+    
     def test_mlneb_run_norestart(self):
         " Test if the MLNEB can run and converge with no restart of path. "
         from catlearn.optimize.mlneb import MLNEB
         from ase.calculators.emt import EMT
         # Get the initial and final states
         initial,final=get_endstructures()
+        # Set random seed
+        np.random.seed(1)
         # Initialize MLNEB
         mlneb=MLNEB(start=initial,end=final,ase_calc=EMT(),interpolation='linear',n_images=11,use_restart_path=False,full_output=False,local_opt_kwargs=dict(logfile=None))
         # Test if the MLNEB can be run
@@ -50,6 +57,8 @@ class TestMLNEB(unittest.TestCase):
         from ase.calculators.emt import EMT
         # Get the initial and final states
         initial,final=get_endstructures()
+        # Set random seed
+        np.random.seed(1)
         # Initialize MLNEB
         mlneb=MLNEB(start=initial,end=final,ase_calc=EMT(),interpolation='linear',n_images=11,use_restart_path=True,check_path_unc=True,save_memory=True,full_output=False,local_opt_kwargs=dict(logfile=None))
         # Test if the MLNEB can be run
@@ -58,6 +67,7 @@ class TestMLNEB(unittest.TestCase):
         self.assertTrue(mlneb.converged()==True) 
         # Check that MLNEB used the right number of iterations
         self.assertTrue(mlneb.step==6)
+    
 
 if __name__ == '__main__':
     unittest.main()

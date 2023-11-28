@@ -26,6 +26,8 @@ class TestMLGO(unittest.TestCase):
         slab,ads=get_slab_ads()
         # Make the boundary conditions for the global search
         bounds=np.array([[0.0,1.0],[0.0,1.0],[0.5,0.95],[0.0,2*np.pi],[0.0,2*np.pi],[0.0,2*np.pi]])
+        # Set random seed
+        np.random.seed(1)
         # Initialize MLGO
         mlgo=MLGO(slab=slab,ads=ads,ase_calc=EMT(),bounds=bounds,initial_points=2,norelax_points=10,min_steps=6,full_output=False,local_opt_kwargs=dict(logfile=None))
         # Test if the MLGO can be run
