@@ -500,16 +500,13 @@ class MLNEB(object):
 
     def print_cite(self):
         msg= "\n" + "-" * 79 + "\n"
-        msg+="You are using AIDNEB. Please cite: \n"
+        msg+="You are using MLNEB. Please cite: \n"
         msg+="[1] J. A. Garrido Torres, M. H. Hansen, P. C. Jennings, "
         msg+="J. R. Boes and T. Bligaard. Phys. Rev. Lett. 122, 156001. "
         msg+="https://doi.org/10.1103/PhysRevLett.122.156001 \n"
         msg+="[2] O. Koistinen, F. B. Dagbjartsdottir, V. Asgeirsson, A. Vehtari"
         msg+=" and H. Jonsson. J. Chem. Phys. 147, 152720. "
         msg+="https://doi.org/10.1063/1.4986787 \n"
-        msg+="[3] E. Garijo del Rio, J. J. Mortensen and K. W. Jacobsen. "
-        msg+="Phys. Rev. B 100, 104103."
-        msg+="https://doi.org/10.1103/PhysRevB.100.104103. \n"
         msg+="-" * 79 + '\n'
         self.message_system(msg)
         return 
