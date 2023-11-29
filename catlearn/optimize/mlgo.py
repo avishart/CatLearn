@@ -333,6 +333,9 @@ class MLGO:
 
     def train_mlmodel(self):
         " Train the ML model "
+        # Update database with the points of interest
+        self.update_database_arguments(point_interest=self.best_candidate)
+        # Train the ML model
         if not self.save_memory or self.rank==0:
             self.mlcalc.train_model()
         if self.save_memory:
@@ -342,6 +345,11 @@ class MLGO:
     def is_in_database(self,atoms,**kwargs):
         " Check if the ASE Atoms is in the database. "
         return self.mlcalc.is_in_database(atoms,**kwargs)
+    
+    def update_database_arguments(self,point_interest=None,**kwargs):
+        " Update the arguments in the database. "
+        self.mlcalc.update_database_arguments(point_interest=point_interest,**kwargs)
+        return self
     
     def ensure_not_in_database(self,atoms,perturb=0.01,**kwargs):
         " Ensure the ASE Atoms object is not in database by perturb it if it is. "

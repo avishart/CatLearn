@@ -58,14 +58,14 @@ def get_endstructures():
     # Optimize initial structure
     initial=slab.copy()
     initial.calc=EMT()
-    qn=BFGS(initial,logfile='temp.txt')
+    qn=BFGS(initial,logfile=None)
     qn.run(fmax=0.01)
     # Final state
     final=slab.copy()
     final[-1].x+=final.get_cell()[0,0]/2
     final.calc=EMT()
     # Optimize final structure
-    qn=BFGS(final,logfile='temp.txt')
+    qn=BFGS(final,logfile=None)
     qn.run(fmax=0.01)
     return initial,final
 
@@ -81,7 +81,7 @@ def get_slab_ads():
     slab.center(vacuum=5.0,axis=2)
     slab.pbc=True
     slab.calc=EMT()
-    qn=BFGS(slab,logfile='temp.txt')
+    qn=BFGS(slab,logfile=None)
     qn.run(fmax=0.01)
     # Fix Pd atoms
     mask=[atom.symbol=='Pd' for atom in slab]

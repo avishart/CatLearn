@@ -171,6 +171,20 @@ class MLModel:
         """
         return self.database.is_in_database(atoms=atoms,**kwargs)
     
+    def update_database_arguments(self,point_interest=None,**kwargs):
+        """ 
+        Update the arguments in the database.
+
+        Parameters:
+            point_interest : list
+                A list of the points of interest as ASE Atoms instances. 
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.database.update_arguments(point_interest=point_interest,**kwargs)
+        return self
+    
     def update_arguments(self,model=None,database=None,baseline=None,optimize=None,hp=None,pdis=None,verbose=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
@@ -414,11 +428,30 @@ def get_default_database(fp=None,use_derivatives=True,database_reduction=False,d
     else:
         use_fingerprint=True
     # Make the data base ready
-    if database_reduction:
-        from .database_reduction import DatabaseLast
-        data_kwargs=dict(npoints=50,initial_indicies=[0,1])
+    if isinstance(database_reduction,str):
+        data_kwargs=dict(reduce_dimensions=True,use_derivatives=use_derivatives,use_fingerprint=use_fingerprint,npoints=50,initial_indicies=[0,1],include_last=True)
         data_kwargs.update(database_reduction_kwargs)
-        database=DatabaseLast(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,use_fingerprint=use_fingerprint,**data_kwargs)
+        if database_reduction.lower()=='distance':
+            from .database_reduction import DatabaseDistance
+            database=DatabaseDistance(fingerprint=fp,**data_kwargs)
+        elif database_reduction.lower()=='random':
+            from .database_reduction import DatabaseRandom
+            database=DatabaseRandom(fingerprint=fp,**data_kwargs)
+        elif database_reduction.lower()=='hybrid':
+            from .database_reduction import DatabaseHybrid
+            database=DatabaseHybrid(fingerprint=fp,**data_kwargs)
+        elif database_reduction.lower()=='min':
+            from .database_reduction import DatabaseMin
+            database=DatabaseMin(fingerprint=fp,**data_kwargs)
+        elif database_reduction.lower()=='last':
+            from .database_reduction import DatabaseLast
+            database=DatabaseLast(fingerprint=fp,**data_kwargs)
+        elif database_reduction.lower()=='restart':
+            from .database_reduction import DatabaseRestart
+            database=DatabaseRestart(fingerprint=fp,**data_kwargs)
+        elif database_reduction.lower()=='interest':
+            from .database_reduction import DatabasePointsInterest
+            database=DatabasePointsInterest(fingerprint=fp,**data_kwargs)
     else:
         from .database import Database
         database=Database(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,use_fingerprint=use_fingerprint)

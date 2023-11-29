@@ -108,6 +108,20 @@ class MLCalculator(Calculator):
             bool: Whether the ASE Atoms object is within the database.
         """
         return self.mlmodel.is_in_database(atoms=atoms,**kwargs)
+    
+    def update_database_arguments(self,point_interest=None,**kwargs):
+        """ 
+        Update the arguments in the database.
+
+        Parameters:
+            point_interest : list
+                A list of the points of interest as ASE Atoms instances. 
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.mlmodel.update_database_arguments(point_interest=point_interest,**kwargs)
+        return self
 
     def calculate(self,atoms=None,properties=['energy','forces','uncertainty','force uncertainty'],system_changes=all_changes):
         """ 

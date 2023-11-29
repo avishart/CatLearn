@@ -262,20 +262,25 @@ class Database:
         Returns:
             self: The updated object itself.
         """
+        # Control if the database has to be reset
+        reset_database=False
         if fingerprint is not None:
             self.fingerprint=fingerprint.copy()
-            # Copy attributes from fingerprint
-            self.mic=self.fingerprint.mic
+            reset_database=True
         if reduce_dimensions is not None:
             self.reduce_dimensions=reduce_dimensions
+            reset_database=True
         if use_derivatives is not None:
             self.use_derivatives=use_derivatives
+            reset_database=True
         if use_fingerprint is not None:
             self.use_fingerprint=use_fingerprint
+            reset_database=True
         # Check that the database and the fingerprint have the same attributes
         self.check_attributes()
-        # Reset the database
-        self.reset_database()
+        # Reset the database if an argument has been changed
+        if reset_database:
+            self.reset_database()
         return self
 
     def check_attributes(self):
@@ -296,7 +301,7 @@ class Database:
                         use_derivatives=self.use_derivatives,
                         use_fingerprint=self.use_fingerprint)
         # Get the constants made within the class
-        constant_kwargs=dict(mic=self.mic)
+        constant_kwargs=dict()
         # Get the objects made within the class
         object_kwargs=dict(atoms_list=self.atoms_list.copy(),
                            features=self.features.copy(),

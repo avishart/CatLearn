@@ -313,6 +313,9 @@ class MLNEB(object):
         if self.save_memory:
             if self.rank!=0:
                 return self.mlcalc
+        # Update database with the points of interest
+        self.update_database_arguments(point_interest=self.last_images)
+        # Train the ML model
         self.mlcalc.train_model()
         return self.mlcalc
 
@@ -324,6 +327,11 @@ class MLNEB(object):
     def is_in_database(self,atoms,**kwargs):
         " Check if the ASE Atoms is in the database. "
         return self.mlcalc.is_in_database(atoms,**kwargs)
+    
+    def update_database_arguments(self,point_interest=None,**kwargs):
+        " Update the arguments in the database. "
+        self.mlcalc.update_database_arguments(point_interest=point_interest,**kwargs)
+        return self
     
     def ensure_not_in_database(self,atoms,perturb=0.01,**kwargs):
         " Ensure the ASE Atoms object is not in database by perturb it if it is. "
