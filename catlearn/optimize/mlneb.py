@@ -451,7 +451,7 @@ class MLNEB(object):
                 self.message_system('NEB on surrogate surface converged!')
                 break
         # Activate climbing when the model has low uncertainty and it is converged
-        if neb_opt.converged():
+        if i<ml_steps and neb_opt.converged():
             if climb==False and self.climb==True:
                 self.message_system('Starting NEB with climbing image on surrogate surface.')
                 return self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps-neb_opt.nsteps,max_unc=max_unc,climb=True)
