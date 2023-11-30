@@ -109,8 +109,6 @@ class MLNEB(object):
         # Set initial parameters
         self.step=0
         self.converging=False
-        # Whether to have the full output
-        self.full_output=full_output  
         # Setup the ML calculator
         if mlcalc is None:
             from ..regression.gaussianprocess.calculator.mlmodel import get_default_mlmodel
@@ -119,6 +117,8 @@ class MLNEB(object):
             self.mlcalc=MLCalculator(mlmodel=mlmodel)
         else:
             self.mlcalc=mlcalc.copy()
+        # Whether to have the full output
+        self.full_output=full_output  
         self.set_verbose(verbose=full_output)
         # Select an acquisition function 
         if acq is None:
