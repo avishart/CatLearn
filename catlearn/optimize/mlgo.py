@@ -7,7 +7,7 @@ from ase.parallel import world,broadcast
 class MLGO:
     def __init__(self,slab,ads,ase_calc,ads2=None,mlcalc=None,acq=None,
                  prev_calculations=None,use_database_check=True,
-                 force_consistent=None,scale_fmax=0.5,save_memory=False,
+                 apply_constraint=True,force_consistent=None,scale_fmax=0.5,save_memory=False,
                  local_opt=None,local_opt_kwargs={},opt_kwargs={},
                  bounds=None,initial_points=2,norelax_points=10,min_steps=8,
                  trajectory='evaluated.traj',tabletxt=None,full_output=False,**kwargs):
@@ -38,6 +38,9 @@ class MLGO:
             use_database_check : bool
                 Whether to check if the new structure is within the database.
                 If it is in the database, the structure is rattled. 
+            apply_constraint : boolean
+                Whether to apply the constrains of the ASE Atoms instance to the calculated forces. 
+                By default (apply_constraint=True) forces are 0 for constrained atoms and directions.
             force_consistent: boolean or None.
                 Use force-consistent energy calls (as opposed to the energy
                 extrapolated to 0 K). By default (force_consistent=None) uses
@@ -86,6 +89,7 @@ class MLGO:
         self.norelax_points=norelax_points
         self.min_steps=min_steps
         self.use_database_check=use_database_check
+        self.apply_constraint=apply_constraint
         self.force_consistent=force_consistent
         self.initial_points=initial_points
         self.full_output=full_output
@@ -265,7 +269,7 @@ class MLGO:
         self.message_system('Performing evaluation.',end='\r')
         candidate.calc=self.ase_calc
         candidate.calc.reset()
-        forces=candidate.get_forces()
+        forces=candidate.get_forces(apply_constraint=self.apply_constraint)
         self.energy_true=candidate.get_potential_energy(force_consistent=self.force_consistent)
         self.step+=1
         self.message_system('Single-point calculation finished.')
