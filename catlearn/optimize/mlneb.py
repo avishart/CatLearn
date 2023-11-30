@@ -12,7 +12,7 @@ class MLNEB(object):
                  climb=True,neb_method=BaseNEB,neb_kwargs=dict(),n_images=15,
                  prev_calculations=None,use_database_check=True,
                  use_restart_path=True,check_path_unc=True,save_memory=False,
-                 force_consistent=None,scale_fmax=0.5,
+                 apply_constraint=True,force_consistent=None,scale_fmax=0.5,
                  local_opt=None,local_opt_kwargs=dict(),
                  trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',
                  tabletxt=None,full_output=False,**kwargs):
@@ -69,6 +69,9 @@ class MLNEB(object):
                 Whether to only train the ML calculator and store all objects on one CPU. 
                 If save_memory==True then parallel optimization of the hyperparameters can not be achived.
                 If save_memory==False no MPI object is used.  
+            apply_constraint : boolean
+                Whether to apply the constrains of the ASE Atoms instance to the calculated forces. 
+                By default (apply_constraint=True) forces are 0 for constrained atoms and directions.
             force_consistent: boolean or None.
                 Use force-consistent energy calls (as opposed to the energy
                 extrapolated to 0 K). By default (force_consistent=None) uses
@@ -130,6 +133,7 @@ class MLNEB(object):
         self.set_up_endpoints(start,end)
         # Save the ASE calculator
         self.ase_calc=ase_calc
+        self.apply_constraint=apply_constraint
         self.force_consistent=force_consistent
         # Scale the fmax on the surrogate surface
         self.scale_fmax=scale_fmax
@@ -293,7 +297,7 @@ class MLNEB(object):
         self.message_system('Performing evaluation.',end='\r')
         candidate.calc=self.ase_calc
         candidate.calc.reset()
-        forces=candidate.get_forces()
+        forces=candidate.get_forces(apply_constraint=self.apply_constraint)
         self.energy_true=candidate.get_potential_energy(force_consistent=self.force_consistent)
         self.step+=1
         self.message_system('Single-point calculation finished.')
