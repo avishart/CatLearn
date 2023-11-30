@@ -28,7 +28,7 @@ class TestGPMeans(unittest.TestCase):
                 # Train the machine learning model
                 gp.train(x_tr,f_tr)
                 # Predict the energies and uncertainties
-                ypred,var=gp.predict(x_te,get_variance=True,get_derivatives=False,include_noise=False)
+                ypred,var,var_deriv=gp.predict(x_te,get_variance=True,get_derivatives=False,include_noise=False)
                 # Test the prediction energy errors
                 error=calculate_rmse(f_te[:,0],ypred[:,0])
                 self.assertTrue(abs(error-error_list[index])<1e-4) 
@@ -56,7 +56,7 @@ class TestGPMeans(unittest.TestCase):
                 # Train the machine learning model
                 gp.train(x_tr,f_tr)
                 # Predict the energies and uncertainties
-                ypred,var=gp.predict(x_te,get_variance=True,get_derivatives=False,include_noise=False)
+                ypred,var,var_deriv=gp.predict(x_te,get_variance=True,get_derivatives=False,include_noise=False)
                 # Test the prediction energy errors
                 error=calculate_rmse(f_te[:,0],ypred[:,0])
                 self.assertTrue(abs(error-error_list[index])<1e-4) 

@@ -7,6 +7,7 @@ class ModelProcess:
         The Model Process Regressor.
         The Model process uses Cholesky decomposition for inverting the kernel matrix.
         The hyperparameters can be optimized.
+
         Parameters:
             prior : Prior class
                 The prior mean given for the data.
@@ -57,12 +58,14 @@ class ModelProcess:
     def train(self,features,targets,**kwargs):
         """
         Train the model with training features and targets. 
+
         Parameters:
             features : (N,D) array or (N) list of fingerprint objects
                 Training features with N data points.
             targets : (N,1) array or (N,1+D) array
                 Training targets with N data points.
                 If use_derivatives=True, the training targets is in first column and derivatives is in the next columns.
+        
         Returns:
             self: The trained object itself.
         """
@@ -79,71 +82,11 @@ class ModelProcess:
         # Calculate the prefactor for variance predictions
         self.prefactor=self.calculate_prefactor(features,targets)
         return self
-
-    def predict(self,features,get_variance=False,get_derivatives=False,include_noise=False,**kwargs):
-        """
-        Predict the mean and variance for test features by using data and coefficients from training data.
-        Parameters:
-            features : (M,D) array or (M) list of fingerprint objects
-                Test features with M data points.
-            get_variance : bool
-                Whether to predict the variance.
-            get_derivatives : bool
-                Whether to predict the derivative mean and uncertainty.
-            include_noise : bool
-                Whether to include the noise of data in the predicted variance.
-        Returns:
-            Y_predict : (M,1) or (M,1+D) array 
-                The predicted mean values with or without derivatives
-            var : (M,1) or (M,1+D) array
-                The predicted variance of the targets with or without derivatives.
-        """
-        # Check if the model is trained
-        if not self.trained_model:
-            raise Exception('The model is not trained!')
-        # Calculate the kernel matrix of test and training data
-        KQX=self.kernel(features,self.features,get_derivatives=get_derivatives)
-        m_data=len(features)
-        # Calculate the prediction mean
-        Y_predict=self.calculate_prediction_mean(features,KQX,m_data,get_derivatives=get_derivatives)
-        # Calculate the predicted variance
-        if get_variance:
-            var=self.calculate_variance(features,KQX,get_derivatives=get_derivatives,include_noise=include_noise)
-            return Y_predict,var
-        return Y_predict,None
-    
-    def calculate_variance(self,features,KQX,get_derivatives=False,include_noise=False,**kwargs):
-        """
-        Calculate the predicted variance.
-        Parameters:
-            features : (M,D) array or (M) list of fingerprint objects
-                Test features with M data points.
-            KQX : (M,N) array or (M*(1+D),N*(1+D)) array or (M,N*(1+D))
-                The kernel matrix of test and training data.
-            get_derivatives : bool
-                Whether to predict the derivative uncertainty.
-            include_noise : bool
-                Whether to include the noise of data in the predicted variance
-        Returns:
-            var : (M,1) or (M,1+D) array
-                The predicted variance of the targets with or without derivatives.
-        """
-        # Get the number of test points
-        m_data=len(features)
-        # Calculate the diagonal elements of the kernel matrix of the test data 
-        k=self.kernel_diag(features,m_data=m_data,get_derivatives=get_derivatives,include_noise=include_noise)
-        # Calculate predicted variance
-        var=(k-np.einsum('ij,ji->i',KQX,self.calculate_CinvKQX(KQX))).reshape(-1,1)
-        # Scale prediction variance with the prefactor
-        var=var*self.prefactor
-        # Rearrange targets if derivatives are used
-        if get_derivatives:
-            return var.reshape(m_data,-1,order='F')
-        return var
     
     def optimize(self,features,targets,retrain=True,hp=None,pdis=None,verbose=False,**kwargs):
         """ 
         Optimize the hyperparameter of the model and its kernel.
+
         Parameters:
             features : (N,D) array or (N) list of fingerprint objects
                 Training features with N data points.
@@ -160,6 +103,7 @@ class ModelProcess:
                 A dict of prior distributions for each hyperparameter type.
             verbose : bool
                 Print the optimized hyperparameters and the object function value.
+                
         Returns:
             dict: A solution dictionary with objective function value and hyperparameters.
         """
@@ -178,6 +122,168 @@ class ModelProcess:
             self.set_hyperparams(sol['hp'])
             self.train(features,targets)
         return sol
+
+    def predict(self,features,get_derivatives=False,get_variance=False,include_noise=False,get_derivtives_var=False,get_var_derivatives=False,**kwargs):
+        """
+        Predict the mean and variance for test features by using data and coefficients from training data.
+
+        Parameters:
+            features : (M,D) array or (M) list of fingerprint objects
+                Test features with M data points.
+            get_derivatives : bool
+                Whether to predict the derivatives of the prediction mean.
+            get_variance : bool
+                Whether to predict the variance of the targets.
+            include_noise : bool
+                Whether to include the noise of data in the predicted variance.
+            get_derivtives_var : bool
+                Whether to predict the variance of the derivatives of the targets.
+            get_var_derivatives : bool
+                Whether to calculate the derivatives of the predicted variance of the targets.
+
+        Returns:
+            Y_predict : (M,1) or (M,1+D) array 
+                The predicted mean values with or without derivatives.
+            var : (M,1) or (M,1+D) array
+                The predicted variance of the targets with or without derivatives.
+            var_deriv : (M,D) array
+                The derivatives of the predicted variance of the targets.
+        """
+        # Check if the model is trained
+        if not self.trained_model:
+            raise Exception('The model is not trained!')
+        # Calculate the kernel matrix of test and training data
+        if get_derivatives or (get_derivtives_var and get_variance) or get_var_derivatives:
+            KQX=self.kernel(features,self.features,get_derivatives=True)
+        else:
+            KQX=self.kernel(features,self.features,get_derivatives=False) 
+        # Calculate the prediction mean
+        Y_predict=self.predict_mean(features,KQX=KQX,get_derivatives=get_derivatives)
+        # Calculate the predicted variance
+        if get_variance:
+            var=self.predict_variance(features,KQX=KQX,get_derivatives=get_derivtives_var,include_noise=include_noise)
+        else:
+            var=None
+        # Calculate the derivatives of the predicted variance
+        if get_var_derivatives:
+            var_deriv=self.calculate_variance_derivatives(features,KQX=KQX)
+        else:
+            var_deriv=None
+        return Y_predict,var,var_deriv
+
+    def predict_mean(self,features,KQX=None,get_derivatives=False,**kwargs):
+        """
+        Predict the mean for test features by using data and coefficients from training data.
+
+        Parameters:
+            features : (M,D) array or (M) list of fingerprint objects
+                Test features with M data points.
+            KQX : (M,N) or (M,N+N*D) or (M+M*D,N+N*D) array
+                The kernel matrix of the test and training features. 
+                If KQX=None, it is calculated.
+            get_derivatives : bool
+                Whether to predict the derivatives of the prediction mean.
+
+        Returns:
+            Y_predict : (M,1) array
+                The predicted mean values if get_derivatives=False
+            or 
+            Y_predict : (M,1+D) array 
+                The predicted mean values and its derivatives if get_derivatives=True
+        """
+        # Check if the model is trained
+        if not self.trained_model:
+            raise Exception('The model is not trained!')
+        # Get the number of test points
+        m_data=len(features)
+        # Calculate the kernel matrix of test and training data if it is not given
+        if KQX is None:
+            KQX=self.kernel(features,self.features,get_derivatives=get_derivatives)
+        else:
+            if not get_derivatives:
+                KQX=KQX[:m_data]
+        # Calculate the prediction mean
+        Y_predict=np.matmul(KQX,self.coef)
+        # Rearrange prediction
+        Y_predict=Y_predict.reshape(m_data,-1,order='F')
+        # Add the prior mean 
+        Y_predict=Y_predict+self.prior.get(features,Y_predict,get_derivatives=get_derivatives)
+        return Y_predict
+    
+    def predict_variance(self,features,KQX=None,get_derivatives=False,include_noise=False,**kwargs):
+        """
+        Calculate the predicted variance of the test targets.
+
+        Parameters:
+            features : (M,D) array or (M) list of fingerprint objects
+                Test features with M data points.
+            KQX : (M,N) or (M,N+N*D) or (M+M*D,N+N*D) array
+                The kernel matrix of the test and training features. 
+                If KQX=None, it is calculated.
+            get_derivatives : bool
+                Whether to predict the uncertainty of the derivatives of the targets.
+            include_noise : bool
+                Whether to include the noise of data in the predicted variance
+
+        Returns:
+            var : (M,1) array
+                The predicted variance of the targets if get_derivatives=False.
+            or 
+            var : (M,1+D) array
+                The predicted variance of the targets and its derivatives if get_derivatives=True.
+
+        """
+        # Check if the model is trained
+        if not self.trained_model:
+            raise Exception('The model is not trained!')
+        # Get the number of test points
+        m_data=len(features)
+        # Calculate the kernel matrix of test and training data if it is not given
+        if KQX is None:
+            KQX=self.kernel(features,self.features,get_derivatives=get_derivatives)
+        else:
+            if not get_derivatives:
+                KQX=KQX[:m_data]
+        # Calculate the diagonal elements of the kernel matrix of the test data 
+        k=self.kernel_diag(features,m_data=m_data,get_derivatives=get_derivatives,include_noise=include_noise)
+        # Calculate predicted variance
+        var=(k-np.einsum('ij,ji->i',KQX,self.calculate_CinvKQX(KQX))).reshape(-1,1)
+        # Scale prediction variance with the prefactor
+        var=var*self.prefactor
+        # Rearrange the predicted variance
+        return var.reshape(m_data,-1,order='F')
+    
+    def calculate_variance_derivatives(self,features,KQX=None,**kwargs):
+        """
+        Calculate the derivatives of the predicted variance of the test targets.
+
+        Parameters:
+            features : (M,D) array or (M) list of fingerprint objects
+                Test features with M data points.
+            KQX : (M,N) or (M,N+N*D) or (M+M*D,N+N*D) array
+                The kernel matrix of the test and training features. 
+                If KQX=None, it is calculated.
+
+        Returns:
+            var_deriv : (M,D) array
+                The derivatives of the predicted variance of the targets.
+        """
+        # Check if the model is trained
+        if not self.trained_model:
+            raise Exception('The model is not trained!')
+        # Get the number of test points
+        m_data=len(features)
+        # Calculate the kernel matrix of test and training data
+        if KQX is None:
+            KQX=self.kernel(features,self.features,get_derivatives=True)
+        # Calculate the derivative of the diagonal elements wrt. the test features
+        k_deriv=self.kernel_deriv_diag(features)
+        # Calculate derivative of the predicted variance
+        var_deriv=k_deriv-2.0*np.einsum('ij,ji->i',KQX[m_data:],self.calculate_CinvKQX(KQX[:m_data])).reshape(-1,1)
+        # Scale prediction variance with the prefactor
+        var_deriv=var_deriv*self.prefactor
+        # Rearrange derivative of variance
+        return var_deriv.reshape(m_data,-1,order='F')
     
     def set_hyperparams(self,new_params,**kwargs):
         """
@@ -322,17 +428,7 @@ class ModelProcess:
     
     def calculate_prefactor(self,features,targets,**kwargs):
         " Calculate the prefactor that the prediction uncertainty is scaled with. "
-        raise NotImplementedError() 
-    
-    def calculate_prediction_mean(self,features,KQX,m_data,get_derivatives=False,**kwargs):
-        " Calculate the prediction mean target. "
-        # Calculate the prediction mean
-        Y_predict=np.matmul(KQX,self.coef)
-        # Rearrange prediction
-        Y_predict=Y_predict.reshape(m_data,-1,order='F')
-        # Add the prior mean 
-        Y_predict=Y_predict+self.prior.get(features,Y_predict,get_derivatives=get_derivatives)
-        return Y_predict
+        raise NotImplementedError()
 
     def kernel_diag(self,features,m_data,get_derivatives=False,include_noise=False,**kwargs):
         " Calculate the diagonal elements of the kernel matrix of the test data. "
@@ -346,6 +442,10 @@ class ModelProcess:
             else:
                 k+=(np.nan_to_num(np.exp(2.0*self.hp['noise'][0]))+self.corr)
         return k
+    
+    def kernel_deriv_diag(self,features,**kwargs):
+        " Calculate the derivative of the diagonal elements in the kernel wrt. the features. "
+        return self.kernel.diag_deriv(features,**kwargs)
     
     def calculate_CinvKQX(self,KQX,**kwargs):
         " Calculate the CinvKQX matrix. "

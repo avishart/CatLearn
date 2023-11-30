@@ -3,10 +3,11 @@ from ase.calculators.calculator import Calculator, all_changes
 
 class MLCalculator(Calculator):
 
-    implemented_properties=['energy','forces','uncertainty','force uncertainty']
+    # Define the properties available in this calculator 
+    implemented_properties=['energy','forces','uncertainty','force uncertainties']
     nolabel=True
 
-    def __init__(self,mlmodel=None,calculate_uncertainty=True,calculate_forces=True,**kwargs):
+    def __init__(self,mlmodel=None,calculate_forces=True,calculate_uncertainty=True,calculate_force_uncertainties=False,**kwargs):
         """
         ML calculator object applicable as an ASE calculator.
 
@@ -14,18 +15,24 @@ class MLCalculator(Calculator):
             mlmodel : MLModel class object
                 Machine Learning model used for ASE Atoms and calculator.
                 The object must have the functions: calculate, train_model, and add_training. 
-            calculate_uncertainty: bool
-                Whether to calculate the uncertainty prediction.
             calculate_forces: bool
                 Whether to calculate the forces.
+            calculate_uncertainty: bool
+                Whether to calculate the uncertainty prediction of the energy.
+            calculate_force_uncertainties: bool
+                Whether to calculate the uncertainties of the force predictions.
         """
+        # Inherit from the Calculator object
         super().__init__()
+        # Set default mlmodel
         if mlmodel is None:
             from .mlmodel import MLModel
             mlmodel=MLModel(model=None,database=None,baseline=None,optimize=True)
+        # Set all the arguments
         self.update_arguments(mlmodel=mlmodel,
-                              calculate_uncertainty=calculate_uncertainty,
                               calculate_forces=calculate_forces,
+                              calculate_uncertainty=calculate_uncertainty,
+                              calculate_force_uncertainties=calculate_force_uncertainties,
                               **kwargs)
 
     def get_uncertainty(self,**kwargs):
@@ -36,17 +43,21 @@ class MLCalculator(Calculator):
             self.results['uncertainty'] : float
                 The predicted uncertainty of the energy.
         """
-        return self.results['uncertainty']
+        if 'uncertainty' in self.results:
+            return self.results['uncertainty']
+        return None
 
     def get_force_uncertainty(self,**kwargs):
         """
         Get the predicted uncertainty of the forces.
 
         Returns:
-            self.results['uncertainty'] : (Nat,3) array
+            self.results['force uncertainties'] : (Nat,3) array
                 The predicted uncertainty of the forces.
         """
-        return self.results['force uncertainty'].copy()
+        if 'force uncertainties' in self.results:
+            return self.results['force uncertainties'].copy()
+        return None
     
     def add_training(self,atoms_list,**kwarg):
         """
@@ -123,7 +134,7 @@ class MLCalculator(Calculator):
         self.mlmodel.update_database_arguments(point_interest=point_interest,**kwargs)
         return self
 
-    def calculate(self,atoms=None,properties=['energy','forces','uncertainty','force uncertainty'],system_changes=all_changes):
+    def calculate(self,atoms=None,properties=['energy','forces','uncertainty','force uncertainties'],system_changes=all_changes):
         """ 
         Calculate the prediction energy, forces, and uncertainties of the energies and forces for a given ASE Atoms structure. 
         Predicted potential energy can be obtained by *atoms.get_potential_energy()*, 
@@ -137,15 +148,13 @@ class MLCalculator(Calculator):
         """
         # Atoms object.
         super().calculate(atoms,properties,system_changes)
-        # Predict energy, forces and uncertainties for the given geometry 
-        energy,forces,unc,force_unc=self.model_prediction(atoms)
-        self.results['energy']=energy
-        self.results['forces']=forces
-        self.results['uncertainty']=unc
-        self.results['force uncertainty']=force_unc
+        # Get predict energy, forces and uncertainties for the given geometry 
+        results=self.model_prediction(atoms)
+        # Store the properties that are implemented
+        self.results={key:value for key,value in results.items() if key in self.implemented_properties}
         return self.results
     
-    def update_arguments(self,mlmodel=None,calculate_uncertainty=None,calculate_forces=None,**kwargs):
+    def update_arguments(self,mlmodel=None,calculate_forces=None,calculate_uncertainty=None,calculate_force_uncertainties=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
 
@@ -153,37 +162,45 @@ class MLCalculator(Calculator):
             mlmodel : MLModel class object
                 Machine Learning model used for ASE Atoms and calculator.
                 The object must have the functions: calculate, train_model, and add_training. 
-            calculate_uncertainty: bool
-                Whether to calculate the uncertainty prediction.
             calculate_forces: bool
                 Whether to calculate the forces.
+            calculate_uncertainty: bool
+                Whether to calculate the uncertainty prediction.
+            calculate_force_uncertainties: bool
+                Whether to calculate the uncertainties of the force predictions.
                 
         Returns:
             self: The updated object itself.
         """
         if mlmodel is not None:
             self.mlmodel=mlmodel.copy()
-        if calculate_uncertainty is not None:
-            self.calculate_uncertainty=calculate_uncertainty
         if calculate_forces is not None:
             self.calculate_forces=calculate_forces
+        if calculate_uncertainty is not None:
+            self.calculate_uncertainty=calculate_uncertainty
+        if calculate_force_uncertainties is not None:
+            self.calculate_force_uncertainties=calculate_force_uncertainties
         # Empty the results
         self.reset()
         return self
 
     def model_prediction(self,atoms,**kwargs):
         " Predict energy, forces and uncertainties for the given geometry with the ML model. "
-        energy,forces,unc,force_unc=self.mlmodel.calculate(atoms,
-                                                           get_variance=self.calculate_uncertainty,
-                                                           get_forces=self.calculate_forces)
-        return energy,forces,unc,force_unc
+        results=self.mlmodel.calculate(atoms,
+                                       get_uncertainty=self.calculate_uncertainty,
+                                       get_forces=self.calculate_forces,
+                                       get_force_uncertainties=self.calculate_force_uncertainties,
+                                       get_unc_derivatives=False,
+                                       **kwargs)
+        return results
     
     def get_arguments(self):
         " Get the arguments of the class itself. "
         # Get the arguments given to the class in the initialization
         arg_kwargs=dict(mlmodel=self.mlmodel,
+                        calculate_forces=self.calculate_forces,
                         calculate_uncertainty=self.calculate_uncertainty,
-                        calculate_forces=self.calculate_forces)
+                        calculate_force_uncertainties=self.calculate_force_uncertainties)
         # Get the constants made within the class
         constant_kwargs=dict()
         # Get the objects made within the class

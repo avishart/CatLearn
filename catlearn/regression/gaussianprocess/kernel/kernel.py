@@ -5,6 +5,7 @@ class Kernel:
     def __init__(self,use_derivatives=False,use_fingerprint=False,hp={},**kwargs):
         """
         The Kernel class with hyperparameters.
+
         Parameters:
             use_derivatives: bool
                 Whether to use the derivatives of the targets.
@@ -26,6 +27,7 @@ class Kernel:
     def __call__(self,features,features2=None,get_derivatives=True,**kwargs):
         """
         Make the kernel matrix.
+
         Parameters:
             features : (N,D) array or (N) list of fingerprint objects
                 Features with N data points.
@@ -34,6 +36,7 @@ class Kernel:
                 If it is not given a squared kernel from features is generated.
             get_derivatives: bool
                 Whether to predict derivatives of target.
+
         Returns:
             KXX : array
                 The symmetric kernel matrix if features2=None.
@@ -52,19 +55,35 @@ class Kernel:
     def diag(self,features,get_derivatives=True,**kwargs):
         """
         Get the diagonal kernel vector.
+
         Parameters:
             features : (N,D) array or (N) list of fingerprint objects
                 Features with N data points.
             get_derivatives: bool
                 Whether to predict derivatives of target.
+
         Returns:
             (N) or (N*D+1) array: The diagonal elements of the symmetric kernel matrix.
+        """
+        raise NotImplementedError()
+    
+    def diag_deriv(self,features,**kwargs):
+        """
+        Get the derivative of the diagonal kernel vector wrt. the features.
+
+        Parameters:
+            features : (N,D) array or (N) list of fingerprint objects
+                Features with N data points.
+
+        Returns:
+            (N,D) array: The derivative of the diagonal elements.
         """
         raise NotImplementedError()
 
     def get_gradients(self,features,hp,KXX,correction=True,**kwargs):
         """
-        Get the gradients of the kernel matrix in respect to the hyperparameters.
+        Get the gradients of the kernel matrix wrt. to the hyperparameters.
+
         Parameters:
             features : (N,D) array
                 Features with N data points and D dimensions.
@@ -74,6 +93,7 @@ class Kernel:
                 The kernel matrix of training data.
             correction : bool
                 Whether the noise correction is used.
+
         Returns:
             dict: A dictionary with gradient of the symmetric kernel matrix wrt. the hyperparameter.
         """
@@ -82,9 +102,11 @@ class Kernel:
     def set_hyperparams(self,new_params,**kwargs):
         """
         Set or update the hyperparameters for the Kernel.
+
         Parameters:
             new_params: dictionary
                 A dictionary of hyperparameters in the log-space that are added or updated.
+        
         Returns:
             self: The updated object itself.
         """
@@ -95,6 +117,7 @@ class Kernel:
     def get_hyperparams(self,**kwargs):
         """
         Get the hyperparameters for the kernel.
+
         Returns:
             dict: The hyperparameters in the log-space from the kernel class.  
         """
@@ -103,9 +126,11 @@ class Kernel:
     def get_hp_dimension(self,features=None,**kwargs):
         """
         Get the dimension of the length-scale hyperparameter.
+
         Parameters:
             features : (N,D) array or (N) list of fingerprint objects or None
                 Features with N data points.
+
         Returns:
             int: The dimensions of the length-scale hyperparameter.  
         """
@@ -114,6 +139,7 @@ class Kernel:
     def update_arguments(self,use_derivatives=None,use_fingerprint=None,hp=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
+        
         Parameters:
             use_derivatives: bool
                 Whether to use the derivatives of the targets.
@@ -123,6 +149,7 @@ class Kernel:
                 A dictionary of the hyperparameters in the log-space.
                 The hyperparameters should be given as flatten arrays, 
                 like hp=dict(length=np.array([-0.7])).
+
         Returns:
             self: The updated object itself.
         """
@@ -137,9 +164,11 @@ class Kernel:
     def get_KXX(self,features,**kwargs):
         """
         Make the symmetric kernel matrix.
+
         Parameters:
             features : (N,D) array or (N) list of fingerprint objects
                 Features with N data points.
+
         Returns:
             KXX : array
                 The symmetric kernel matrix if features2=None.
@@ -151,6 +180,7 @@ class Kernel:
     def get_KQX(self,features,features2,get_derivatives=True,**kwargs):
         """
         Make the kernel matrix.
+
         Parameters:
             features : (N,D) array or (N) list of fingerprint objects
                 Features with N data points.
@@ -159,6 +189,7 @@ class Kernel:
                 If it is not given a squared kernel from features is generated.
             get_derivatives: bool
                 Whether to predict derivatives of target.
+                
         Returns:
             KQX : array
                 The kernel matrix if features2 is not None.

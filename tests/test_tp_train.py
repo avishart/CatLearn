@@ -39,7 +39,7 @@ class TestTPTrainPredict(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr,f_tr)
         # Predict the energy
-        ypred,var=tp.predict(x_te,get_variance=False,get_derivatives=False,include_noise=False)
+        ypred,var,var_deriv=tp.predict(x_te,get_variance=False,get_derivatives=False,include_noise=False)
         # Test the prediction energy errors
         error=calculate_rmse(f_te[:,0],ypred[:,0])
         self.assertTrue(abs(error-0.02650)<1e-4) 
@@ -57,7 +57,7 @@ class TestTPTrainPredict(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr,f_tr)
         # Predict the energies
-        ypred,var=tp.predict(x_te,get_variance=False,get_derivatives=False,include_noise=False)
+        ypred,var,var_deriv=tp.predict(x_te,get_variance=False,get_derivatives=False,include_noise=False)
         # Test the prediction energy errors
         error=calculate_rmse(f_te[:,0],ypred[:,0])
         self.assertTrue(abs(error-1.75102)<1e-4) 
@@ -75,7 +75,7 @@ class TestTPTrainPredict(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr,f_tr)
         # Predict the energies and uncertainties
-        ypred,var=tp.predict(x_te,get_variance=True,get_derivatives=False,include_noise=False)
+        ypred,var,var_deriv=tp.predict(x_te,get_variance=True,get_derivatives=False,include_noise=False)
         # Test the prediction energy errors
         error=calculate_rmse(f_te[:,0],ypred[:,0])
         self.assertTrue(abs(error-1.75102)<1e-4) 
@@ -93,7 +93,7 @@ class TestTPTrainPredict(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr,f_tr)
         # Predict the energies and uncertainties
-        ypred,var=tp.predict(x_te,get_variance=True,get_derivatives=False,include_noise=True)
+        ypred,var,var_deriv=tp.predict(x_te,get_variance=True,get_derivatives=False,include_noise=True)
         # Test the prediction energy errors
         error=calculate_rmse(f_te[:,0],ypred[:,0])
         self.assertTrue(abs(error-1.75102)<1e-4)
@@ -111,7 +111,7 @@ class TestTPTrainPredict(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr,f_tr)
         # Predict the energies, derivatives, and uncertainties
-        ypred,var=tp.predict(x_te,get_variance=True,get_derivatives=True,include_noise=False)
+        ypred,var,var_deriv=tp.predict(x_te,get_variance=True,get_derivatives=True,include_noise=False)
         # Check that the derivatives are predicted
         self.assertTrue(np.shape(ypred)[1]==2)
         # Test the prediction energy errors
@@ -148,7 +148,7 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr,f_tr)
         # Predict the energy
-        ypred,var=tp.predict(x_te,get_variance=False,get_derivatives=False,include_noise=False)
+        ypred,var,var_deriv=tp.predict(x_te,get_variance=False,get_derivatives=False,include_noise=False)
         # Test the prediction energy errors
         error=calculate_rmse(f_te[:,0],ypred[:,0])
         self.assertTrue(abs(error-0.00218)<1e-4) 
@@ -166,7 +166,7 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr,f_tr)
         # Predict the energies
-        ypred,var=tp.predict(x_te,get_variance=False,get_derivatives=False,include_noise=False)
+        ypred,var,var_deriv=tp.predict(x_te,get_variance=False,get_derivatives=False,include_noise=False)
         # Test the prediction energy errors
         error=calculate_rmse(f_te[:,0],ypred[:,0])
         self.assertTrue(abs(error-0.13723)<1e-4) 
@@ -184,7 +184,7 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr,f_tr)
         # Predict the energies and uncertainties
-        ypred,var=tp.predict(x_te,get_variance=True,get_derivatives=False,include_noise=False)
+        ypred,var,var_deriv=tp.predict(x_te,get_variance=True,get_derivatives=False,include_noise=False)
         # Test the prediction energy errors
         error=calculate_rmse(f_te[:,0],ypred[:,0])
         self.assertTrue(abs(error-0.13723)<1e-4) 
@@ -202,7 +202,7 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr,f_tr)
         # Predict the energies and uncertainties
-        ypred,var=tp.predict(x_te,get_variance=True,get_derivatives=False,include_noise=True)
+        ypred,var,var_deriv=tp.predict(x_te,get_variance=True,get_derivatives=False,include_noise=True)
         # Test the prediction energy errors
         error=calculate_rmse(f_te[:,0],ypred[:,0])
         self.assertTrue(abs(error-0.13723)<1e-4)
@@ -220,7 +220,7 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr,f_tr)
         # Predict the energies, derivatives, and uncertainties
-        ypred,var=tp.predict(x_te,get_variance=True,get_derivatives=True,include_noise=False)
+        ypred,var,var_deriv=tp.predict(x_te,get_variance=True,get_derivatives=True,include_noise=False)
         # Check that the derivatives are predicted
         self.assertTrue(np.shape(ypred)[1]==2)
         # Test the prediction energy errors
