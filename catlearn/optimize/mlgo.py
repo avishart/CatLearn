@@ -470,13 +470,22 @@ class MLGO:
         candidate=candidate.copy()
         candidate.calc=self.mlcalc
         # Initialize local optimization
-        dyn=self.local_opt(candidate,**self.local_opt_kwargs)
-        # Run the local optimization without checking uncertainties
-        if max_unc==False:
-            dyn.run(fmax=fmax,steps=local_steps)
+        with self.local_opt(candidate,**self.local_opt_kwargs) as dyn:
+            if max_unc==False or max_unc is None:
+                dyn,candidate=self.local_relax_no_max_unc(dyn,candidate,fmax=fmax,local_steps=local_steps,**kwargs)
+            else:
+                dyn,candidate=self.local_relax_max_unc(dyn,candidate,fmax=fmax,max_unc=max_unc,local_steps=local_steps,rank=rank,**kwargs)
+            # Calculate the energy and uncertainty
             energy,unc=self.get_predictions(candidate)
-            return candidate.copy(),energy,unc
-        # Run the local optimization with checking uncertainties
+        return candidate.copy(),energy,unc
+    
+    def local_relax_no_max_unc(self,dyn,candidate,fmax,local_steps=200,**kwargs):
+        " Run the local optimization without checking uncertainties. "
+        dyn.run(fmax=fmax,steps=local_steps)
+        return dyn,candidate
+
+    def local_relax_max_unc(self,dyn,candidate,fmax,max_unc,local_steps=200,rank=0,**kwargs):
+        " Run the local optimization with checking uncertainties. "
         for i in range(1,local_steps+1):
             candidate_backup=candidate.copy()
             # Take a step in local relaxation on surrogate surface
@@ -490,14 +499,13 @@ class MLGO:
             if np.isnan(energy):
                 candidate=candidate_backup.copy()
                 candidate.calc=self.mlcalc
-                energy,unc=self.get_predictions(candidate)
                 self.message_system('Stopped due to NaN value in prediction!',rank=rank)
                 break
             # Check if the optimization is converged on the predicted surface
             if dyn.converged():
                 self.message_system('Relaxation on surrogate surface converged!',rank=rank)
                 break
-        return candidate.copy(),energy,unc
+        return dyn,candidate
 
     def get_predictions(self,candidate):
         " Calculate the energies and uncertainties with the ML calculator "

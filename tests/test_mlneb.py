@@ -67,6 +67,23 @@ class TestMLNEB(unittest.TestCase):
         self.assertTrue(mlneb.converged()==True) 
         # Check that MLNEB used the right number of iterations
         self.assertTrue(mlneb.step==6)
+
+    def test_mlneb_run_no_maxunc(self):
+        " Test if the MLNEB can run and converge when it does not use max_unc. "
+        from catlearn.optimize.mlneb import MLNEB
+        from ase.calculators.emt import EMT
+        # Get the initial and final states
+        initial,final=get_endstructures()
+        # Set random seed
+        np.random.seed(1)
+        # Initialize MLNEB
+        mlneb=MLNEB(start=initial,end=final,ase_calc=EMT(),interpolation='linear',n_images=11,use_restart_path=True,check_path_unc=True,full_output=False,local_opt_kwargs=dict(logfile=None))
+        # Test if the MLNEB can be run
+        mlneb.run(fmax=0.05,unc_convergence=0.05,steps=50,ml_steps=250,max_unc=False)
+        # Check that MLNEB converged
+        self.assertTrue(mlneb.converged()==True) 
+        # Check that MLNEB used the right number of iterations
+        self.assertTrue(mlneb.step==6)
     
 
 if __name__ == '__main__':
