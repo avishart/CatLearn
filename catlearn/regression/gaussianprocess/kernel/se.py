@@ -57,7 +57,7 @@ class SE(Kernel):
             if self.use_fingerprint:
                 return self.get_KQX_ext_fp(features,features2,Q,X,D,K,get_derivatives=get_derivatives)
             return self.get_KQX_ext(features,features2,Q,X,D,K,get_derivatives=get_derivatives)
-        return np.exp((-0.5)*D)
+        return K
     
     def get_KXX_ext(self,features,X,D,K,**kwargs):
         """
