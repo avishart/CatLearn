@@ -405,18 +405,19 @@ def get_default_model(model='tp',prior='median',use_derivatives=True,use_fingerp
             The Machine Learning Model with kernel and prior that are optimized.
     """
     # Make the prior mean from given string
-    if prior.lower()=='median':
-        from ..means.median import Prior_median
-        prior=Prior_median()
-    elif prior.lower()=='mean':
-        from ..means.mean import Prior_mean
-        prior=Prior_mean()
-    elif prior.lower()=='min':
-        from ..means.min import Prior_min
-        prior=Prior_min()
-    elif prior.lower()=='max':
-        from ..means.max import Prior_max
-        prior=Prior_max()
+    if isinstance(prior,str):
+        if prior.lower()=='median':
+            from ..means.median import Prior_median
+            prior=Prior_median()
+        elif prior.lower()=='mean':
+            from ..means.mean import Prior_mean
+            prior=Prior_mean()
+        elif prior.lower()=='min':
+            from ..means.min import Prior_min
+            prior=Prior_min()
+        elif prior.lower()=='max':
+            from ..means.max import Prior_max
+            prior=Prior_max()
     # Construct the kernel class object
     from ..kernel.se import SE
     kernel=SE(use_fingerprint=use_fingerprint,use_derivatives=use_derivatives)
@@ -430,17 +431,18 @@ def get_default_model(model='tp',prior='median',use_derivatives=True,use_fingerp
         line_optimizer=GoldenSearch(optimize=True,multiple_min=False,parallel=False)
     optimizer=FactorizedOptimizer(line_optimizer=line_optimizer,ngrid=80,calculate_init=False,parallel=parallel)
     # Use either the Student t process or the Gaussian process
-    from ..hpfitter import HyperparameterFitter    
-    if model.lower()=='tp':
-        from ..models.tp import TProcess
-        from ..objectivefunctions.tp.factorized_likelihood import FactorizedLogLikelihood
-        hpfitter=HyperparameterFitter(func=FactorizedLogLikelihood(),optimizer=optimizer)
-        model=TProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter,a=1e-3,b=1e-4)
-    else:
-        from ..models.gp import GaussianProcess
-        from ..objectivefunctions.gp.factorized_likelihood import FactorizedLogLikelihood
-        hpfitter=HyperparameterFitter(func=FactorizedLogLikelihood(),optimizer=optimizer)
-        model=GaussianProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter)
+    if isinstance(model,str):
+        from ..hpfitter import HyperparameterFitter    
+        if model.lower()=='tp':
+            from ..models.tp import TProcess
+            from ..objectivefunctions.tp.factorized_likelihood import FactorizedLogLikelihood
+            hpfitter=HyperparameterFitter(func=FactorizedLogLikelihood(),optimizer=optimizer)
+            model=TProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter,a=1e-3,b=1e-4)
+        else:
+            from ..models.gp import GaussianProcess
+            from ..objectivefunctions.gp.factorized_likelihood import FactorizedLogLikelihood
+            hpfitter=HyperparameterFitter(func=FactorizedLogLikelihood(),optimizer=optimizer)
+            model=GaussianProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter)
     return model
 
 
