@@ -9,6 +9,7 @@ class Prior:
     def get(self,X,Y,get_derivatives=True,**kwargs):
         """
         Get the prior mean of the targets.
+
         Parameters:
             features : (N,D) array or (N) list of fingerprint objects
                 Training features with N data points.
@@ -23,12 +24,14 @@ class Prior:
     def update(self,X,Y,**kwargs):
         """
         Update the prior mean with the given data.
+
         Parameters:
             features : (N,D) array or (N) list of fingerprint objects
                 Training features with N data points.
             targets : (N,1) array or (N,1+D) array
                 Training targets with N data points.
                 If get_derivatives=True, the training targets is in first column and derivatives is in the next columns.
+        
         Returns:
             self: The updated object itself.
         """
@@ -38,6 +41,7 @@ class Prior:
     def get_parameters(self,**kwargs):
         """
         Get the prior mean parameters.
+
         Returns:
             dict: A dictionary with the parameters used in the prior mean.
         """
@@ -46,6 +50,7 @@ class Prior:
     def update_arguments(self,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
+        
         Returns:
             self: The updated object itself.
         """
