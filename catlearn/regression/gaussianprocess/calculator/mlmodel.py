@@ -158,6 +158,19 @@ class MLModel:
         """
         return self.database.is_in_database(atoms=atoms,**kwargs)
     
+    def copy_atoms(self,atoms,**kwargs):
+        """
+        Copy the atoms object together with the calculated properties.
+
+        Parameters:
+            atoms : ASE Atoms
+                The ASE Atoms object with a calculator that is copied.
+
+        Returns:
+            ASE Atoms: The copy of the Atoms object with saved data in the calculator.
+        """
+        return self.database.copy_atoms(atoms,**kwargs)
+    
     def update_database_arguments(self,point_interest=None,**kwargs):
         """ 
         Update the arguments in the database.
