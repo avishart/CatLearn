@@ -2,7 +2,6 @@ import numpy as np
 from ase.neb import BaseNEB
 from ase.io import read
 from ase.io.trajectory import TrajectoryWriter
-from copy import deepcopy
 from ase.parallel import world,broadcast
 import datetime
 
@@ -325,7 +324,7 @@ class MLNEB(object):
 
     def set_verbose(self,verbose,**kwargs):
         " Set verbose of MLModel. "
-        self.mlcalc.mlmodel.verbose=verbose
+        self.mlcalc.mlmodel.update_arguments(verbose=verbose)
         return 
     
     def is_in_database(self,atoms,**kwargs):
@@ -392,7 +391,7 @@ class MLNEB(object):
     def get_predictions(self,images,**kwargs):
         " Calculate the energies and uncertainties with the ML calculator "
         energies=[image.get_potential_energy() for image in images]
-        uncertainties=[image.calc.get_uncertainty() for image in images]
+        uncertainties=[image.calc.get_uncertainty(image) for image in images]
         return np.array(energies),np.array(uncertainties)
 
     def get_fmax_predictions(self,images,**kwargs):
@@ -475,9 +474,11 @@ class MLNEB(object):
 
     def save_mlneb(self,images,**kwargs):
         " Save the ML NEB result in the trajectory. "
+        self.images=[]
         for image in images:
-            self.trajectory_neb.write(self.mlcalc.mlmodel.database.copy_atoms(image))
-        self.images=deepcopy(images)
+            image=self.mlcalc.copy_atoms(image)
+            self.images.append(image)
+            self.trajectory_neb.write(image)
         return self.images
     
     def get_barrier(self,forward=True,**kwargs):

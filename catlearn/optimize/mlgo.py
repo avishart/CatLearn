@@ -291,7 +291,7 @@ class MLGO:
         if not self.save_memory or self.rank==0:
             if energy<=self.emin:
                 self.emin=energy
-                self.best_candidate=self.mlcalc.mlmodel.database.copy_atoms(candidate)
+                self.best_candidate=self.mlcalc.copy_atoms(candidate)
                 self.best_x=self.x.copy()
         # Broadcast convergence statement if MPI is used
         if self.save_memory:
@@ -332,7 +332,7 @@ class MLGO:
 
     def set_verbose(self,verbose,**kwargs):
         " Set verbose of MLModel. "
-        self.mlcalc.mlmodel.verbose=verbose
+        self.mlcalc.mlmodel.update_arguments(verbose=verbose)
         return 
 
     def train_mlmodel(self):
@@ -458,7 +458,7 @@ class MLGO:
         # Predict the energy and uncertainty
         slab_ads.calc=self.mlcalc
         energy=slab_ads.get_potential_energy()
-        unc=slab_ads.calc.get_uncertainty()
+        unc=slab_ads.calc.get_uncertainty(slab_ads)
         # Calculate the acquisition function
         return self.acq.calculate(energy,uncertainty=unc)
     
@@ -510,7 +510,7 @@ class MLGO:
     def get_predictions(self,candidate):
         " Calculate the energies and uncertainties with the ML calculator "
         energy=candidate.get_potential_energy()
-        unc=candidate.calc.get_uncertainty()
+        unc=candidate.calc.get_uncertainty(candidate)
         return energy,unc
 
     def get_training_set_size(self):
