@@ -367,9 +367,8 @@ class MLNEB(object):
         # Convergence of the NEB
         neb_converged=False
         # If memeory is saved NEB is only performed on one CPU
-        if self.save_memory:
-            if self.rank!=0:
-                return None,neb_converged
+        if self.rank!=0:
+            return None,neb_converged
         # Make the interpolation from initial path or the previous path
         images=self.make_reused_interpolation(max_unc)
         # Check whether the predicted fmax for each image are lower than the NEB convergence fmax
@@ -500,7 +499,7 @@ class MLNEB(object):
     def check_convergence(self,fmax,unc_convergence,neb_converged,**kwargs):
         " Check if the ML-NEB is converged to the final path with low uncertainty "
         converged=False
-        if not self.save_memory or self.rank==0:
+        if self.rank==0:
             # Check if NEB on the predicted potential energy surface is converged
             if neb_converged:
                 # Check the force and uncertainty criteria are met
@@ -510,9 +509,8 @@ class MLNEB(object):
                         self.message_system("MLNEB is converged.") 
                         self.print_cite()
                         converged=True
-        # Broadcast convergence statement if MPI is used
-        if self.save_memory:
-            converged=broadcast(converged,root=0)
+        # Broadcast convergence statement
+        converged=broadcast(converged,root=0)
         return converged
 
     def converged(self):
@@ -561,7 +559,7 @@ class MLNEB(object):
     def print_statement(self,step,**kwargs):
         " Print the NEB process as a table "
         msg=''
-        if not self.save_memory or self.rank==0:
+        if self.rank==0:
             msg=self.make_summary_table(step,**kwargs)
             self.save_summary_table()
             self.message_system(msg)

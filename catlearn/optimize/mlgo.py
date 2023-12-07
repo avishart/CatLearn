@@ -288,14 +288,13 @@ class MLGO:
 
     def best_new_point(self,candidate,energy):
         " Best new candidate due to energy "
-        if not self.save_memory or self.rank==0:
+        if self.rank==0:
             if energy<=self.emin:
                 self.emin=energy
                 self.best_candidate=self.mlcalc.copy_atoms(candidate)
                 self.best_x=self.x.copy()
         # Broadcast convergence statement if MPI is used
-        if self.save_memory:
-            self.best_candidate,self.emin=broadcast([self.best_candidate,self.emin],root=0)
+        self.best_candidate,self.emin=broadcast([self.best_candidate,self.emin],root=0)
         return self.best_candidate
     
     def add_random_ads(self):
@@ -422,7 +421,7 @@ class MLGO:
     def check_convergence(self,unc_convergence,fmax):
         " Check if the convergence criteria are fulfilled "
         converged=False
-        if not self.save_memory or self.rank==0:
+        if self.rank==0:
             # Check the minimum number of steps have been performed
             if self.min_steps<=self.get_training_set_size():
                 # Check the force and uncertainty criteria are met
@@ -434,8 +433,7 @@ class MLGO:
                             self.message_system('Optimization is converged.')
                         converged=True
         # Broadcast convergence statement if MPI is used
-        if self.save_memory:
-            converged=broadcast(converged,root=0)
+        converged=broadcast(converged,root=0)
         return converged
     
     def dual_annealing(self,maxiter=5000,**opt_kwargs):
@@ -597,7 +595,7 @@ class MLGO:
     def print_statement(self,step,**kwargs):
         " Print the Global optimization process as a table "
         msg=''
-        if not self.save_memory or self.rank==0:
+        if self.rank==0:
             msg=self.make_summary_table(step,**kwargs)
             self.save_summary_table()
             self.message_system(msg)
