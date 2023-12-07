@@ -286,8 +286,13 @@ class MLModel:
     
     def store_results(self,atoms,energy=None,forces=None,unc=None,unc_forces=None,unc_deriv=None,**kwargs):
         " Store the predicted results in a dictionary. "
-        # Save energy and uncertainty as default results
-        results={'energy':energy,'uncertainty':unc}
+        results={}
+        # Save the energy
+        if energy is not None:
+            results['energy']=energy
+        # Save the uncertainty
+        if unc is not None:
+            results['uncertainty']=unc
         # Get constraints
         if (forces is not None) or (unc_forces is not None) or (unc_deriv is not None):
             natoms,not_masked=self.get_constraints(atoms)
