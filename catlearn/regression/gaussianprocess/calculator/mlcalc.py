@@ -7,7 +7,7 @@ class MLCalculator(Calculator):
     implemented_properties=['energy','forces','uncertainty','force uncertainties','uncertainty derivatives']
     nolabel=True
 
-    def __init__(self,mlmodel=None,calculate_forces=True,calculate_uncertainty=True,calculate_force_uncertainties=False,calculate_unc_derivatives=False,**kwargs):
+    def __init__(self,mlmodel=None,calculate_forces=True,calculate_uncertainty=True,calculate_force_uncertainties=False,calculate_unc_derivatives=False,calculator_kwargs={},**kwargs):
         """
         ML calculator object applicable as an ASE calculator.
 
@@ -23,9 +23,11 @@ class MLCalculator(Calculator):
                 Whether to calculate the uncertainties of the force predictions.
             calculate_unc_derivatives: bool
                 Whether to calculate the derivatives of the uncertainty of the energy.
+            calculator_kwargs : dict
+                A dictionary with kwargs for the Parent calculator class object.
         """
         # Inherit from the Calculator object
-        super().__init__()
+        Calculator.__init__(self,**calculator_kwargs)
         # Set default mlmodel
         if mlmodel is None:
             from .mlmodel import MLModel
@@ -36,6 +38,7 @@ class MLCalculator(Calculator):
                               calculate_uncertainty=calculate_uncertainty,
                               calculate_force_uncertainties=calculate_force_uncertainties,
                               calculate_unc_derivatives=calculate_unc_derivatives,
+                              calculator_kwargs=calculator_kwargs,
                               **kwargs)
 
     def get_uncertainty(self,atoms=None,**kwargs):
@@ -47,20 +50,9 @@ class MLCalculator(Calculator):
                 The ASE Atoms instance which is used if the uncertainty is not stored.
 
         Returns:
-            self.results['uncertainty'] : float
-                The predicted uncertainty of the energy.
+            float: The predicted uncertainty of the energy.
         """
-        # Check if the uncertainty is stored
-        if 'uncertainty' in self.results:
-            return self.results['uncertainty']
-        # Calculate the uncertainty 
-        if self.atoms is not None:
-            results=self.model_prediction(self.atoms,get_uncertainty=True)
-        else:
-            results=self.model_prediction(atoms,get_uncertainty=True)
-        # Save the uncertainty
-        self.results['uncertainty']=results['uncertainty']
-        return results['uncertainty']
+        return self.get_property('uncertainty',atoms=atoms)
 
     def get_force_uncertainty(self,atoms=None,**kwargs):
         """
@@ -71,20 +63,9 @@ class MLCalculator(Calculator):
                 The ASE Atoms instance which is used if the force uncertainties are not stored.
 
         Returns:
-            self.results['force uncertainties'] : (Nat,3) array
-                The predicted uncertainty of the forces.
+            (Nat,3) array: The predicted uncertainty of the forces.
         """
-        # Check if the force uncertainty is stored
-        if 'force uncertainties' in self.results:
-            return self.results['force uncertainties'].copy()
-        # Calculate the force uncertainty 
-        if self.atoms is not None:
-            results=self.model_prediction(self.atoms,get_force_uncertainties=True)
-        else:
-            results=self.model_prediction(atoms,get_force_uncertainties=True)
-        # Save the force uncertainty
-        self.results['force uncertainties']=results['force uncertainties'].copy()
-        return results['force uncertainties']
+        return self.get_property('force uncertainties',atoms=atoms)
     
     def get_uncertainty_derivatives(self,atoms=None,**kwargs):
         """
@@ -95,20 +76,9 @@ class MLCalculator(Calculator):
                 The ASE Atoms instance which is used if the derivatives of the uncertainty are not stored.
 
         Returns:
-            self.results['uncertainty derivatives'] : (Nat,3) array
-                The predicted uncertainty of the forces.
+            (Nat,3) array: The predicted uncertainty of the forces.
         """
-        # Check if the derivatives of the uncertainty is stored
-        if 'uncertainty derivatives' in self.results:
-            return self.results['uncertainty derivatives'].copy()
-        # Calculate the derivatives of the uncertainty
-        if self.atoms is not None:
-            results=self.model_prediction(self.atoms,get_unc_derivatives=True)
-        else:
-            results=self.model_prediction(atoms,get_unc_derivatives=True)
-        # Save the derivatives of the uncertainty
-        self.results['uncertainty derivatives']=results['uncertainty derivatives'].copy()
-        return results['uncertainty derivatives']
+        return self.get_property('uncertainty derivatives',atoms=atoms)
     
     def set_atoms(self,atoms,**kwargs):
         """ 
@@ -214,31 +184,36 @@ class MLCalculator(Calculator):
         self.mlmodel.update_database_arguments(point_interest=point_interest,**kwargs)
         return self
 
-    def calculate(self,atoms=None,properties=['energy','forces','uncertainty'],system_changes=all_changes):
+    def calculate(self,atoms=None,properties=['energy','forces'],system_changes=all_changes):
         """ 
         Calculate the prediction energy, forces, and uncertainties of the energies and forces for a given ASE Atoms structure. 
         Predicted potential energy can be obtained by *atoms.get_potential_energy()*, 
         predicted forces using *atoms.get_forces()*, 
-        uncertainty of the energy using *atoms.calc.get_uncertainty()*, 
-        and uncertainties of the forces using *atoms.calc.get_force_uncertainty()*.
+        uncertainty of the energy using *atoms.calc.get_uncertainty(atoms)*, 
+        uncertainties of the forces using *atoms.calc.get_force_uncertainty(atoms)*,
+        and derivatives of uncertainty using *atoms.calc.get_uncertainty_derivatives(atoms)*.
 
         Returns:
             self.results : dict 
                 A dictionary with all the calculated properties.
         """
-        # Atoms object.
-        super().calculate(atoms,properties,system_changes)
+        # Atoms object
+        Calculator.calculate(self,atoms,properties,system_changes)
+        # Get the arguments for calculating the requested properties
+        get_forces,get_uncertainty,get_force_uncertainties,get_unc_derivatives=self.get_property_arguments(properties)
         # Get predict energy, forces and uncertainties for the given geometry 
         results=self.model_prediction(atoms,
-                                      get_forces=self.calculate_forces,
-                                      get_uncertainty=self.calculate_uncertainty,
-                                      get_force_uncertainties=self.calculate_force_uncertainties,
-                                      get_unc_derivatives=self.calculate_unc_derivatives)
+                                      get_forces=get_forces,
+                                      get_uncertainty=get_uncertainty,
+                                      get_force_uncertainties=get_force_uncertainties,
+                                      get_unc_derivatives=get_unc_derivatives)
         # Store the properties that are implemented
-        self.results={key:value for key,value in results.items() if key in self.implemented_properties}
+        for key,value in results.items():
+            if key in self.implemented_properties:
+                self.results[key]=value
         return self.results
     
-    def update_arguments(self,mlmodel=None,calculate_forces=None,calculate_uncertainty=None,calculate_force_uncertainties=None,calculate_unc_derivatives=None,**kwargs):
+    def update_arguments(self,mlmodel=None,calculate_forces=None,calculate_uncertainty=None,calculate_force_uncertainties=None,calculate_unc_derivatives=None,calculator_kwargs=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
 
@@ -254,6 +229,8 @@ class MLCalculator(Calculator):
                 Whether to calculate the uncertainties of the force predictions.
             calculate_unc_derivatives: bool
                 Whether to calculate the derivatives of the uncertainty of the energy.
+            calculator_kwargs : dict
+                A dictionary with kwargs for the Parent calculator class object.
                 
         Returns:
             self: The updated object itself.
@@ -268,9 +245,35 @@ class MLCalculator(Calculator):
             self.calculate_force_uncertainties=calculate_force_uncertainties
         if calculate_unc_derivatives is not None:
             self.calculate_unc_derivatives=calculate_unc_derivatives
+        if calculator_kwargs is not None:
+            self.calculator_kwargs=calculator_kwargs.copy()
         # Empty the results
         self.reset()
         return self
+    
+    def get_property_arguments(self,properties=[],**kwargs):
+        " Get the arguments that ensure calculations of the properties requested. "
+        # Check if the forces must be predicted
+        if self.calculate_forces or 'forces' in properties:
+            get_forces=True
+        else:
+            get_forces=False
+        # Check if the uncertainty must be predicted
+        if self.calculate_uncertainty or 'uncertainty' in properties:
+            get_uncertainty=True
+        else:
+            get_uncertainty=False
+        # Check if the force uncertainties must be predicted
+        if self.calculate_force_uncertainties or 'force uncertainties' in properties:
+            get_force_uncertainties=True
+        else:
+            get_force_uncertainties=False
+        # Check if the derivatives of the uncertainty must be predicted
+        if self.calculate_unc_derivatives or 'uncertainty derivatives' in properties:
+            get_unc_derivatives=True
+        else:
+            get_unc_derivatives=False
+        return get_forces,get_uncertainty,get_force_uncertainties,get_unc_derivatives
 
     def model_prediction(self,atoms,get_forces=False,get_uncertainty=False,get_force_uncertainties=False,get_unc_derivatives=False,**kwargs):
         " Predict energy, forces and uncertainties for the given geometry with the ML model. "
@@ -289,7 +292,8 @@ class MLCalculator(Calculator):
                         calculate_forces=self.calculate_forces,
                         calculate_uncertainty=self.calculate_uncertainty,
                         calculate_force_uncertainties=self.calculate_force_uncertainties,
-                        calculate_unc_derivatives=self.calculate_unc_derivatives)
+                        calculate_unc_derivatives=self.calculate_unc_derivatives,
+                        calculator_kwargs=self.calculator_kwargs)
         # Get the constants made within the class
         constant_kwargs=dict()
         # Get the objects made within the class

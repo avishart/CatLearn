@@ -1,5 +1,5 @@
 from .mlcalc import MLCalculator
-from ase.calculators.calculator import all_changes
+from ase.calculators.calculator import Calculator,all_changes
 
 class BOCalculator(MLCalculator):
 
@@ -7,7 +7,7 @@ class BOCalculator(MLCalculator):
     implemented_properties=['energy','forces','uncertainty','force uncertainties','predicted energy','predicted forces','uncertainty derivatives']
     nolabel=True
 
-    def __init__(self,mlmodel=None,calculate_forces=True,calculate_uncertainty=True,calculate_force_uncertainties=False,calculate_unc_derivatives=True,kappa=2.0,**kwargs):
+    def __init__(self,mlmodel=None,calculate_forces=True,calculate_uncertainty=True,calculate_force_uncertainties=False,calculate_unc_derivatives=True,calculator_kwargs={},kappa=2.0,**kwargs):
         """
         Bayesian optimization calculator object applicable as an ASE calculator.
 
@@ -23,6 +23,8 @@ class BOCalculator(MLCalculator):
                 Whether to calculate the uncertainties of the force predictions.
             calculate_unc_derivatives: bool
                 Whether to calculate the derivatives of the uncertainty of the energy.
+            calculator_kwargs : dict
+                A dictionary with kwargs for the Parent calculator class object.
             kappa : float
                 The weight of the uncertainty relative to the energy.
                 If kappa>0, the uncertainty is added to the predicted energy.
@@ -32,6 +34,7 @@ class BOCalculator(MLCalculator):
                          calculate_uncertainty=calculate_uncertainty,
                          calculate_force_uncertainties=calculate_force_uncertainties,
                          calculate_unc_derivatives=calculate_unc_derivatives,
+                         calculator_kwargs=calculator_kwargs,
                          kappa=kappa,
                          **kwargs)
 
@@ -44,20 +47,9 @@ class BOCalculator(MLCalculator):
                 The ASE Atoms object which is used if the predicted energy is not stored.
 
         Returns:
-            self.results['predicted energy'] : float
-                The predicted energy.
+            float: The predicted energy.
         """
-        # Check if the predicted energy is stored
-        if 'predicted energy' in self.results:
-            return self.results['predicted energy']
-        # Calculate the predicted energy 
-        if self.atoms is not None:
-            results=self.model_prediction(self.atoms)
-        else:
-            results=self.model_prediction(atoms)
-        # Save the predicted energy 
-        self.results['predicted energy']=results['energy']
-        return results['energy']
+        return self.get_property('predicted energy',atoms=atoms)
 
     def get_predicted_forces(self,atoms=None,**kwargs):
         """
@@ -68,64 +60,51 @@ class BOCalculator(MLCalculator):
                 The ASE Atoms object which is used if the predicted forces is not stored.
 
         Returns:
-            self.results['predicted forces'] : (Nat,3) array
-                The predicted forces.
+            (Nat,3) array: The predicted forces.
         """
-        # Check if the predicted forces is stored
-        if 'predicted forces' in self.results:
-            return self.results['predicted forces']
-        # Calculate the predicted forces 
-        if self.atoms is not None:
-            results=self.model_prediction(self.atoms,get_forces=True)
-        else:
-            results=self.model_prediction(atoms,get_forces=True)
-        # Save the predicted forces 
-        self.results['predicted forces']=results['forces'].copy()
-        return results['forces']
+        return self.get_property('predicted forces',atoms=atoms)
 
-    def calculate(self,atoms=None,properties=['energy','forces','uncertainty','predicted energy','predicted forces','uncertainty derivatives'],system_changes=all_changes):
+    def calculate(self,atoms=None,properties=['energy','forces'],system_changes=all_changes):
         """ 
         Calculate the prediction energy, forces, and uncertainties of the energies and forces for a given ASE Atoms structure. 
         Predicted potential energy can be obtained by *atoms.get_potential_energy()*, 
         predicted forces using *atoms.get_forces()*, 
-        uncertainty of the energy using *atoms.calc.get_uncertainty()*, 
-        and uncertainties of the forces using *atoms.calc.get_force_uncertainty()*.
+        uncertainty of the energy using *atoms.calc.get_uncertainty(atoms)*, 
+        uncertainties of the forces using *atoms.calc.get_force_uncertainty(atoms)*,
+        derivatives of uncertainty using *atoms.calc.get_uncertainty_derivatives(atoms)*,
+        predicted energy using *atoms.calc.get_predicted_energy(atoms)*,
+        and predicted forces using *atoms.calc.get_predicted_forces(atoms)*.
 
         Returns:
             self.results : dict 
                 A dictionary with all the calculated properties.
         """
         # Atoms object.
-        super().calculate(atoms,properties,system_changes)
-        # Check if the uncertainty must be predicted
-        if self.calculate_uncertainty or self.kappa!=0.0:
-            get_uncertainty=True
-        else:
-            get_uncertainty=False
-        # Check if the derivative of the uncertainty must be calculated
-        if self.calculate_unc_derivatives or (self.kappa!=0.0 and self.calculate_forces):
-            get_unc_derivatives=True
-        else:
-            get_unc_derivatives=False
+        Calculator.calculate(self,atoms,properties,system_changes)
+        # Get the arguments for calculating the requested properties
+        get_forces,get_uncertainty,get_force_uncertainties,get_unc_derivatives=self.get_property_arguments(properties)
         # Get predict energy, forces and uncertainties for the given geometry 
         results=self.model_prediction(atoms,
-                                      get_forces=self.calculate_forces,
+                                      get_forces=get_forces,
                                       get_uncertainty=get_uncertainty,
-                                      get_force_uncertainties=self.calculate_force_uncertainties,
+                                      get_force_uncertainties=get_force_uncertainties,
                                       get_unc_derivatives=get_unc_derivatives)
         # Store the properties that are implemented
-        self.results={key:value for key,value in results.items() if key in self.implemented_properties}
+        for key,value in results.items():
+            if key in self.implemented_properties:
+                self.results[key]=value
         # Save the predicted properties
         self.results['predicted energy']=results['energy']
-        self.results['predicted forces']=results['forces'].copy()
+        if get_forces:
+            self.results['predicted forces']=results['forces'].copy()
         # Calculate the acquisition function and its derivative
         if self.kappa!=0.0:
             self.results['energy']=results['energy']+self.kappa*results['uncertainty']
-            if self.calculate_forces:
+            if get_forces:
                 self.results['forces']=results['forces']-self.kappa*results['uncertainty derivatives']
         return self.results
 
-    def update_arguments(self,mlmodel=None,calculate_forces=None,calculate_uncertainty=None,calculate_force_uncertainties=None,calculate_unc_derivatives=None,kappa=None,**kwargs):
+    def update_arguments(self,mlmodel=None,calculate_forces=None,calculate_uncertainty=None,calculate_force_uncertainties=None,calculate_unc_derivatives=None,calculator_kwargs=None,kappa=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
 
@@ -141,6 +120,8 @@ class BOCalculator(MLCalculator):
                 Whether to calculate the uncertainties of the force predictions.
             calculate_unc_derivatives: bool
                 Whether to calculate the derivatives of the uncertainty of the energy.
+            calculator_kwargs : dict
+                A dictionary with kwargs for the Parent calculator class object.
             kappa : float
                 The weight of the uncertainty relative to the energy.
                 
@@ -157,11 +138,36 @@ class BOCalculator(MLCalculator):
             self.calculate_force_uncertainties=calculate_force_uncertainties
         if calculate_unc_derivatives is not None:
             self.calculate_unc_derivatives=calculate_unc_derivatives
+        if calculator_kwargs is not None:
+            self.calculator_kwargs=calculator_kwargs.copy()
         if kappa is not None:
             self.kappa=float(kappa)
         # Empty the results
         self.reset()
         return self
+    
+    def get_property_arguments(self,properties=[],**kwargs):
+        # Check if the forces must be predicted
+        if self.calculate_forces or 'forces' in properties or 'predicted forces' in properties:
+            get_forces=True
+        else:
+            get_forces=False
+        # Check if the uncertainty must be predicted
+        if self.calculate_uncertainty or 'uncertainty' in properties or self.kappa!=0.0:
+            get_uncertainty=True
+        else:
+            get_uncertainty=False
+        # Check if the force uncertainties must be predicted
+        if self.calculate_force_uncertainties or 'force uncertainties' in properties:
+            get_force_uncertainties=True
+        else:
+            get_force_uncertainties=False
+        # Check if the derivatives of the uncertainty must be predicted
+        if self.calculate_unc_derivatives or 'uncertainty derivatives' in properties or (get_forces and self.kapa!=0.0):
+            get_unc_derivatives=True
+        else:
+            get_unc_derivatives=False
+        return get_forces,get_uncertainty,get_force_uncertainties,get_unc_derivatives
 
     def get_arguments(self):
         " Get the arguments of the class itself. "
@@ -171,6 +177,7 @@ class BOCalculator(MLCalculator):
                         calculate_uncertainty=self.calculate_uncertainty,
                         calculate_force_uncertainties=self.calculate_force_uncertainties,
                         calculate_unc_derivatives=self.calculate_unc_derivatives,
+                        calculator_kwargs=self.calculator_kwargs,
                         kappa=self.kappa)
         # Get the constants made within the class
         constant_kwargs=dict()
