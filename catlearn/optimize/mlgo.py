@@ -321,13 +321,6 @@ class MLGO:
         # Add calculations to the ML model
         self.add_training(prev_calculations)
         return
-    
-    def train_mlmodel(self):
-        " Train the ML-Model on 1 CPU"
-        if self.rank==0:
-            self.mlcalc.mlmodel.train_model()
-        self.mlcalc=broadcast(self.mlcalc,root=0)
-        pass
 
     def set_verbose(self,verbose,**kwargs):
         " Set verbose of MLModel. "
@@ -335,14 +328,14 @@ class MLGO:
         return 
 
     def train_mlmodel(self):
-        " Train the ML model "
+        " Train the ML model. "
+        if self.save_memory:
+            if self.rank!=0:
+                return self.mlcalc
         # Update database with the points of interest
         self.update_database_arguments(point_interest=self.best_candidate)
         # Train the ML model
-        if not self.save_memory or self.rank==0:
-            self.mlcalc.train_model()
-        if self.save_memory:
-            self.mlcalc=broadcast(self.mlcalc,root=0)
+        self.mlcalc.train_model()
         return self.mlcalc
     
     def is_in_database(self,atoms,**kwargs):
@@ -371,6 +364,9 @@ class MLGO:
 
     def find_next_candidate(self,ml_chains,ml_steps,max_unc,relax,fmax,local_steps,**kwargs):
         " Find the next candidates by using simulated annealing and then chose the candidate from acquisition "
+        # Return None if memory is saved and therefore not in parallel
+        if self.save_memory and self.rank!=0:
+            return None
         # Initialize candidate dictionary
         candidate,energy,unc,x=None,None,None,None
         candidates={'candidates':[],'energies':[],'uncertainties':[],'x':[]}
@@ -379,9 +375,9 @@ class MLGO:
         for chain in range(ml_chains):
             # Set a unique optimization for each chain
             np.random.seed(chain)
-            if self.save_memory:
+            if not self.save_memory:
                 r=chain%self.size
-            if not self.save_memory or self.rank==r:
+            if self.rank==r:
                 # Find candidates from a global simulated annealing search
                 self.message_system('Starting global search!',end='\r',rank=r)
                 candidate,energy,unc,x=self.dual_annealing(maxiter=ml_steps,**self.opt_kwargs)
@@ -392,11 +388,11 @@ class MLGO:
                         self.message_system('Starting local relaxation',end='\r',rank=r)
                         candidate,energy,unc=self.local_relax(candidate,fmax,max_unc,local_steps=local_steps,rank=r)
                     else:
-                        self.message_system('Stopped due to high uncertainty',rank=r)
+                        self.message_system('No local relaxation due to high uncertainty',rank=r)
                 # Append the newest candidate
                 candidates=self.append_candidates(candidates,candidate,energy,unc,x)
         # Broadcast all the candidates
-        if self.save_memory:
+        if not self.save_memory:
             candidates=self.broadcast_candidates(candidates)
         # Print the energies and uncertainties for the new candidates
         self.message_system('Candidates energies: '+str(candidates['energies']))
@@ -470,9 +466,9 @@ class MLGO:
         # Initialize local optimization
         with self.local_opt(candidate,**self.local_opt_kwargs) as dyn:
             if max_unc==False or max_unc is None:
-                dyn,candidate=self.local_relax_no_max_unc(dyn,candidate,fmax=fmax,local_steps=local_steps,**kwargs)
+                converged,candidate=self.local_relax_no_max_unc(dyn,candidate,fmax=fmax,local_steps=local_steps,**kwargs)
             else:
-                dyn,candidate=self.local_relax_max_unc(dyn,candidate,fmax=fmax,max_unc=max_unc,local_steps=local_steps,rank=rank,**kwargs)
+                converged,candidate=self.local_relax_max_unc(dyn,candidate,fmax=fmax,max_unc=max_unc,local_steps=local_steps,rank=rank,**kwargs)
             # Calculate the energy and uncertainty
             energy,unc=self.get_predictions(candidate)
         return candidate.copy(),energy,unc
@@ -480,7 +476,7 @@ class MLGO:
     def local_relax_no_max_unc(self,dyn,candidate,fmax,local_steps=200,**kwargs):
         " Run the local optimization without checking uncertainties. "
         dyn.run(fmax=fmax,steps=local_steps)
-        return dyn,candidate
+        return dyn.converged(),candidate
 
     def local_relax_max_unc(self,dyn,candidate,fmax,max_unc,local_steps=200,rank=0,**kwargs):
         " Run the local optimization with checking uncertainties. "
@@ -503,12 +499,12 @@ class MLGO:
             if dyn.converged():
                 self.message_system('Relaxation on surrogate surface converged!',rank=rank)
                 break
-        return dyn,candidate
+        return dyn.converged(),candidate
 
     def get_predictions(self,candidate):
         " Calculate the energies and uncertainties with the ML calculator "
-        energy=candidate.get_potential_energy()
         unc=candidate.calc.get_uncertainty(candidate)
+        energy=candidate.get_potential_energy()
         return energy,unc
 
     def get_training_set_size(self):
@@ -538,8 +534,8 @@ class MLGO:
             cand_r=broadcast(candidates,root=r)
             for n in range(len(cand_r['candidates'])):
                 candidates_broad=self.append_candidates(candidates_broad,cand_r['candidates'][n],
-                                                        cand_r['energy'][n],
-                                                        cand_r['unc'][n],
+                                                        cand_r['energies'][n],
+                                                        cand_r['uncertainties'][n],
                                                         cand_r['x'][n])
         return candidates_broad
     
@@ -550,7 +546,7 @@ class MLGO:
     def message_system(self,message,obj=None,end='\n',rank=0):
         " Print output once. "
         if self.full_output is True:
-            if self.save_memory and self.rank==rank:
+            if self.rank==rank:
                 if obj is None:
                     print(message,end=end)
                 else:
