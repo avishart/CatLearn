@@ -10,7 +10,8 @@ class MLNEB(object):
                  interpolation='idpp',interpolation_kwargs=dict(),
                  climb=True,neb_method=BaseNEB,neb_kwargs=dict(),n_images=15,
                  prev_calculations=None,use_database_check=True,
-                 use_restart_path=True,check_path_unc=True,save_memory=False,
+                 use_restart_path=True,check_path_unc=True,check_path_fmax=True,
+                 save_memory=False,
                  apply_constraint=True,force_consistent=None,scale_fmax=0.5,
                  local_opt=None,local_opt_kwargs=dict(),
                  trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',
@@ -64,6 +65,9 @@ class MLNEB(object):
             check_path_unc: bool
                 Check if the uncertainty is large for the restarted path and
                 if it is then use the initial interpolation.
+            check_path_fmax: bool
+                Check if the maximum perpendicular force is larger for the restarted path than
+                the initial interpolation and if so then replace it.
             save_memory: bool
                 Whether to only train the ML calculator and store all objects on one CPU. 
                 If save_memory==True then parallel optimization of the hyperparameters can not be achived.
@@ -108,6 +112,7 @@ class MLNEB(object):
         self.use_database_check=use_database_check
         self.use_restart_path=use_restart_path
         self.check_path_unc=check_path_unc
+        self.check_path_fmax=check_path_fmax
         # Set initial parameters
         self.step=0
         self.converging=False
@@ -242,7 +247,7 @@ class MLNEB(object):
             self.message_system('The initial interpolation is used as the initial path!')
             return self.make_interpolation(interpolation=self.interpolation)
         else:
-            # Reuse the previous path 
+            # Reuse the previous path
             images=self.make_interpolation(interpolation=self.last_images_tmp)
             if self.check_path_unc:
                 # Check if the uncertainty is too large
@@ -398,7 +403,8 @@ class MLNEB(object):
 
     def get_fmax_predictions(self,images,**kwargs):
         " Calculate the maximum perpendicular force with the ML calculator "
-        forces=np.array([image.get_forces() for image in images]).reshape(-1,3)
+        neb=self.neb_method(images,climb=False,**self.neb_kwargs)
+        forces=neb.get_forces()
         return np.nanmax(np.linalg.norm(forces,axis=1))
     
     def choose_candidate(self,images,**kwargs):
