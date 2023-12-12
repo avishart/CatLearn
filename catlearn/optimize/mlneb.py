@@ -376,14 +376,10 @@ class MLNEB(object):
             return None,neb_converged
         # Make the interpolation from initial path or the previous path
         images=self.make_reused_interpolation(unc_convergence)
-        # Check whether the predicted fmax for each image are lower than the NEB convergence fmax
-        if self.get_fmax_predictions(images)<fmax:
-            self.message_system('Too low forces on initial path!')
-        else:
-            # Run the NEB on the surrogate surface
-            self.message_system('Starting NEB without climbing image on surrogate surface.')
-            images,neb_converged=self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc,climb=False)
-            self.save_mlneb(images)
+        # Run the NEB on the surrogate surface
+        self.message_system('Starting NEB without climbing image on surrogate surface.')
+        images,neb_converged=self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc,climb=False)
+        self.save_mlneb(images)
         # Get the candidate
         candidate=self.choose_candidate(images)
         return candidate,neb_converged
