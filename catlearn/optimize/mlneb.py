@@ -248,27 +248,46 @@ class MLNEB(object):
             return self.make_interpolation(interpolation=self.interpolation)
         else:
             # Reuse the previous path
-            images=self.make_interpolation(interpolation=self.last_images_tmp)
-            if self.check_path_unc:
+            if self.check_path_unc and self.check_path_fmax:
+                uncmax_tmp,fmax_tmp=self.get_path_unc_fmax(interpolation=self.last_images_tmp)
                 # Check if the uncertainty is too large
-                if np.nanmax(self.get_predictions(images)[1])>=unc_convergence:
+                if uncmax_tmp<=unc_convergence:
+                    # Check if the perpendicular forces are less for the new path
+                    fmax_last=self.get_path_unc_fmax(interpolation=self.last_images)[1]
+                    if fmax_tmp<=fmax_last:
+                        self.message_system('The last path is used as the initial path!')
+                        self.last_images=[image.copy() for image in self.last_images_tmp]
+                        return self.make_interpolation(interpolation=self.last_images_tmp)
+                    else:
+                        self.last_images_tmp=None
+                        self.message_system('The previous last path is used as the initial path due to fmax!')
+                else:
                     self.last_images_tmp=None
                     self.message_system('The previous last path is used as the initial path due to uncertainty!')
-                    return self.make_interpolation(interpolation=self.last_images)
+            elif self.check_path_unc:
+                uncmax_tmp=self.get_path_unc_fmax(interpolation=self.last_images_tmp)[0]
+                # Check if the uncertainty is too large
+                if uncmax_tmp<=unc_convergence:
+                    self.message_system('The last path is used as the initial path!')
+                    self.last_images=[image.copy() for image in self.last_images_tmp]
+                    return self.make_interpolation(interpolation=self.last_images_tmp)
                 else:
-                    # Check if the perpendicular forces are less for the new path
-                    images_last=self.make_interpolation(interpolation=self.last_images)
-                    if self.get_fmax_predictions(images)<=self.get_fmax_predictions(images_last):
-                        # The last path is used as a stable path in the future
-                        self.message_system('The last path is used as the initial path!')
-                        self.last_images=self.last_images_tmp.copy()
-                    else:
-                        self.message_system('The previous last path is used as the initial path due to fmax!')
-                        self.last_images_tmp=None
-                        return images_last
+                    self.last_images_tmp=None
+                    self.message_system('The previous last path is used as the initial path due to uncertainty!')
+            elif self.check_path_fmax:
+                # Check if the perpendicular forces are less for the new path
+                fmax_tmp=self.get_path_unc_fmax(interpolation=self.last_images_tmp)[1]
+                fmax_last=self.get_path_unc_fmax(interpolation=self.last_images)[1]
+                if fmax_tmp<=fmax_last:
+                    self.message_system('The last path is used as the initial path!')
+                    self.last_images=[image.copy() for image in self.last_images_tmp]
+                    return self.make_interpolation(interpolation=self.last_images_tmp)
+                else:
+                    self.last_images_tmp=None
+                    self.message_system('The previous last path is used as the initial path due to fmax!')
             else:
                 self.message_system('The last path is used as the initial path!')
-        return images
+        return self.make_interpolation(interpolation=self.last_images)
 
     def attach_mlcalc(self,imgs,**kwargs):
         " Attach the ML calculator to the given images. "
@@ -396,6 +415,17 @@ class MLNEB(object):
             uncertainties.append(image.calc.get_uncertainty(image))
             energies.append(image.get_potential_energy())
         return np.array(energies),np.array(uncertainties)
+
+    def get_path_unc_fmax(self,interpolation,**kwargs):
+        " Get the maximum uncertainty and fmax prediction from the NEB interpolation. "
+        uncmax=None
+        fmax=None
+        images=self.make_interpolation(interpolation=interpolation)
+        if self.check_path_unc:
+            uncmax=np.nanmax(self.get_predictions(images)[1])
+        if self.check_path_fmax:
+            fmax=self.get_fmax_predictions(images)
+        return uncmax,fmax
 
     def get_fmax_predictions(self,images,**kwargs):
         " Calculate the maximum perpendicular force with the ML calculator "
