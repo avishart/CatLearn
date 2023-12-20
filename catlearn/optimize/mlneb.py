@@ -12,7 +12,7 @@ class MLNEB(object):
                  prev_calculations=None,use_database_check=True,
                  use_restart_path=True,check_path_unc=True,check_path_fmax=True,
                  save_memory=False,
-                 apply_constraint=True,force_consistent=None,scale_fmax=0.5,
+                 apply_constraint=True,force_consistent=None,scale_fmax=0.8,
                  local_opt=None,local_opt_kwargs=dict(),
                  trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',
                  tabletxt=None,full_output=False,**kwargs):
@@ -120,7 +120,14 @@ class MLNEB(object):
         if mlcalc is None:
             from ..regression.gaussianprocess.calculator.mlmodel import get_default_mlmodel
             from ..regression.gaussianprocess.calculator.mlcalc import MLCalculator
-            mlmodel=get_default_mlmodel(model='tp',prior='max',baseline=None,use_derivatives=True,parallel=(not save_memory),database_reduction=False)
+            from ..regression.gaussianprocess.fingerprint.invdistances import Inv_distances
+            from ..regression.gaussianprocess.means.max import Prior_max
+            if len(start)>1:
+                fp=Inv_distances(reduce_dimensions=True,use_derivatives=True,mic=False,sorting=False)
+            else:
+                fp=None
+            prior=Prior_max(add=1.0)
+            mlmodel=get_default_mlmodel(model='tp',prior=prior,fp=fp,baseline=None,use_derivatives=True,parallel=(not save_memory),database_reduction=False)
             self.mlcalc=MLCalculator(mlmodel=mlmodel)
         else:
             self.mlcalc=mlcalc.copy()
@@ -146,7 +153,7 @@ class MLNEB(object):
         if local_opt is None:
             from ase.optimize import MDMin
             local_opt=MDMin
-            local_opt_kwargs_default.update(dict(dt=0.01))
+            local_opt_kwargs_default.update(dict(dt=0.05))
         self.local_opt=local_opt
         local_opt_kwargs_default.update(local_opt_kwargs)
         self.local_opt_kwargs=local_opt_kwargs_default.copy()
@@ -159,7 +166,7 @@ class MLNEB(object):
         self.use_prev_calculations(prev_calculations)
               
 
-    def run(self,fmax=0.05,unc_convergence=0.05,steps=500,ml_steps=750,max_unc=0.05,**kwargs):
+    def run(self,fmax=0.05,unc_convergence=0.05,steps=500,ml_steps=1500,max_unc=0.25,**kwargs):
         """ 
         Run the active learning NEB process. 
 
@@ -173,9 +180,10 @@ class MLNEB(object):
             ml_steps: int
                 Maximum number of steps for the NEB optimization on the
                 predicted landscape.
-            max_unc: float
+            max_unc: float (optional)
                 Early stopping criteria. Maximum uncertainty before stopping the
                 optimization on the surrogate surface.
+                If it is None or False, it will run to convergence.
         """
         # Active learning parameters
         candidate=None

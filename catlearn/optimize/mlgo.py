@@ -141,7 +141,7 @@ class MLGO:
         local_opt_kwargs_default.update(local_opt_kwargs)
         self.local_opt_kwargs=local_opt_kwargs_default.copy()
         
-    def run(self,fmax=0.05,unc_convergence=0.025,steps=200,max_unc=0.050,ml_steps=2000,ml_chains=3,relax=True,local_steps=500,seed=0,**kwargs):
+    def run(self,fmax=0.05,unc_convergence=0.025,steps=200,max_unc=0.25,ml_steps=2000,ml_chains=3,relax=True,local_steps=500,seed=0,**kwargs):
         """ 
         Run the ML adsorption optimizer 
 
