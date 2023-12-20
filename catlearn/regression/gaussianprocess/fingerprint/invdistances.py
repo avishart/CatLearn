@@ -1,5 +1,6 @@
 import numpy as np
 import itertools
+from ase.data import covalent_radii
 from .fingerprint import Fingerprint
 from .geometry import get_all_distances
 
@@ -120,7 +121,6 @@ class Inv_distances(Fingerprint):
     
     def get_cov_dis(self,atoms,not_masked,mic,use_derivatives,i_nm,**kwargs):
         " Calculate the distances and scale them with the covalent radii. "
-        from ase.data import covalent_radii
         # Get the distances and distance vectors
         distances,vec_distances=get_all_distances(atoms,not_masked,mic=mic,vector=use_derivatives)
         # Set the self distance to 1 to avoid errors

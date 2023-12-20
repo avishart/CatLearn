@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.spatial.distance import cdist
 from .database import Database
+from ase.io import write
 
 class Database_Reduction(Database):
     def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=True,**kwargs):
@@ -160,7 +161,6 @@ class Database_Reduction(Database):
         Returns:
             self: The updated object itself.
         """
-        from ase.io import write
         write(trajectory,self.get_all_atoms())
         return self
 
