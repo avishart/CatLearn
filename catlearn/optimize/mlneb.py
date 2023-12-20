@@ -405,7 +405,7 @@ class MLNEB(object):
         images=self.make_reused_interpolation(unc_convergence)
         # Run the NEB on the surrogate surface
         self.message_system('Starting NEB without climbing image on surrogate surface.')
-        images,neb_converged=self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc,climb=False)
+        images,neb_converged=self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc,unc_convergence=unc_convergence,climb=False)
         self.save_mlneb(images)
         # Get the candidate
         candidate=self.choose_candidate(images)
@@ -458,7 +458,7 @@ class MLNEB(object):
         self.energy_pred=energy_path[int(1+i_min)]
         return image
 
-    def mlneb_opt(self,images,fmax=0.05,ml_steps=750,max_unc=0.25,climb=False,**kwargs):
+    def mlneb_opt(self,images,fmax=0.05,ml_steps=750,max_unc=0.25,unc_convergence=0.05,climb=False,**kwargs):
         " Run the ML NEB with checking uncertainties if selected. "
         # Construct the NEB
         neb=self.neb_method(images,climb=climb,**self.neb_kwargs)
@@ -477,8 +477,10 @@ class MLNEB(object):
         if converged:
             self.message_system('NEB on surrogate surface converged!')
             if not climb and nsteps<ml_steps and self.climb:
-                self.message_system('Starting NEB with climbing image on surrogate surface.')
-                return self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps-nsteps,max_unc=max_unc,climb=True)
+                # Check that the uncertainty is low enough to do CI-NEB
+                if np.max(self.get_predictions(images)[1])<=unc_convergence:
+                    self.message_system('Starting NEB with climbing image on surrogate surface.')
+                    return self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps-nsteps,max_unc=max_unc,unc_convergence=unc_convergence,climb=True)
         return images,converged
     
     def mlneb_opt_no_max_unc(self,neb_opt,images,fmax=0.05,ml_steps=750,climb=False,**kwargs):
