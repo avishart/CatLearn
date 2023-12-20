@@ -11,7 +11,7 @@ class MLNEB(object):
                  climb=True,neb_method=BaseNEB,neb_kwargs=dict(),n_images=15,
                  prev_calculations=None,use_database_check=True,
                  use_restart_path=True,check_path_unc=True,check_path_fmax=True,
-                 save_memory=False,
+                 use_low_unc_ci=True,save_memory=False,
                  apply_constraint=True,force_consistent=None,scale_fmax=0.8,
                  local_opt=None,local_opt_kwargs=dict(),
                  trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',
@@ -68,6 +68,9 @@ class MLNEB(object):
             check_path_fmax: bool
                 Check if the maximum perpendicular force is larger for the restarted path than
                 the initial interpolation and if so then replace it.
+            use_low_unc_ci: bool
+                Whether to only activative climbing image NEB when the uncertainties of all images are below unc_convergence.
+                If use_low_unc_ci=False, the climbing image is activated without checking the uncertainties.
             save_memory: bool
                 Whether to only train the ML calculator and store all objects on one CPU. 
                 If save_memory==True then parallel optimization of the hyperparameters can not be achived.
@@ -113,6 +116,7 @@ class MLNEB(object):
         self.use_restart_path=use_restart_path
         self.check_path_unc=check_path_unc
         self.check_path_fmax=check_path_fmax
+        self.use_low_unc_ci=use_low_unc_ci
         # Set initial parameters
         self.step=0
         self.converging=False
@@ -477,8 +481,8 @@ class MLNEB(object):
         if converged:
             self.message_system('NEB on surrogate surface converged!')
             if not climb and nsteps<ml_steps and self.climb:
-                # Check that the uncertainty is low enough to do CI-NEB
-                if np.max(self.get_predictions(images)[1])<=unc_convergence:
+                # Check that the uncertainty is low enough to do CI-NEB if requested
+                if not self.use_low_unc_ci or np.max(self.get_predictions(images)[1])<=unc_convergence:
                     self.message_system('Starting NEB with climbing image on surrogate surface.')
                     return self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps-nsteps,max_unc=max_unc,unc_convergence=unc_convergence,climb=True)
         return images,converged
