@@ -257,7 +257,7 @@ class MLNEB:
         # Make the interpolation from the initial points
         if not self.use_restart_path or self.last_images_tmp is None:
             self.message_system('The initial interpolation is used as the initial path!')
-            return self.make_interpolation(interpolation=self.interpolation)
+            return self.make_interpolation(interpolation=self.last_images)
         else:
             # Reuse the previous path
             if self.check_path_unc and self.check_path_fmax:
