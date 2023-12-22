@@ -13,7 +13,7 @@ def interpolate(start,end,ts=None,n_images=15,method='linear',mic=True,remove_ro
         end.center()
         minimize_rotation_and_translation(start,end)
     # If the transition state is not given then make a regular interpolation
-    if ts is not None:
+    if ts is None:
         return make_interpolation(start,end,n_images=n_images,method=method,mic=mic,remove_rotation_and_translation=remove_rotation_and_translation,**interpolation_kwargs)
     # Get the interpolated path from the start structure to the TS structure
     images=make_interpolation(start,ts,n_images=n_images,method=method,mic=mic,remove_rotation_and_translation=remove_rotation_and_translation,**interpolation_kwargs)
