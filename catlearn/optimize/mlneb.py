@@ -5,7 +5,7 @@ from ase.io.trajectory import TrajectoryWriter
 from ase.parallel import world,broadcast
 import datetime
 
-class MLNEB(object):
+class MLNEB:
     def __init__(self,start,end,ase_calc,mlcalc=None,acq=None,
                  interpolation='idpp',interpolation_kwargs=dict(),
                  climb=True,neb_method=BaseNEB,neb_kwargs=dict(),n_images=15,
