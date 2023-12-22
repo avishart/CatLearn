@@ -193,11 +193,11 @@ class MLNEB:
         candidate=None
         self.acq.set_parameters(unc_convergence=unc_convergence)
         self.trajectory_neb=TrajectoryWriter(self.trajectory,mode='w',properties=['energy','forces'])
-        # Calculate a extra data point if only start and end is given
-        self.extra_initial_data()
         # Define the last images that can be used to restart the interpolation
         self.last_images=self.make_interpolation(interpolation=self.interpolation)
         self.last_images_tmp=None
+        # Calculate a extra data point if only start and end is given
+        self.extra_initial_data()
         # Run the active learning
         for step in range(1,steps+1):
             # Train and optimize ML model
@@ -391,9 +391,8 @@ class MLNEB:
         " If only initial and final state is given then a third data point is calculated. "
         candidate=None
         if self.get_training_set_size()<=2:
-            images=self.make_interpolation(interpolation=self.interpolation)
             middle=int((self.n_images-2)/3.0) if self.start_energy>=self.end_energy else int((self.n_images-2)*2.0/3.0)
-            candidate=images[1+middle].copy()
+            candidate=self.last_images[1+middle].copy()
         if candidate is not None:
             self.evaluate(candidate)
         return candidate
