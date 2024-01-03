@@ -37,17 +37,19 @@ def make_interpolation(start,end,n_images=15,method='linear',mic=True,**interpol
     # Use a premade interpolation path
     if isinstance(method,(list,np.ndarray)):
         images=method.copy()
-    elif isinstance(method,str) and method not in ['linear','idpp']:
+    elif isinstance(method,str) and method.lower() not in ['linear','idpp','ends']:
         # Import interpolation from a trajectory file
         from ase.io import read
         images=read(method,'-{}:'.format(n_images))
     else:
         # Make path by the NEB methods interpolation
-        from ase.neb import NEB
         images=[start.copy() for i in range(n_images-1)]+[end.copy()]
-        images=make_linear_interpolation(images,mic=mic)
-        if method.lower()=='idpp':
-            images=make_idpp_interpolation(images,mic=mic,**interpolation_kwargs)
+        if method.lower()=='ends':
+            images=make_end_interpolations(images,mic=mic,**interpolation_kwargs)
+        else:
+            images=make_linear_interpolation(images,mic=mic,**interpolation_kwargs)
+            if method.lower()=='idpp':
+                images=make_idpp_interpolation(images,mic=mic,**interpolation_kwargs)
     return images
 
 def make_linear_interpolation(images,mic=False,**kwargs):
@@ -69,7 +71,6 @@ def make_linear_interpolation(images,mic=False,**kwargs):
 
 def make_idpp_interpolation(images,mic=False,fmax=0.1,steps=100,local_kwargs={},**kwargs):
     " Make the IDPP interpolation from initial to final state from NEB optimization. "
-    from ase.geometry import find_mic
     from ase.neb import IDPP,NEB
     from ase.optimize import MDMin
     # Get all distances in the system
@@ -91,7 +92,41 @@ def make_idpp_interpolation(images,mic=False,fmax=0.1,steps=100,local_kwargs={},
     with MDMin(neb,**local_kwargs_default) as opt:
         opt.run(fmax=fmax,steps=steps)
     return new_images
-    
+
+def make_end_interpolations(images,mic=False,trust_dist=0.4,**kwargs):
+    " Make the linear interpolation from initial to final state, but place the images at the initial and final states with the maximum distance as trust_dist. "
+    from ase.geometry import find_mic
+    # Get the number of images
+    n_images=len(images)
+    # Get the position of initial state
+    pos0=images[0].get_positions()
+    # Get the distance to the final state
+    dist=images[-1].get_positions()-pos0
+    # Calculate the minimum-image convention if mic=True
+    if mic:
+        dist=find_mic(dist,images[0].get_cell(),images[0].pbc)[0]
+    # Calculate the scaled distance
+    scale_dist=2.0*trust_dist/np.linalg.norm(dist)
+    # Check if the distance is within the trust distance
+    if scale_dist>=1.0:
+        # Calculate the distance moved for each image
+        dist=dist/float(n_images-1)
+        # Set the positions
+        for i in range(1,n_images-1):
+            images[i].set_positions(pos0+(i*dist))
+        return images
+    # Calculate the distance moved for each image
+    dist=dist*(scale_dist/float(n_images-1))
+    # Get the position of final state
+    posn=images[-1].get_positions()
+    # Set the positions
+    nfirst=int(0.5*(n_images-1))
+    for i in range(1,n_images-1):
+        if i<=nfirst:
+            images[i].set_positions(pos0+(i*dist))
+        else:
+            images[i].set_positions(posn-((n_images-1-i)*dist))
+    return images
 
 def get_images_distance(images):
     " Get the cumulative distacnce of the images. "
@@ -99,5 +134,3 @@ def get_images_distance(images):
     for i in range(len(images)-1):
         dis+=np.linalg.norm(images[i+1].get_positions()-images[i].get_positions())
     return dis
-
-
