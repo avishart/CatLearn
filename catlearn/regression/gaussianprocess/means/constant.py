@@ -17,12 +17,12 @@ class Prior_constant(Prior):
         """
         self.update_arguments(yp=yp,add=add,**kwargs)
 
-    def get(self,X,Y,get_derivatives=True,**kwargs):
+    def get(self,features,targets,get_derivatives=True,**kwargs):
         if get_derivatives:
-            yp=np.zeros(Y.shape)
+            yp=np.zeros(targets.shape)
             yp[:,0]=self.prior_mean
             return yp
-        return np.full(Y.shape,self.prior_mean)
+        return np.full(targets.shape,self.prior_mean)
     
     def get_parameters(self,**kwargs):
         return dict(yp=self.yp,add=self.add)

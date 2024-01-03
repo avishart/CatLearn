@@ -16,8 +16,8 @@ class LogLikelihood(ObjectiveFuction):
         hp,parameters_set=self.make_hp(theta,parameters)
         model=self.update_model(model,hp)
         coef,L,low,Y_p,KXX,n_data=self.coef_cholesky(model,X,Y)
-        prefactor,prefactor2=self.get_prefactor2(model)
-        nlp=0.5*np.matmul(Y_p.T,coef).item(0)/prefactor2+n_data*prefactor+np.sum(np.log(np.diagonal(L)))+0.5*n_data*np.log(2.0*np.pi)
+        prefactor2=self.get_prefactor2(model)
+        nlp=0.5*np.matmul(Y_p.T,coef).item(0)/prefactor2+0.5*n_data*np.log(prefactor2)+np.sum(np.log(np.diagonal(L)))+0.5*n_data*np.log(2.0*np.pi)
         nlp=nlp-self.logpriors(hp,pdis,jac=False)
         if jac:
             return nlp,self.derivative(hp,parameters_set,model,X,Y_p,KXX,L,low,coef,prefactor2,n_data,pdis,**kwargs)   

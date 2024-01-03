@@ -17,6 +17,6 @@ class Prior_median(Prior_constant):
         """
         self.update_arguments(yp=yp,add=add,**kwargs)
 
-    def update(self,X,Y,**kwargs):
-        self.update_arguments(yp=np.median(Y[:,0]))
+    def update(self,features,targets,**kwargs):
+        self.update_arguments(yp=np.median(targets[:,0]))
         return self

@@ -122,9 +122,9 @@ class TProcess(ModelProcess):
         self.check_attributes()
         return self
 
-    def get_gradients(self,X,hp,KXX,**kwargs):
+    def get_gradients(self,features,hp,KXX,**kwargs):
         hp_deriv={}
-        n_data,m_data=len(X),len(KXX)
+        n_data,m_data=len(features),len(KXX)
         if 'noise' in hp:
             K_deriv=np.full(m_data,2.0*np.exp(2.0*self.hp['noise'][0]))
             if 'noise_deriv' in self.hp:
@@ -136,7 +136,7 @@ class TProcess(ModelProcess):
             K_deriv=np.full(m_data,2.0*np.exp(2.0*self.hp['noise_deriv'][0]))
             K_deriv[:n_data]=0.0
             hp_deriv['noise_deriv']=np.array([np.diag(K_deriv)])
-        hp_deriv.update(self.kernel.get_gradients(X,hp,KXX=KXX))
+        hp_deriv.update(self.kernel.get_gradients(features,hp,KXX=KXX))
         return hp_deriv
     
     def get_hyperprior_parameters(self,**kwargs):

@@ -6,7 +6,7 @@ class Prior:
         """
         self.update_arguments(**kwargs)
     
-    def get(self,X,Y,get_derivatives=True,**kwargs):
+    def get(self,features,targets,get_derivatives=True,**kwargs):
         """
         Get the prior mean of the targets.
 
@@ -21,7 +21,7 @@ class Prior:
         """
         raise NotImplementedError()
     
-    def update(self,X,Y,**kwargs):
+    def update(self,features,targets,**kwargs):
         """
         Update the prior mean with the given data.
 

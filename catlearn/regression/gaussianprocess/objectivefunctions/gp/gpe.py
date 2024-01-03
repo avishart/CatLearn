@@ -22,7 +22,7 @@ class GPE(LOO):
         coef,L,low,Y_p,KXX,n_data=self.coef_cholesky(model,X,Y)
         KXX_inv,K_inv_diag,coef_re,co_Kinv=self.get_co_Kinv(L,low,n_data,coef)
         K_inv_diag_rev=1.0/K_inv_diag
-        prefactor2=self.get_prefactor2(model)[1]
+        prefactor2=self.get_prefactor2(model)
         gpe_v=np.mean(co_Kinv**2)+prefactor2*np.mean(K_inv_diag_rev)
         gpe_v=gpe_v-self.logpriors(hp,pdis,jac=False)/n_data
         if jac:

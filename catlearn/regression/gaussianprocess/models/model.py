@@ -154,9 +154,9 @@ class ModelProcess:
             raise Exception('The model is not trained!')
         # Calculate the kernel matrix of test and training data
         if get_derivatives or (get_derivtives_var and get_variance) or get_var_derivatives:
-            KQX=self.kernel(features,self.features,get_derivatives=True)
+            KQX=self.get_kernel(features,self.features,get_derivatives=True)
         else:
-            KQX=self.kernel(features,self.features,get_derivatives=False) 
+            KQX=self.get_kernel(features,self.features,get_derivatives=False)
         # Calculate the prediction mean
         Y_predict=self.predict_mean(features,KQX=KQX,get_derivatives=get_derivatives)
         # Calculate the predicted variance
@@ -198,7 +198,7 @@ class ModelProcess:
         m_data=len(features)
         # Calculate the kernel matrix of test and training data if it is not given
         if KQX is None:
-            KQX=self.kernel(features,self.features,get_derivatives=get_derivatives)
+            KQX=self.get_kernel(features,self.features,get_derivatives=get_derivatives)
         else:
             if not get_derivatives:
                 KQX=KQX[:m_data]
@@ -207,7 +207,7 @@ class ModelProcess:
         # Rearrange prediction
         Y_predict=Y_predict.reshape(m_data,-1,order='F')
         # Add the prior mean 
-        Y_predict=Y_predict+self.prior.get(features,Y_predict,get_derivatives=get_derivatives)
+        Y_predict=Y_predict+self.get_priormean(features,Y_predict,get_derivatives=get_derivatives)
         return Y_predict
     
     def predict_variance(self,features,KQX=None,get_derivatives=False,include_noise=False,**kwargs):
@@ -240,7 +240,7 @@ class ModelProcess:
         m_data=len(features)
         # Calculate the kernel matrix of test and training data if it is not given
         if KQX is None:
-            KQX=self.kernel(features,self.features,get_derivatives=get_derivatives)
+            KQX=self.get_kernel(features,self.features,get_derivatives=get_derivatives)
         else:
             if not get_derivatives:
                 KQX=KQX[:m_data]
@@ -275,7 +275,7 @@ class ModelProcess:
         m_data=len(features)
         # Calculate the kernel matrix of test and training data
         if KQX is None:
-            KQX=self.kernel(features,self.features,get_derivatives=True)
+            KQX=self.get_kernel(features,self.features,get_derivatives=True)
         # Calculate the derivative of the diagonal elements wrt. the test features
         k_deriv=self.kernel_deriv_diag(features)
         # Calculate derivative of the predicted variance
@@ -288,10 +288,12 @@ class ModelProcess:
     def set_hyperparams(self,new_params,**kwargs):
         """
         Set or update the hyperparameters for the model.
+
         Parameters:
             new_params : dictionary
                 A dictionary of hyperparameters that are added or updated.
                 The hyperparameters are used in the log-space.
+
         Returns:
             self: The object itself with the new hyperparameters.
         """
@@ -305,6 +307,7 @@ class ModelProcess:
     def get_hyperparams(self,**kwargs):
         """
         Get the hyperparameters for the model and the kernel.
+
         Returns:
             dict: The hyperparameters in the log-space from the model and kernel class.  
         """
@@ -312,16 +315,97 @@ class ModelProcess:
         hp.update(self.kernel.get_hyperparams())
         return hp
     
-    def get_gradients(self,X,hp,KXX,**kwargs):
+    def get_kernel(self,features,features2=None,get_derivatives=True,**kwargs):
+        """
+        Make the kernel matrix.
+
+        Parameters:
+            features : (N,D) array or (N) list of fingerprint objects
+                Features with N data points.
+            features2 : (M,D) array or (M) list of fingerprint objects
+                Features with M data points and D dimensions. 
+                If it is not given a squared kernel from features is generated.
+            get_derivatives: bool
+                Whether to predict derivatives of target.
+
+        Returns:
+            KXX : array
+                The symmetric kernel matrix if features2=None.
+                The number of rows in the array is N, or N*(D+1) if get_derivatives=True.
+                The number of columns in the array is N, or N*(D+1) if use_derivatives=True.
+            or
+            KQX : array
+                The kernel matrix if features2 is not None.
+                The number of rows in the array is N, or N*(D+1) if get_derivatives=True.
+                The number of columns in the array is M, or M*(D+1) if use_derivatives=True.
+        """
+        return self.kernel(features,features2=features2,get_derivatives=get_derivatives,**kwargs)
+    
+    def get_prefactor(self):
+        """
+        Get the prefactor that the prediction uncertainty is scaled with.
+
+        Returns:
+            float: The prefactor that the prediction uncertainty is scaled with.
+        """
+        return self.prefactor
+    
+    def update_priormean(self,features,targets,**kwargs):
+        """ 
+        Update the prior mean with the data.
+
+        Parameters:
+            features : (N,D) array or (N) list of fingerprint objects
+                Training features with N data points.
+            targets : (N,1) array or (N,1+D) array
+                Training targets with N data points.
+                If use_derivatives=True, the training targets is in first column and derivatives is in the next columns.
+        
+        Returns:
+            self: The updated instance itself.
+        """
+        self.prior.update(features,targets,**kwargs)
+        return self
+
+    def get_priormean(self,features,targets,get_derivatives=False,**kwargs):
+        """
+        Get the prior mean for the given features.
+
+        Parameters:
+            features : (N,D) array or (N) list of fingerprint objects
+                Features with N data points.
+            targets : (N,1) array or (N,1+D) array
+                Targets with N data points.
+                If get_derivatives=True, the targets is in first column and derivatives is in the next columns.
+            get_derivatives : bool
+                Whether to give the prior mean of the derivatives of targets.
+                
+        Returns:
+            (N,1) array or (N,1+D) array: The prior mean.
+        """
+        return self.prior.get(features,targets,get_derivatives=get_derivatives,**kwargs)
+    
+    def get_prior_parameters(self,**kwargs):
+        """
+        Get the prior mean parameters.
+
+        Returns:
+            dict: A dictionary with the parameters used in the prior mean.
+        """
+        return self.prior.get_parameters(**kwargs)
+    
+    def get_gradients(self,features,hp,KXX,**kwargs):
         """
         Get the gradients of the covariance matrix with noise wrt. the hyperparameters.
+
         Parameters:
-            X : (N,D) array
+            features : (N,D) array
                 Features with N data points and D dimensions.
             hp : list
                 A list with elements of the hyperparameters that are optimized.
             KXX : (N,N) array
                 The kernel matrix of training data.
+
         Returns:
             dict: A dictionary with gradients of the covariance matrix with noise wrt. the hyperparameters. 
         """
@@ -330,6 +414,7 @@ class ModelProcess:
     def update_arguments(self,prior=None,kernel=None,hpfitter=None,hp={},use_derivatives=None,use_correction=None,**kwargs):
         """
         Update the Model Process Regressor with its arguments. The existing arguments are used if they are not given.
+        
         Parameters:
             prior : Prior class
                 The prior given for new data.
@@ -344,8 +429,9 @@ class ModelProcess:
                 Use derivatives/gradients for training and predictions.
             use_correction : bool
                 Use the noise correction on the covariance matrix.
+                
         Returns:
-            self: The updated object itself.
+            self: The updated instance itself.
         """
         # Set the prior mean class
         if prior is not None:
@@ -404,7 +490,7 @@ class ModelProcess:
     def calculate_kernel_decomposition(self,features,**kwargs):
         " Do the Cholesky decomposition of the kernel matrix. "
         # Make kernel matrix with noise
-        K=self.kernel(features,get_derivatives=self.use_derivatives)
+        K=self.get_kernel(features,get_derivatives=self.use_derivatives)
         K=self.add_regularization(K,len(features))
         # Do Cholesky decomposition
         return cho_factor(K)
@@ -413,8 +499,8 @@ class ModelProcess:
         " Modify the targets with the prior mean and rearrangement. "
         # Subtracting prior mean from target 
         targets=targets.copy()
-        self.prior.update(features,targets,L=self.L,low=self.low)
-        targets=targets-self.prior.get(features,targets,get_derivatives=self.use_derivatives)
+        self.update_priormean(features,targets,L=self.L,low=self.low)
+        targets=targets-self.get_priormean(features,targets,get_derivatives=self.use_derivatives)
         # Rearrange targets if derivatives are used
         if self.use_derivatives:
             targets=targets.T.reshape(-1,1)
@@ -426,7 +512,7 @@ class ModelProcess:
         " Calculate the coefficients for the prediction mean. "
         return cho_solve((self.L,self.low),targets,check_finite=False)
     
-    def calculate_prefactor(self,features,targets,**kwargs):
+    def calculate_prefactor(self,features=None,targets=None,**kwargs):
         " Calculate the prefactor that the prediction uncertainty is scaled with. "
         raise NotImplementedError()
 

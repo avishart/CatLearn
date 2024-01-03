@@ -17,6 +17,6 @@ class Prior_min(Prior_constant):
         """
         self.update_arguments(yp=yp,add=add,**kwargs)
     
-    def update(self,X,Y,**kwargs):
-        self.update_arguments(yp=np.min(Y[:,0]))
+    def update(self,features,targets,**kwargs):
+        self.update_arguments(yp=np.min(targets[:,0]))
         return self
