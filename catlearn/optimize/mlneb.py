@@ -552,13 +552,15 @@ class MLNEB:
         if self.rank==0:
             # Check if NEB on the predicted potential energy surface is converged
             if neb_converged:
-                # Check the force and uncertainty criteria are met
-                if self.max_abs_forces<=fmax and self.umax_ml<=unc_convergence:
-                    # Check the true energy deviation match the uncertainty prediction
-                    if np.abs(self.energy_pred-self.energy_true)<=2.0*unc_convergence:
-                        self.message_system("MLNEB is converged.") 
-                        self.print_cite()
-                        converged=True
+                # Check the force criterion is met if climbing image is used
+                if self.max_abs_forces<=fmax or not self.climb:
+                    # Check the uncertainty criterion is met
+                    if self.umax_ml<=unc_convergence:
+                        # Check the true energy deviation match the uncertainty prediction
+                        if np.abs(self.energy_pred-self.energy_true)<=2.0*unc_convergence:
+                            self.message_system("MLNEB is converged.") 
+                            self.print_cite()
+                            converged=True
         # Broadcast convergence statement
         converged=broadcast(converged,root=0)
         return converged
