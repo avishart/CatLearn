@@ -93,7 +93,7 @@ def make_idpp_interpolation(images,mic=False,fmax=0.1,steps=100,local_kwargs={},
         opt.run(fmax=fmax,steps=steps)
     return new_images
 
-def make_end_interpolations(images,mic=False,trust_dist=0.4,**kwargs):
+def make_end_interpolations(images,mic=False,trust_dist=0.2,**kwargs):
     " Make the linear interpolation from initial to final state, but place the images at the initial and final states with the maximum distance as trust_dist. "
     from ase.geometry import find_mic
     # Get the number of images
