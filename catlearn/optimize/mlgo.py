@@ -15,23 +15,23 @@ class MLGO:
         Machine learning accelerated global adsorption optimization with active learning.
 
         Parameters:
-            slab: ASE Atoms object.
+            slab : ASE Atoms object.
                 The object of the surface or nanoparticle that the adsorbate is adsorped to. 
                 The energy and forces for the structure is not needed.
-            ads: ASE Atoms object.
+            ads : ASE Atoms object.
                 The object of the adsorbate in vacuum with same cell size and pbc as for the slab. 
                 The energy and forces for the structure is not needed.
-            ase_calc: ASE calculator instance.
+            ase_calc : ASE calculator instance.
                 ASE calculator as implemented in ASE.
                 See https://wiki.fysik.dtu.dk/ase/ase/calculators/calculators.html
-            ads2: ASE Atoms object (optional).
+            ads2 : ASE Atoms object (optional).
                 The object of a second adsorbate in vacuum that is adsorbed simultaneously with the other adsorbate.
-            mlcalc: ML-calculator instance.
+            mlcalc : ML-calculator instance.
                 The ML-calculator instance used as surrogate surface. A default ML-model is used if mlcalc is None.
-            acq: Acquisition instance.
+            acq : Acquisition instance.
                 The Acquisition instance used for calculating the acq. function and choose a candidate
                 to calculate next. A default Acquisition instance is used if acq is None.
-            prev_calculations: Atoms list or ASE Trajectory file.
+            prev_calculations : Atoms list or ASE Trajectory file.
                 (optional) The user can feed previously calculated data for the
                 same hypersurface. The previous calculations must be fed as an
                 Atoms list or Trajectory file.
@@ -41,7 +41,7 @@ class MLGO:
             apply_constraint : boolean
                 Whether to apply the constrains of the ASE Atoms instance to the calculated forces. 
                 By default (apply_constraint=True) forces are 0 for constrained atoms and directions.
-            force_consistent: boolean or None.
+            force_consistent : boolean or None.
                 Use force-consistent energy calls (as opposed to the energy
                 extrapolated to 0 K). By default (force_consistent=None) uses
                 force-consistent energies if available in the calculator, but
@@ -49,35 +49,35 @@ class MLGO:
             scale_fmax : float
                 The scaling of the fmax for the ML-NEB runs. 
                 It makes the path converge tighter on surrogate surface. 
-            save_memory: bool
+            save_memory : bool
                 Whether to only train the ML calculator and store all objects on one CPU. 
                 If save_memory==True then parallel optimization of the hyperparameters can not be achived.
                 If save_memory==False no MPI object is used.  
-            local_opt: ASE local optimizer Object. 
+            local_opt : ASE local optimizer Object. 
                 A local optimizer object from ASE. If None is given then FIRE is used.
-            local_opt_kwargs: dict.
+            local_opt_kwargs : dict.
                 Arguments used for the ASE local optimizer.
-            default_mlcalc_kwargs: dict.
+            default_mlcalc_kwargs : dict.
                 A dictonary with kwargs for construction of the default ML calculator
                 if it is chosen to be used.
-            bounds: (6,2) or (12,2) ndarray (optional).
+            bounds : (6,2) or (12,2) ndarray (optional).
                 The boundary conditions used for the global optimization in form of the simulated annealing.
                 The boundary conditions are the x, y, and z coordinates of the center of the adsorbate and 3 rotations.
                 Same boundary conditions can be set for the second adsorbate if chosen.
-            initial_points: int.
+            initial_points : int.
                 Number of generated initial structures used for training the ML calculator if no previous data is given.
-            norelax_points: int.
+            norelax_points : int.
                 The number of structures used for training before local relaxation of the structures after the global optimization is activated.
-            min_steps: int.
+            min_steps : int.
                 The minimum number of iterations before convergence is checked.
-            opt_kwargs: dict.
+            opt_kwargs : dict.
                 Arguments used for the simulated annealing method.
-            trajectory: string.
+            trajectory : string.
                 Trajectory filename to store the evaluated training data.
-            tabletxt: string
+            tabletxt : string
                 Name of the .txt file where the summary table is printed. 
                 It is not saved to the file if tabletxt=None.
-            full_output: bool.
+            full_output : bool.
                 Whether to print on screen the full output (True) or not (False).
         """
         # Setup parallelization

@@ -20,25 +20,25 @@ class MLNEB:
         Nudged elastic band (NEB) with Machine Learning as active learning.
 
         Parameters:
-            start: Atoms object with calculated energy or ASE Trajectory file.
+            start : Atoms object with calculated energy or ASE Trajectory file.
                 Initial end-point of the NEB path.
-            end: Atoms object with calculated energy or ASE Trajectory file.
+            end : Atoms object with calculated energy or ASE Trajectory file.
                 Final end-point of the NEB path.
-            ase_calc: ASE calculator instance.
+            ase_calc : ASE calculator instance.
                 ASE calculator as implemented in ASE.
                 See https://wiki.fysik.dtu.dk/ase/ase/calculators/calculators.html
-            mlcalc: ML-calculator instance.
+            mlcalc : ML-calculator instance.
                 The ML-calculator instance used as surrogate surface. A default ML-model is used
                 if mlcalc is None.
-            acq: Acquisition class instance.
+            acq : Acquisition class instance.
                 The Acquisition instance used for calculating the acq. function and choose a candidate
                 to calculate next. A default Acquisition instance is used if acq is None.
-            interpolation: string or list of ASE Atoms or ASE Trajectory file.
+            interpolation : string or list of ASE Atoms or ASE Trajectory file.
                 Automatic interpolation can be done ('idpp' and 'linear' as
                 implemented in ASE).
                 See https://wiki.fysik.dtu.dk/ase/ase/neb.html.
                 Manual: Trajectory file (in ASE format) or list of Atoms.
-            interpolation_kwargs: dict.
+            interpolation_kwargs : dict.
                 A dictionary with the arguments used in the interpolation.
                 See https://wiki.fysik.dtu.dk/ase/ase/neb.html. 
             climb : bool
@@ -46,39 +46,39 @@ class MLNEB:
                 It is only activated when the uncertainty is low and a NEB without climbing image can converge.
             neb_method : class object.
                 The NEB implemented class object used for the ML-NEB. 
-            neb_kwargs: dict.
+            neb_kwargs : dict.
                 A dictionary with the arguments used in the NEB object to create the instance. 
                 Climb must not be included.
                 See https://wiki.fysik.dtu.dk/ase/ase/neb.html. 
-            n_images: int.
+            n_images : int.
                 Number of images of the path (if not included a path before).
                 The number of images include the 2 end-points of the NEB path.
-            prev_calculations: Atoms list or ASE Trajectory file.
+            prev_calculations : Atoms list or ASE Trajectory file.
                 (optional) The user can feed previously calculated data for the
                 same hypersurface. The previous calculations must be fed as an
                 Atoms list or Trajectory file.
             use_database_check : bool
                 Whether to check if the new structure is within the database.
                 If it is in the database, the structure is rattled. 
-            use_restart_path: bool
+            use_restart_path : bool
                 Use the path from last robust iteration (low uncertainty).
-            check_path_unc: bool
+            check_path_unc : bool
                 Check if the uncertainty is large for the restarted path and
                 if it is then use the initial interpolation.
-            check_path_fmax: bool
+            check_path_fmax : bool
                 Check if the maximum perpendicular force is larger for the restarted path than
                 the initial interpolation and if so then replace it.
-            use_low_unc_ci: bool
+            use_low_unc_ci : bool
                 Whether to only activative climbing image NEB when the uncertainties of all images are below unc_convergence.
                 If use_low_unc_ci=False, the climbing image is activated without checking the uncertainties.
-            save_memory: bool
+            save_memory : bool
                 Whether to only train the ML calculator and store all objects on one CPU. 
                 If save_memory==True then parallel optimization of the hyperparameters can not be achived.
                 If save_memory==False no MPI object is used.  
             apply_constraint : boolean
                 Whether to apply the constrains of the ASE Atoms instance to the calculated forces. 
                 By default (apply_constraint=True) forces are 0 for constrained atoms and directions.
-            force_consistent: boolean or None.
+            force_consistent : boolean or None.
                 Use force-consistent energy calls (as opposed to the energy
                 extrapolated to 0 K). By default (force_consistent=None) uses
                 force-consistent energies if available in the calculator, but
@@ -86,18 +86,18 @@ class MLNEB:
             scale_fmax : float
                 The scaling of the fmax for the ML-NEB runs. 
                 It makes the path converge tighter on surrogate surface. 
-            local_opt: ASE local optimizer Object. 
+            local_opt : ASE local optimizer Object. 
                 A local optimizer object from ASE. If None is given then FIRE is used.
-            local_opt_kwargs: dict
+            local_opt_kwargs : dict
                 Arguments used for the ASE local optimizer.
-            trainingset: string.
+            trainingset : string.
                 Trajectory filename to store the evaluated training data.
-            trajectory: string
+            trajectory : string
                 Trajectory filename to store the predicted NEB path.
-            tabletxt: string
+            tabletxt : string
                 Name of the .txt file where the summary table is printed. 
                 It is not saved to the file if tabletxt=None.
-            full_output: boolean
+            full_output : boolean
                 Whether to print on screen the full output (True) or not (False).
         """
         # Setup parallelization
