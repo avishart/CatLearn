@@ -177,14 +177,14 @@ class MLNEB:
         Parameters:
             fmax : float
                 Convergence criteria (in eV/Angs).
-            unc_convergence: float
+            unc_convergence : float
                 Maximum uncertainty for convergence (in eV).
             steps : int
                 Maximum number of evaluations.
-            ml_steps: int
+            ml_steps : int
                 Maximum number of steps for the NEB optimization on the
                 predicted landscape.
-            max_unc: float (optional)
+            max_unc : float (optional)
                 Early stopping criteria. Maximum uncertainty before stopping the
                 optimization on the surrogate surface.
                 If it is None or False, it will run to convergence.

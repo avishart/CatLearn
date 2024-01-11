@@ -152,9 +152,9 @@ class MLGO:
                 Maximum uncertainty for convergence (in eV).
             steps : int
                 Maximum number of evaluations.
-            max_unc: float
+            max_unc : float
                 Early stopping criteria. Maximum uncertainty allowed before local optimization.
-            ml_steps: int
+            ml_steps : int
                 Maximum number of steps for the global optimization on the predicted landscape.
             ml_chains : int
                 The number of parallel chains in the simulated annealing.
@@ -162,7 +162,7 @@ class MLGO:
                 Whether to perform local optimization after the global optimization.
             local_steps : int
                 Maximum number of steps for the local optimization on the predicted landscape.
-            seed : int
+            seed : int (optional)
                 The random seed.
         """
         # Set the random seed
