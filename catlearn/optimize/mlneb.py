@@ -553,7 +553,7 @@ class MLNEB:
             # Check if NEB on the predicted potential energy surface is converged
             if neb_converged:
                 # Check the force criterion is met if climbing image is used
-                if self.max_abs_forces<=fmax or not self.climb:
+                if not self.climb or self.max_abs_forces<=fmax:
                     # Check the uncertainty criterion is met
                     if self.umax_ml<=unc_convergence:
                         # Check the true energy deviation match the uncertainty prediction
