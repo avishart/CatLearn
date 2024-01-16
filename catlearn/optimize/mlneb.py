@@ -1,14 +1,14 @@
 import numpy as np
-from ase.neb import BaseNEB
 from ase.io import read
 from ase.io.trajectory import TrajectoryWriter
 from ase.parallel import world,broadcast
 import datetime
+from .neb.improvedneb import ImprovedTangentNEB
 
 class MLNEB:
     def __init__(self,start,end,ase_calc,mlcalc=None,acq=None,
                  interpolation='idpp',interpolation_kwargs=dict(),
-                 climb=True,neb_method=BaseNEB,neb_kwargs=dict(),n_images=15,
+                 climb=True,neb_method=ImprovedTangentNEB,neb_kwargs=dict(),n_images=15,
                  prev_calculations=None,use_database_check=True,
                  use_restart_path=True,check_path_unc=True,check_path_fmax=True,
                  use_low_unc_ci=True,save_memory=False,
