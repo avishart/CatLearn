@@ -6,7 +6,7 @@ class ImprovedTangentNEB(OriginalNEB):
         super().__init__(images,k=k,climb=climb,remove_rotation_and_translation=remove_rotation_and_translation,**kwargs)
     
     def get_parallel_forces(self,tangent,pos_p,pos_m,**kwargs):
-        forces_parallel=(self.k*np.linalg.norm(pos_p,axis=(1,2)))-(self.k*np.linalg.norm(pos_m,axis=(1,2)))
+        forces_parallel=(self.k[1:]*np.linalg.norm(pos_p,axis=(1,2)))-(self.k[:-1]*np.linalg.norm(pos_m,axis=(1,2)))
         forces_parallel=forces_parallel.reshape(-1,1,1)*tangent
         return forces_parallel
 

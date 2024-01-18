@@ -11,7 +11,7 @@ class OriginalNEB:
             images : List of ASE Atoms instances
                 The ASE Atoms instances used as the images of the initial path that is optimized.
             k : List of floats or float
-                The spring force acting between each image. 
+                The (Nimg-1) spring forces acting between each image. 
             climb : bool
                 Whether to use climbing image in the NEB. 
             remove_rotation_and_translation : bool
@@ -21,7 +21,7 @@ class OriginalNEB:
         self.nimages=len(images)
         self.natoms=len(images[0])
         if isinstance(k,(int,float)):
-            self.k=np.full(self.nimages-2,k)
+            self.k=np.full(self.nimages-1,k)
         else:
             self.k=k.copy()
         self.climb=climb
@@ -131,8 +131,8 @@ class OriginalNEB:
     
     def get_parallel_forces(self,tangent,pos_p,pos_m,**kwargs):
         " Get the parallel forces between the images. "
-        forces_parallel=np.array([np.vdot(pos_p[i]-pos_m[i],tangent[i]) for i in range(len(tangent))])
-        forces_parallel=(self.k*forces_parallel).reshape(-1,1,1)*tangent
+        forces_parallel=np.array([np.vdot((self.k[i+1]*pos_p[i])-(self.k[i]*pos_m[i]),tangent[i]) for i in range(len(tangent))])
+        forces_parallel=forces_parallel.reshape(-1,1,1)*tangent
         return forces_parallel
     
     def get_perpendicular_forces(self,tangent,forces,**kwargs):
