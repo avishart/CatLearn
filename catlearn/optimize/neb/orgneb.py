@@ -131,7 +131,7 @@ class OriginalNEB:
     
     def get_parallel_forces(self,tangent,pos_p,pos_m,**kwargs):
         " Get the parallel forces between the images. "
-        forces_parallel=np.linalg.norm(pos_p,axis=(1,2))-np.linalg.norm(pos_m,axis=(1,2))
+        forces_parallel=np.array([np.vdot(pos_p[i]-pos_m[i],tangent[i]) for i in range(len(tangent))])
         forces_parallel=(self.k*forces_parallel).reshape(-1,1,1)*tangent
         return forces_parallel
     
