@@ -5,6 +5,11 @@ class ImprovedTangentNEB(OriginalNEB):
     def __init__(self,images,k=0.1,climb=False,remove_rotation_and_translation=False,**kwargs):
         super().__init__(images,k=k,climb=climb,remove_rotation_and_translation=remove_rotation_and_translation,**kwargs)
     
+    def get_parallel_forces(self,tangent,pos_p,pos_m,**kwargs):
+        forces_parallel=(self.k*np.linalg.norm(pos_p,axis=(1,2)))-(self.k*np.linalg.norm(pos_m,axis=(1,2)))
+        forces_parallel=forces_parallel.reshape(-1,1,1)*tangent
+        return forces_parallel
+
     def get_tangent(self,pos_p,pos_m,**kwargs):
         tangent=np.empty((int(self.nimages-2),self.natoms,3))
         energies=self.get_energies()

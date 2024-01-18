@@ -90,7 +90,7 @@ class OriginalNEB:
         forces=self.calculate_forces()
         # Get the change in the coordinates relative to the previous and later image
         position_plus,position_minus=self.get_position_diff()
-        # Calculate the tanget to the moving images
+        # Calculate the tangent to the moving images
         tangent=self.get_tangent(position_plus,position_minus)
         # Calculate the parallel forces between images
         parallel_forces=self.get_parallel_forces(tangent,position_plus,position_minus)
@@ -147,12 +147,12 @@ class OriginalNEB:
         return position_plus,position_minus
     
     def get_tangent(self,pos_p,pos_m,**kwargs):
-        " Calculate the tanget to the moving images. "
+        " Calculate the tangent to the moving images. "
         # Normalization
-        tanget_m=pos_m/(np.linalg.norm(pos_m,axis=(1,2)).reshape(-1,1,1))
-        tanget_p=pos_p/(np.linalg.norm(pos_p,axis=(1,2)).reshape(-1,1,1))
+        tangent_m=pos_m/(np.linalg.norm(pos_m,axis=(1,2)).reshape(-1,1,1))
+        tangent_p=pos_p/(np.linalg.norm(pos_p,axis=(1,2)).reshape(-1,1,1))
         # Sum them
-        tangent=tanget_m+tanget_p
+        tangent=tangent_m+tangent_p
         return tangent/(np.linalg.norm(tangent,axis=(1,2)).reshape(-1,1,1))
     
     def __len__(self):
