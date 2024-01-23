@@ -353,7 +353,7 @@ class MLNEB:
             if self.rank!=0:
                 return self.mlcalc
         # Update database with the points of interest
-        self.update_database_arguments(point_interest=self.last_images)
+        self.update_database_arguments(point_interest=self.last_images[1:-1])
         # Train the ML model
         self.mlcalc.train_model()
         return self.mlcalc
