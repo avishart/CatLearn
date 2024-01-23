@@ -627,7 +627,7 @@ class DatabasePointsInterest(DatabaseLast):
         return self
 
     def make_reduction(self,all_indicies,**kwargs):
-        " Reduce the training set with the points farthest from each other. "
+        " Reduce the training set with the points closest to the points of interests. "
         # Check if there are points of interest else use the Parent class
         if len(self.point_interest)==0:
             return super().make_reduction(all_indicies,**kwargs)
@@ -669,4 +669,76 @@ class DatabasePointsInterest(DatabaseLast):
                            targets=self.targets.copy(),
                            indicies=self.indicies.copy())
         return arg_kwargs,constant_kwargs,object_kwargs
+    
+
+class DatabasePointsInterestEach(DatabasePointsInterest):
+    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=True,point_interest=[],**kwargs):
+        """ 
+        Database of ASE atoms objects that are converted into fingerprints and targets. 
+        The used Database is a reduced set of the full Database. 
+        The reduced data set is selected from the distances to each point of interest. 
+        The distance metric is the shortest distance to the point of interest and it is performed iteratively.
+
+        Parameters:
+            fingerprint : Fingerprint object
+                An object as a fingerprint class that convert atoms to fingerprint.
+            reduce_dimensions: bool
+                Whether to reduce the fingerprint space if constrains are used.
+            use_derivatives : bool
+                Whether to use derivatives/forces in the targets.
+            use_fingerprint : bool
+                Whether the kernel uses fingerprint objects (True) or arrays (False).
+            npoints : int
+                Number of points that are used from the database.
+            initial_indicies : list
+                The indicies of the data points that must be included in the used data base.
+            include_last : bool
+                Whether to include the last data point in the used data base.
+            point_interest : list
+                A list of the points of interest as ASE Atoms instances. 
+        """
+        super().__init__(fingerprint=fingerprint,
+                         reduce_dimensions=reduce_dimensions,
+                         use_derivatives=use_derivatives,
+                         use_fingerprint=use_fingerprint,
+                         npoints=npoints,
+                         initial_indicies=initial_indicies,
+                         include_last=include_last,
+                         point_interest=point_interest,
+                         **kwargs)
+        
+    def make_reduction(self,all_indicies,**kwargs):
+        " Reduce the training set with the points closest to the points of interests. "
+        # Check if there are points of interest else use the Parent class
+        if len(self.point_interest)==0:
+            return super().make_reduction(all_indicies,**kwargs)
+        # Get the fixed indicies
+        indicies=self.get_initial_indicies()
+        # Include the last point
+        if self.include_last:
+            indicies=np.append(indicies,[all_indicies[-1]])
+        # Get all the features
+        features=self.get_all_feature_vectors()
+        features_interest=self.get_feature_interest()
+        fdim=len(features[0])
+        n_points_interest=len(features_interest)
+        # Get the indicies for the system not already included
+        not_indicies=np.array([j for j in all_indicies if j not in indicies])
+        # Calculate the distances to the points of interest
+        dist=cdist(features_interest,features[not_indicies].reshape(-1,fdim))
+        # Iterate over the points of interests
+        p=0
+        while len(indicies)<self.npoints:
+            # Get the point with the minimum distance
+            i_min=np.argmin(dist[p])
+            # Get and append the index
+            indicies=np.append(indicies,[not_indicies[i_min]])
+            # Remove the index
+            not_indicies=np.delete(not_indicies,i_min)
+            dist=np.delete(dist,i_min,axis=1)
+            # Use the next point 
+            p+=1
+            if p>=n_points_interest:
+                p=0
+        return np.array(indicies,dtype=int)
     

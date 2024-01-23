@@ -516,6 +516,9 @@ def get_default_database(fp=None,use_derivatives=True,database_reduction=False,d
         elif database_reduction.lower()=='interest':
             from .database_reduction import DatabasePointsInterest
             database=DatabasePointsInterest(fingerprint=fp,**data_kwargs)
+        elif database_reduction.lower()=='each_interest':
+            from .database_reduction import DatabasePointsInterestEach
+            database=DatabasePointsInterestEach(fingerprint=fp,**data_kwargs)
     else:
         from .database import Database
         database=Database(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,use_fingerprint=use_fingerprint)
