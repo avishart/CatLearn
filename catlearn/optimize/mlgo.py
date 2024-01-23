@@ -117,7 +117,7 @@ class MLGO:
             from ..regression.gaussianprocess.fingerprint.invdistances import Inv_distances
             from ..regression.gaussianprocess.baseline.repulsive import Repulsion_calculator
             fp=Inv_distances(reduce_dimensions=True,use_derivatives=True,mic=True,sorting=True)
-            mlmodel=get_default_mlmodel(model='gp',fp=fp,baseline=Repulsion_calculator(),use_derivatives=True,parallel=(not save_memory),database_reduction=False)
+            mlmodel=get_default_mlmodel(model='gp',fp=fp,baseline=Repulsion_calculator(power=4),use_derivatives=True,parallel=(not save_memory),database_reduction=False)
             self.mlcalc=MLCalculator(mlmodel=mlmodel)
         else:
             self.mlcalc=mlcalc.copy()
