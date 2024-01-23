@@ -1,4 +1,5 @@
 import numpy as np
+from ase.optimize import FIRE
 
 
 def interpolate(start,end,ts=None,n_images=15,method='linear',mic=True,remove_rotation_and_translation=True,**interpolation_kwargs):
@@ -69,10 +70,9 @@ def make_linear_interpolation(images,mic=False,**kwargs):
         images[i].set_positions(pos0+(i*dist))
     return images
 
-def make_idpp_interpolation(images,mic=False,fmax=0.1,steps=100,local_kwargs={},**kwargs):
+def make_idpp_interpolation(images,mic=False,fmax=1.0,steps=100,local_opt=FIRE,local_kwargs={},**kwargs):
     " Make the IDPP interpolation from initial to final state from NEB optimization. "
     from ase.neb import IDPP,NEB
-    from ase.optimize import MDMin
     # Get all distances in the system
     dist0=images[0].get_all_distances(mic=mic)
     # Calculate the differences in the distances in the system for IDPP
@@ -86,10 +86,12 @@ def make_idpp_interpolation(images,mic=False,fmax=0.1,steps=100,local_kwargs={},
     # Make default NEB 
     neb=NEB(new_images)
     # Set local optimizer arguments
-    local_kwargs_default=dict(trajectory='idpp.traj',logfile='idpp.log',dt=0.05)
+    local_kwargs_default=dict(trajectory='idpp.traj',logfile='idpp.log')
+    if isinstance(local_opt,FIRE):
+        local_kwargs_default.update(dict(dt=0.05,a=1.0,astart=1.0,fa=0.999,maxstep=0.2))
     local_kwargs_default.update(local_kwargs)
     # Optimize NEB path with IDPP
-    with MDMin(neb,**local_kwargs_default) as opt:
+    with FIRE(neb,**local_kwargs_default) as opt:
         opt.run(fmax=fmax,steps=steps)
     return new_images
 
