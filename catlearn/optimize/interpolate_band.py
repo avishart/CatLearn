@@ -91,7 +91,7 @@ def make_idpp_interpolation(images,mic=False,fmax=1.0,steps=100,local_opt=FIRE,l
         local_kwargs_default.update(dict(dt=0.05,a=1.0,astart=1.0,fa=0.999,maxstep=0.2))
     local_kwargs_default.update(local_kwargs)
     # Optimize NEB path with IDPP
-    with FIRE(neb,**local_kwargs_default) as opt:
+    with local_opt(neb,**local_kwargs_default) as opt:
         opt.run(fmax=fmax,steps=steps)
     return new_images
 
