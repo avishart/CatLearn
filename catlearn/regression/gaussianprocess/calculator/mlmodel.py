@@ -73,8 +73,7 @@ class MLModel:
         features,targets=self.get_data()
         # Correct targets with a baselin
         if self.use_baseline:
-            targets=self.baseline_correction(targets,atoms=None,add=False,
-                                             use_derivatives=self.database.use_derivatives)
+            targets=self.baseline_corrected_targets(targets)
         # Train model
         if self.optimize:
             # Optimize the hyperparameters and train the ML model
@@ -84,7 +83,7 @@ class MLModel:
             self.model_training(features,targets,**kwargs)
         return self
     
-    def calculate(self,atoms,get_uncertainty=True,get_forces=True,**kwargs):
+    def calculate(self,atoms,get_uncertainty=True,get_forces=True,get_force_uncertainties=False,get_unc_derivatives=False,**kwargs):
         """ 
         Calculate the energy and also the uncertainties and forces if selected.
         If get_variance=False, variance is returned as None. 
@@ -97,6 +96,10 @@ class MLModel:
                 The uncertainty is None if get_uncertainty=False.
             get_forces : bool
                 Whether to calculate the forces.
+            get_force_uncertainties : bool
+                Whether to calculate the uncertainties of the predicted forces. 
+            get_unc_derivatives : bool
+                Whether to calculate the derivatives of the uncertainty of the predicted energy.
 
         Returns:
             energy : float
@@ -109,30 +112,14 @@ class MLModel:
                 The predicted uncertainties of the forces if get_uncertainty=True and get_forces=True.
         """
         # Calculate energy, forces, and uncertainty
-        y,unc=self.model_prediction(atoms,get_uncertainty=get_uncertainty,get_forces=get_forces)
-        # Default values
-        forces,uncertainty,uncertainty_forces=None,None,None
-        # Get the uncertainties if they are requested
-        if get_uncertainty:
-            unc=np.sqrt(unc)
-            uncertainty=unc[0][0]
-        # Correct with the baseline if it is used
-        if self.use_baseline:
-            y=self.baseline_correction(y,atoms=atoms,add=True,
-                                       use_derivatives=get_forces)
-        # Get energy
-        energy=y[0,0]
-        # Get the forces if they are requested
-        if get_forces:
-            # Get constraints
-            natoms,not_masked=self.get_constraints(atoms)
-            # Make the full matrix of forces from derivatives
-            forces=self.not_masked_reshape(-y[0,1:],not_masked,natoms)
-            # Get the uncertainty of the forces they are requested
-            if get_uncertainty:
-                # Make the full matrix of force uncertainties
-                uncertainty_forces=self.not_masked_reshape(unc[0][1:],not_masked,natoms)
-        return energy,forces,uncertainty,uncertainty_forces
+        energy,forces,unc,unc_forces,unc_deriv=self.model_prediction(atoms,
+                                                                     get_uncertainty=get_uncertainty,
+                                                                     get_forces=get_forces,
+                                                                     get_force_uncertainties=get_force_uncertainties,
+                                                                     get_unc_derivatives=get_unc_derivatives)
+        # Store the predictions
+        results=self.store_results(atoms,energy=energy,forces=forces,unc=unc,unc_forces=unc_forces,unc_deriv=unc_deriv)
+        return results
     
     def save_data(self,trajectory='data.traj',**kwarg):
         """
@@ -170,6 +157,33 @@ class MLModel:
             bool: Whether the ASE Atoms object is within the database.
         """
         return self.database.is_in_database(atoms=atoms,**kwargs)
+    
+    def copy_atoms(self,atoms,**kwargs):
+        """
+        Copy the atoms object together with the calculated properties.
+
+        Parameters:
+            atoms : ASE Atoms
+                The ASE Atoms object with a calculator that is copied.
+
+        Returns:
+            ASE Atoms: The copy of the Atoms object with saved data in the calculator.
+        """
+        return self.database.copy_atoms(atoms,**kwargs)
+    
+    def update_database_arguments(self,point_interest=None,**kwargs):
+        """ 
+        Update the arguments in the database.
+
+        Parameters:
+            point_interest : list
+                A list of the points of interest as ASE Atoms instances. 
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.database.update_arguments(point_interest=point_interest,**kwargs)
+        return self
     
     def update_arguments(self,model=None,database=None,baseline=None,optimize=None,hp=None,pdis=None,verbose=None,**kwargs):
         """
@@ -230,31 +244,93 @@ class MLModel:
         self.model.train(features,targets,**kwargs)
         return self.model
     
-    def model_prediction(self,atoms,get_uncertainty=True,get_forces=True,**kwargs):
+    def model_prediction(self,atoms,get_uncertainty=True,get_forces=True,get_force_uncertainties=False,get_unc_derivatives=False,**kwargs):
         " Predict the targets and uncertainties. "
         # Calculate fingerprint
         fp=self.database.make_atoms_feature(atoms)
         # Calculate energy, forces, and uncertainty
-        y,unc=self.model.predict(np.array([fp]),get_variance=get_uncertainty,get_derivatives=get_forces)
-        return y,unc
-
-    def baseline_correction(self,targets,atoms=None,add=False,use_derivatives=True,**kwargs):
-        " Baseline correction if a baseline is used. Either add the correction to an atom object or subtract it from training data. "
-        # Whether the baseline is used to training or prediction
-        if not add:
-            atoms_list=self.database.get_atoms()
+        y,var,var_deriv=self.model.predict(np.array([fp]),
+                                 get_derivatives=get_forces,
+                                 get_variance=get_uncertainty,
+                                 include_noise=False,
+                                 get_derivtives_var=get_force_uncertainties,
+                                 get_var_derivatives=get_unc_derivatives)
+        # Correct the predicted targets with the baseline if it is used
+        if self.use_baseline:
+            y=self.add_baseline_correction(y,atoms=atoms,use_derivatives=get_forces)
+        # Extract the energy
+        energy=y[0][0]
+        # Extract the forces if they are requested
+        if get_forces:
+            forces=-y[0][1:]
         else:
-            atoms_list=[atoms]
-        # Calculate the baseline for each ASE atoms object
+            forces=None
+        # Get the uncertainties if they are requested
+        if get_uncertainty:
+            unc=np.sqrt(var[0][0])
+            # Get the uncertainty of the forces if they are requested
+            if get_force_uncertainties and get_forces:
+                unc_forces=np.sqrt(unc[0][1:])
+            else:
+                unc_forces=None
+            # Get the derivatives of the predicted uncertainty
+            if get_unc_derivatives:
+                unc_deriv=(0.5/unc)*var_deriv
+            else:
+                unc_deriv=None
+        else:
+            unc=None
+            unc_forces=None
+            unc_deriv=None
+        return energy,forces,unc,unc_forces,unc_deriv
+    
+    def store_results(self,atoms,energy=None,forces=None,unc=None,unc_forces=None,unc_deriv=None,**kwargs):
+        " Store the predicted results in a dictionary. "
+        results={}
+        # Save the energy
+        if energy is not None:
+            results['energy']=energy
+        # Save the uncertainty
+        if unc is not None:
+            results['uncertainty']=unc
+        # Get constraints
+        if (forces is not None) or (unc_forces is not None) or (unc_deriv is not None):
+            natoms,not_masked=self.get_constraints(atoms)
+        # Make the full matrix of forces and save it
+        if forces is not None:
+            results['forces']=self.not_masked_reshape(forces,not_masked,natoms)
+        # Make the full matrix of force uncertainties and save it
+        if unc_forces is not None:
+            results['force uncertainties']=self.not_masked_reshape(unc_forces,not_masked,natoms)
+        # Make the full matrix of derivatives of uncertainty and save it
+        if unc_deriv is not None:
+            results['uncertainty derivatives']=self.not_masked_reshape(unc_deriv,not_masked,natoms)
+        return results
+    
+    def add_baseline_correction(self,targets,atoms,use_derivatives=True,**kwargs):
+        " Baseline correction if a baseline is used. Add the baseline correction to an atom object. "
+        # Calculate the baseline for the ASE atoms object
+        y_base=self.calculate_baseline([atoms],use_derivatives=use_derivatives,**kwargs)
+        # Add baseline correction to the targets
+        return targets+np.array(y_base)[0]
+    
+    def baseline_corrected_targets(self,targets,**kwargs):
+        " Baseline correction if a baseline is used. Subtract the baseline correction from training targets. "
+        # Get the ASE atoms from the database
+        atoms_list=self.database.get_atoms()
+        # Calculate the baseline for each ASE atoms objects
+        y_base=self.calculate_baseline(atoms_list,use_derivatives=self.database.use_derivatives,**kwargs)
+        # Subtract baseline correction from the targets
+        return targets-np.array(y_base)
+    
+    def calculate_baseline(self,atoms_list,use_derivatives=True,**kwargs):
+        " Calculate the baseline for each ASE atoms object. "
         y_base=[]
         for atoms in atoms_list:
             atoms_base=atoms.copy()
             atoms_base.calc=self.baseline
             y_base.append(self.make_targets(atoms_base,use_derivatives=use_derivatives))
-        # Either add or subtract it from targets
-        if add:
-            return targets+np.array(y_base)[0]
-        return targets-np.array(y_base)
+        return y_base
 
     def not_masked_reshape(self,array,not_masked,natoms,**kwargs):
         " Reshape an array so that it works for all atom coordinates and set constrained indicies to 0. "
@@ -347,18 +423,19 @@ def get_default_model(model='tp',prior='median',use_derivatives=True,use_fingerp
             The Machine Learning Model with kernel and prior that are optimized.
     """
     # Make the prior mean from given string
-    if prior.lower()=='median':
-        from ..means.median import Prior_median
-        prior=Prior_median()
-    elif prior.lower()=='mean':
-        from ..means.mean import Prior_mean
-        prior=Prior_mean()
-    elif prior.lower()=='min':
-        from ..means.min import Prior_min
-        prior=Prior_min()
-    elif prior.lower()=='max':
-        from ..means.max import Prior_max
-        prior=Prior_max()
+    if isinstance(prior,str):
+        if prior.lower()=='median':
+            from ..means.median import Prior_median
+            prior=Prior_median()
+        elif prior.lower()=='mean':
+            from ..means.mean import Prior_mean
+            prior=Prior_mean()
+        elif prior.lower()=='min':
+            from ..means.min import Prior_min
+            prior=Prior_min()
+        elif prior.lower()=='max':
+            from ..means.max import Prior_max
+            prior=Prior_max()
     # Construct the kernel class object
     from ..kernel.se import SE
     kernel=SE(use_fingerprint=use_fingerprint,use_derivatives=use_derivatives)
@@ -372,17 +449,18 @@ def get_default_model(model='tp',prior='median',use_derivatives=True,use_fingerp
         line_optimizer=GoldenSearch(optimize=True,multiple_min=False,parallel=False)
     optimizer=FactorizedOptimizer(line_optimizer=line_optimizer,ngrid=80,calculate_init=False,parallel=parallel)
     # Use either the Student t process or the Gaussian process
-    from ..hpfitter import HyperparameterFitter    
-    if model.lower()=='tp':
-        from ..models.tp import TProcess
-        from ..objectivefunctions.tp.factorized_likelihood import FactorizedLogLikelihood
-        hpfitter=HyperparameterFitter(func=FactorizedLogLikelihood(),optimizer=optimizer)
-        model=TProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter,a=1e-3,b=1e-4)
-    else:
-        from ..models.gp import GaussianProcess
-        from ..objectivefunctions.gp.factorized_likelihood import FactorizedLogLikelihood
-        hpfitter=HyperparameterFitter(func=FactorizedLogLikelihood(),optimizer=optimizer)
-        model=GaussianProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter)
+    if isinstance(model,str):
+        from ..hpfitter import HyperparameterFitter    
+        if model.lower()=='tp':
+            from ..models.tp import TProcess
+            from ..objectivefunctions.tp.factorized_likelihood import FactorizedLogLikelihood
+            hpfitter=HyperparameterFitter(func=FactorizedLogLikelihood(),optimizer=optimizer)
+            model=TProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter,a=1e-3,b=1e-4)
+        else:
+            from ..models.gp import GaussianProcess
+            from ..objectivefunctions.gp.factorized_likelihood import FactorizedLogLikelihood
+            hpfitter=HyperparameterFitter(func=FactorizedLogLikelihood(),optimizer=optimizer)
+            model=GaussianProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter)
     return model
 
 
@@ -414,11 +492,33 @@ def get_default_database(fp=None,use_derivatives=True,database_reduction=False,d
     else:
         use_fingerprint=True
     # Make the data base ready
-    if database_reduction:
-        from .database_reduction import DatabaseLast
-        data_kwargs=dict(npoints=50,initial_indicies=[0,1])
+    if isinstance(database_reduction,str):
+        data_kwargs=dict(reduce_dimensions=True,use_derivatives=use_derivatives,use_fingerprint=use_fingerprint,npoints=50,initial_indicies=[0,1],include_last=True)
         data_kwargs.update(database_reduction_kwargs)
-        database=DatabaseLast(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,use_fingerprint=use_fingerprint,**data_kwargs)
+        if database_reduction.lower()=='distance':
+            from .database_reduction import DatabaseDistance
+            database=DatabaseDistance(fingerprint=fp,**data_kwargs)
+        elif database_reduction.lower()=='random':
+            from .database_reduction import DatabaseRandom
+            database=DatabaseRandom(fingerprint=fp,**data_kwargs)
+        elif database_reduction.lower()=='hybrid':
+            from .database_reduction import DatabaseHybrid
+            database=DatabaseHybrid(fingerprint=fp,**data_kwargs)
+        elif database_reduction.lower()=='min':
+            from .database_reduction import DatabaseMin
+            database=DatabaseMin(fingerprint=fp,**data_kwargs)
+        elif database_reduction.lower()=='last':
+            from .database_reduction import DatabaseLast
+            database=DatabaseLast(fingerprint=fp,**data_kwargs)
+        elif database_reduction.lower()=='restart':
+            from .database_reduction import DatabaseRestart
+            database=DatabaseRestart(fingerprint=fp,**data_kwargs)
+        elif database_reduction.lower()=='interest':
+            from .database_reduction import DatabasePointsInterest
+            database=DatabasePointsInterest(fingerprint=fp,**data_kwargs)
+        elif database_reduction.lower()=='each_interest':
+            from .database_reduction import DatabasePointsInterestEach
+            database=DatabasePointsInterestEach(fingerprint=fp,**data_kwargs)
     else:
         from .database import Database
         database=Database(fingerprint=fp,reduce_dimensions=True,use_derivatives=use_derivatives,use_fingerprint=use_fingerprint)

@@ -1,5 +1,8 @@
 import numpy as np
-from ase.calculators.singlepoint import SinglePointCalculator
+from scipy.spatial.distance import cdist
+from ase.constraints import FixAtoms
+from ase.io import write
+from .copy_atoms import copy_atoms
 
 class Database:
     def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,**kwargs):
@@ -74,10 +77,9 @@ class Database:
             return not_masked
         constraints=atoms.constraints
         if len(constraints)>0:
-            from ase.constraints import FixAtoms
-            index_mask=np.array([c.get_indices() for c in constraints if isinstance(c,FixAtoms)]).flatten()
-            index_mask=sorted(list(set(index_mask)))
-            return [i for i in not_masked if i not in index_mask]
+            index_mask=np.concatenate([c.get_indices() for c in constraints if isinstance(c,FixAtoms)])
+            index_mask=set(index_mask)
+            return list(set(not_masked).difference(index_mask))
         return not_masked
     
     def get_atoms(self,**kwargs):
@@ -118,7 +120,6 @@ class Database:
         Returns:
             self: The updated object itself.
         """
-        from ase.io import write
         write(trajectory,self.get_atoms())
         return self 
     
@@ -133,7 +134,6 @@ class Database:
         Returns:
             ASE Atoms: The copy of the Atoms object with saved data in the calculator.
         """
-        from .copy_atoms import copy_atoms
         return copy_atoms(atoms)
     
     def make_atoms_feature(self,atoms,**kwargs):
@@ -192,7 +192,7 @@ class Database:
         self.targets=[]
         return self
     
-    def is_in_database(self,atoms,dtol=1e-10,**kwargs):
+    def is_in_database(self,atoms,dtol=1e-8,**kwargs):
         """ 
         Check if the ASE Atoms is in the database.
 
@@ -205,7 +205,6 @@ class Database:
         Returns:
             bool: Whether the ASE Atoms object is within the database.
         """
-        from scipy.spatial.distance import cdist
         # Make the atoms object into a fingerprint
         fp_atoms=self.make_atoms_feature(atoms)
         # Get the fingerprints of the atoms in the database
@@ -262,20 +261,25 @@ class Database:
         Returns:
             self: The updated object itself.
         """
+        # Control if the database has to be reset
+        reset_database=False
         if fingerprint is not None:
             self.fingerprint=fingerprint.copy()
-            # Copy attributes from fingerprint
-            self.mic=self.fingerprint.mic
+            reset_database=True
         if reduce_dimensions is not None:
             self.reduce_dimensions=reduce_dimensions
+            reset_database=True
         if use_derivatives is not None:
             self.use_derivatives=use_derivatives
+            reset_database=True
         if use_fingerprint is not None:
             self.use_fingerprint=use_fingerprint
+            reset_database=True
         # Check that the database and the fingerprint have the same attributes
         self.check_attributes()
-        # Reset the database
-        self.reset_database()
+        # Reset the database if an argument has been changed
+        if reset_database:
+            self.reset_database()
         return self
 
     def check_attributes(self):
@@ -296,7 +300,7 @@ class Database:
                         use_derivatives=self.use_derivatives,
                         use_fingerprint=self.use_fingerprint)
         # Get the constants made within the class
-        constant_kwargs=dict(mic=self.mic)
+        constant_kwargs=dict()
         # Get the objects made within the class
         object_kwargs=dict(atoms_list=self.atoms_list.copy(),
                            features=self.features.copy(),

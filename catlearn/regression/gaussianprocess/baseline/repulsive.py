@@ -1,4 +1,5 @@
 import numpy as np
+from ase.data import covalent_radii
 from .baseline import Baseline_calculator
 from ..fingerprint.geometry import get_all_distances
         
@@ -55,7 +56,7 @@ class Repulsion_calculator(Baseline_calculator):
     def get_energy(self,atoms,**kwargs):
         " Get the energy. "
         # Get the not fixed (not masked) atom indicies
-        not_masked=np.array(self.get_constrains(atoms))
+        not_masked=np.array(self.get_constraints(atoms))
         # Get the number of atoms and the number of the fixed atoms
         n_atoms=len(atoms)
         n_nm=len(not_masked)
@@ -71,7 +72,7 @@ class Repulsion_calculator(Baseline_calculator):
     def get_energy_forces(self,atoms,**kwargs):
         " Get the energy and forces. "
         # Get the not fixed (not masked) atom indicies
-        not_masked=np.array(self.get_constrains(atoms))
+        not_masked=np.array(self.get_constraints(atoms))
         # Get the number of atoms and the number of the fixed atoms
         n_atoms=len(atoms)
         n_nm=len(not_masked)
@@ -107,7 +108,6 @@ class Repulsion_calculator(Baseline_calculator):
     
     def get_cov_dis(self,atoms,not_masked,mic,use_derivatives,i_nm,**kwargs):
         " Calculate the distances and scale them with the covalent radii. "
-        from ase.data import covalent_radii
         # Get the distances and distance vectors
         distances,vec_distances=get_all_distances(atoms,not_masked,mic=mic,vector=use_derivatives)
         # Set the self distance to 1 to avoid errors

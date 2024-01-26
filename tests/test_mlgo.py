@@ -26,14 +26,16 @@ class TestMLGO(unittest.TestCase):
         slab,ads=get_slab_ads()
         # Make the boundary conditions for the global search
         bounds=np.array([[0.0,1.0],[0.0,1.0],[0.5,0.95],[0.0,2*np.pi],[0.0,2*np.pi],[0.0,2*np.pi]])
+        # Set random seed
+        np.random.seed(1)
         # Initialize MLGO
-        mlgo=MLGO(slab=slab,ads=ads,ase_calc=EMT(),bounds=bounds,initial_points=2,norelax_points=10,min_steps=6,full_output=False)
+        mlgo=MLGO(slab=slab,ads=ads,ase_calc=EMT(),bounds=bounds,initial_points=2,norelax_points=10,min_steps=6,full_output=False,local_opt_kwargs=dict(logfile=None))
         # Test if the MLGO can be run
         mlgo.run(fmax=0.05,unc_convergence=0.025,steps=50,max_unc=0.050,ml_steps=1000,ml_chains=2,relax=True,local_steps=100,seed=0)
         # Check that MLGO converged
         self.assertTrue(mlgo.converged()==True) 
         # Check that MLGO used the right number of iterations
-        self.assertTrue(mlgo.step==15)
+        self.assertTrue(mlgo.step==14)
 
 if __name__ == '__main__':
     unittest.main()

@@ -59,15 +59,16 @@ class GaussianProcess(ModelProcess):
         # Prefactor and relative-noise hyperparameter is always in the GP
         if 'prefactor' in new_params:
             self.hp['prefactor']=np.array(new_params['prefactor'],dtype=float).reshape(-1)
+            self.prefactor=self.calculate_prefactor()
         if 'noise' in new_params:
             self.hp['noise']=np.array(new_params['noise'],dtype=float).reshape(-1)
         if 'noise_deriv' in new_params:
             self.hp['noise_deriv']=np.array(new_params['noise_deriv'],dtype=float).reshape(-1)
         return self
 
-    def get_gradients(self,X,hp,KXX,**kwargs):
+    def get_gradients(self,features,hp,KXX,**kwargs):
         hp_deriv={}
-        n_data,m_data=len(X),len(KXX)
+        n_data,m_data=len(features),len(KXX)
         if 'prefactor' in hp:
             hp_deriv['prefactor']=np.array([2.0*np.exp(2.0*self.hp['prefactor'][0])*self.add_regularization(KXX,n_data,overwrite=False)])
         if 'noise' in hp:
@@ -81,9 +82,9 @@ class GaussianProcess(ModelProcess):
             K_deriv=np.full(m_data,2.0*np.exp(2.0*self.hp['noise_deriv'][0]))
             K_deriv[:n_data]=0.0
             hp_deriv['noise_deriv']=np.array([np.diag(K_deriv)])
-        hp_deriv.update(self.kernel.get_gradients(X,hp,KXX=KXX))
+        hp_deriv.update(self.kernel.get_gradients(features,hp,KXX=KXX))
         return hp_deriv
     
-    def calculate_prefactor(self,features,targets,**kwargs):
+    def calculate_prefactor(self,features=None,targets=None,**kwargs):
         " Calculate the prefactor that the prediction uncertainty is scaled with. "
         return np.exp(2.0*self.hp['prefactor'][0])

@@ -39,38 +39,126 @@ class EnsembleModel:
         """
         raise NotImplementedError()
     
-    def predict(self,features,get_variance=False,get_derivatives=False,include_noise=False,**kwargs):
+    def predict(self,features,get_derivatives=False,get_variance=False,include_noise=False,get_derivtives_var=False,get_var_derivatives=False,**kwargs):
         """
         Predict the mean and variance for test features by using data and coefficients from training data.
+        
         Parameters:
             features : (M,D) array or (M) list of fingerprint objects
                 Test features with M data points.
-            get_variance : bool
-                Whether to predict the variance
             get_derivatives : bool
-                Whether to predict the derivative mean and uncertainty
+                Whether to predict the derivatives of the prediction mean.
+            get_variance : bool
+                Whether to predict the variance of the targets.
             include_noise : bool
-                Whether to include the noise of data in the predicted variance
+                Whether to include the noise of data in the predicted variance.
+            get_derivtives_var : bool
+                Whether to predict the variance of the derivatives of the targets.
+            get_var_derivatives : bool
+                Whether to calculate the derivatives of the predicted variance of the targets.
+
         Returns:
             Y_predict : (M,1) or (M,1+D) array 
-                The predicted mean values and or without derivatives
+                The predicted mean values with or without derivatives.
             var : (M,1) or (M,1+D) array
-                The predicted variance of values and or without derivatives.
+                The predicted variance of the targets with or without derivatives.
+            var_deriv : (M,D) array
+                The derivatives of the predicted variance of the targets.
         """
         # Calculate the predicted values for one model
         if self.n_models==1:
-            return self.model_prediction(self.model,features,get_variance=get_variance,get_derivatives=get_derivatives,include_noise=include_noise,**kwargs)
-        #Calculate the predicted values for multiple model
-        Y_predictions=[]
-        var_predictions=[]
+            return self.model_prediction(self.model,features,get_derivatives=get_derivatives,get_variance=get_variance,include_noise=include_noise,get_derivtives_var=get_derivtives_var,get_var_derivatives=get_var_derivatives,**kwargs)
+        # Ensure the right arguments are chosen
+        if self.use_variance_ensemble:
+            get_variance=True
+            if get_var_derivatives or get_derivtives_var:
+                get_derivatives=True
+            if get_derivatives:
+                get_var_derivatives=True
+        if get_var_derivatives:
+            get_derivatives=True
+        # Calculate the predicted values for multiple model
+        Y_preds=[]
+        var_preds=[]
+        var_derivs=[]
         for model in self.models:
-            if self.use_variance_ensemble or get_variance:
-                Y_predict,var=self.model_prediction(model,features,get_variance=True,get_derivatives=get_derivatives,include_noise=include_noise,**kwargs)
-            else:
-                Y_predict,var=self.model_prediction(model,features,get_variance=False,get_derivatives=get_derivatives,include_noise=include_noise,**kwargs)
-            Y_predictions.append(Y_predict)
-            var_predictions.append(var)
-        return self.ensemble(np.array(Y_predictions),np.array(var_predictions),get_variance=get_variance)
+            Y_predict,var,var_deriv=self.model_prediction(model,features,get_derivatives=get_derivatives,get_variance=get_variance,include_noise=include_noise,get_derivtives_var=get_derivtives_var,get_var_derivatives=get_var_derivatives,**kwargs)
+            Y_preds.append(Y_predict)
+            var_preds.append(var)
+            var_derivs.append(var_deriv)
+        return self.ensemble(Y_preds,var_preds,var_derivs,get_derivatives=get_derivatives,get_variance=get_variance,get_derivtives_var=get_derivtives_var,get_var_derivatives=get_var_derivatives)
+
+    def predict_mean(self,features,get_derivatives=False,**kwargs):
+        """
+        Predict the mean for test features by using data and coefficients from training data.
+
+        Parameters:
+            features : (M,D) array or (M) list of fingerprint objects
+                Test features with M data points.
+            get_derivatives : bool
+                Whether to predict the derivatives of the prediction mean.
+
+        Returns:
+            Y_predict : (M,1) array
+                The predicted mean values if get_derivatives=False
+            or 
+            Y_predict : (M,1+D) array 
+                The predicted mean values and its derivatives if get_derivatives=True
+        """
+        # Check if the variance was needed for prediction mean
+        if self.use_variance_ensemble:
+            raise Exception('The predict_mean function is not defined with use_variance_ensemble=True!')
+        # Calculate the predicted values for one model
+        if self.n_models==1:
+            return self.model_prediction_mean(self.model,features,get_derivatives=get_derivatives,**kwargs)
+        # Calculate the predicted values for multiple model
+        Y_preds=[]
+        for model in self.models:
+            Y_predict=self.model_prediction_mean(model,features,get_derivatives=get_derivatives,**kwargs)
+            Y_preds.append(Y_predict)
+        return self.ensemble(Y_preds,get_derivatives=get_derivatives,get_variance=False)
+    
+    def predict_variance(self,features,get_derivatives=False,include_noise=False,**kwargs):
+        """
+        Calculate the predicted variance of the test targets.
+
+        Parameters:
+            features : (M,D) array or (M) list of fingerprint objects
+                Test features with M data points.
+            KQX : (M,N) or (M,N+N*D) or (M+M*D,N+N*D) array
+                The kernel matrix of the test and training features. 
+                If KQX=None, it is calculated.
+            get_derivatives : bool
+                Whether to predict the uncertainty of the derivatives of the targets.
+            include_noise : bool
+                Whether to include the noise of data in the predicted variance
+
+        Returns:
+            var : (M,1) array
+                The predicted variance of the targets if get_derivatives=False.
+            or 
+            var : (M,1+D) array
+                The predicted variance of the targets and its derivatives if get_derivatives=True.
+
+        """
+        raise NotImplementedError()
+    
+    def calculate_variance_derivatives(self,features,**kwargs):
+        """
+        Calculate the derivatives of the predicted variance of the test targets.
+
+        Parameters:
+            features : (M,D) array or (M) list of fingerprint objects
+                Test features with M data points.
+            KQX : (M,N) or (M,N+N*D) or (M+M*D,N+N*D) array
+                The kernel matrix of the test and training features. 
+                If KQX=None, it is calculated.
+
+        Returns:
+            var_deriv : (M,D) array
+                The derivatives of the predicted variance of the targets.
+        """
+        raise NotImplementedError()
     
     def optimize(self,features,targets,retrain=True,hp=None,pdis=None,verbose=False,**kwargs):
         """ 
@@ -129,26 +217,84 @@ class EnsembleModel:
         " Optimize the hyperparameters of the model. "
         return model.optimize(features,targets,retrain=retrain,hp=hp,pdis=pdis,verbose=verbose,**kwargs)
     
-    def model_prediction(self,model,features,get_variance=False,get_derivatives=False,include_noise=False,**kwargs):
-        " Predict mean and variance with the model. "
-        return model.predict(features,get_variance=get_variance,get_derivatives=get_derivatives,include_noise=include_noise,**kwargs)
+    def model_prediction(self,model,features,get_derivatives=False,get_variance=False,include_noise=False,get_derivtives_var=False,get_var_derivatives=False,**kwargs):
+        " Predict mean, variance, and variance derivatives with the model. "
+        return model.predict(features,get_derivatives=get_derivatives,get_variance=get_variance,include_noise=include_noise,get_derivtives_var=get_derivtives_var,get_var_derivatives=get_var_derivatives,**kwargs)
 
-    def ensemble(self,Y_predictions,var_predictions,get_variance=True,**kwargs):
+    def model_prediction_mean(self,model,features,get_derivatives=False,**kwargs):
+        " Predict mean with the model. "
+        return model.predict_mean(features,get_derivatives=get_derivatives,**kwargs)
+
+    def model_prediction_variance(self,model,features,get_derivatives=False,include_noise=False,**kwargs):
+        " Predict variance with the model. "
+        return model.predict_variance(features,get_derivatives=get_derivatives,include_noise=include_noise,**kwargs)
+    
+    def model_variance_derivatives(self,model,features,**kwargs):
+        " Calculate the derivatives of the predicted variance of the test targets. "
+        return model.calculate_variance_derivatives(features,**kwargs)
+    
+    def ensemble(self,Y_preds,var_preds=None,var_derivs=None,get_derivatives=False,get_variance=True,get_derivtives_var=False,get_var_derivatives=False,**kwargs):
         " Make an ensemble of the predicted values and variances. The variance weighted ensemble is used if variance_ensemble=True. "
-        var_predict=None
-        if self.use_variance_ensemble:
-            # Use the predicted variance to weight predictions
-            var_coef=1.0/var_predictions
-            var_coef=var_coef/np.sum(var_coef,axis=0)
-            Y_predict=np.sum(Y_predictions*var_coef,axis=0)
-            if get_variance:
-                var_predict=np.sum(var_predictions*var_coef,axis=0)+np.sum(var_coef*(Y_predictions-Y_predict)**2,axis=0)
+        # Transform the input to arrays
+        Y_preds=np.array(Y_preds)
+        if get_variance:
+            var_preds=np.array(var_preds)
         else:
-            # Use the average to weight predictions
-            Y_predict=np.mean(Y_predictions,axis=0)
-            if get_variance:
-                var_predict=np.mean(var_predictions,axis=0)+np.mean((Y_predictions-Y_predict)**2,axis=0)
-        return Y_predict,var_predict
+            var_preds=None
+        if get_var_derivatives and var_derivs is not None:
+            var_derivs=np.array(var_derivs)
+        else:
+            var_derivs=None
+        # Perform ensemble of the predictions
+        if self.use_variance_ensemble:
+            return self.ensemble_variance(Y_preds,var_preds=var_preds,var_derivs=var_derivs,get_derivatives=get_derivatives,get_variance=get_variance,get_derivtives_var=get_derivtives_var,get_var_derivatives=get_var_derivatives,**kwargs)
+        return self.ensemble_mean(Y_preds,var_preds=var_preds,var_derivs=var_derivs,get_derivatives=get_derivatives,get_variance=get_variance,get_derivtives_var=get_derivtives_var,get_var_derivatives=get_var_derivatives,**kwargs)
+    
+    def ensemble_mean(self,Y_preds,var_preds=None,var_derivs=None,get_derivatives=False,get_variance=True,get_derivtives_var=False,get_var_derivatives=False,**kwargs):
+        " Make an ensemble of the predicted values and variances. The average is to weight predictions. "
+        # Default predictions
+        var_predict=None
+        var_deriv=None
+        # Calculate the prediction mean
+        Y_predict=np.mean(Y_preds,axis=0)
+        # Calculate the predicted variance
+        if get_variance:
+            var_predict=np.mean(var_preds+((Y_preds-Y_predict)**2),axis=0)
+        # Calculate the derivative of the predicted variance
+        if get_var_derivatives:
+            var_deriv=np.mean(var_derivs+(2.0*(Y_preds[:,:,0]-Y_predict[:,0])*(Y_preds[:,:,1:]-Y_predict[:,1:])),axis=0)
+        return Y_predict,var_predict,var_deriv
+    
+    def ensemble_variance(self,Y_preds,var_preds=None,var_derivs=None,get_derivatives=False,get_variance=True,get_derivtives_var=False,get_var_derivatives=False,**kwargs):
+        " Make an ensemble of the predicted values and variances. The variance weighted ensemble is used. "
+        # Default predictions
+        var_predict=None
+        var_deriv=None
+        if var_preds is None:
+            raise Exception('The predicted variance is missing!')
+        # Use the predicted variance to weight predictions
+        var_coef=1.0/var_preds[:,:,0:1]#.reshape(len(var_preds),len(var_preds[0]),1)
+        var_norma=np.sum(var_coef,axis=0)
+        weights=var_coef/var_norma
+        # Calculate the prediction mean
+        Y_predict=np.sum(weights*Y_preds,axis=0)
+        # Calculate the derivative of the prediction mean
+        if get_derivatives:
+            # Calculate the derivative of the weights
+            weights_deriv=weights*((-var_coef*var_derivs)+np.sum(weights*var_coef*var_derivs,axis=0))
+            # Add extra contribution to derivative of the prediction mean from weights derivative
+            Y_predict[:,1:]+=np.sum(Y_preds[:,:,0:1]*weights_deriv,axis=0)
+        # Calculate the predicted variance
+        if get_variance:
+            var_predict=np.sum(weights*(var_preds+((Y_preds-Y_predict)**2)),axis=0)
+            if get_derivtives_var:
+                import warnings
+                warnings.warn("Check if it is the right expression for the variance of the derivatives!")
+        # Calculate the derivative of the predicted variance
+        if get_var_derivatives:
+            var_deriv=np.sum(weights*(var_derivs+(2.0*(Y_preds[:,:,0:1]-Y_predict[:,0:1])*(Y_preds[:,:,1:]-Y_predict[:,1:]))),axis=0)
+            var_deriv+=np.sum(var_preds[:,:,0:1]*weights_deriv,axis=0)
+        return Y_predict,var_predict,var_deriv
     
     def get_models(self,**kwargs):
         " Get the models. "

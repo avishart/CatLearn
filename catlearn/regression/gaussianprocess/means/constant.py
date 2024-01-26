@@ -8,6 +8,7 @@ class Prior_constant(Prior):
         The prior mean is used as a baseline of the target values.
         The prior mean is a constant from the target values if given else it is 0. 
         A value can be added to the constant.
+
         Parameters:
             yp : float
                 The prior mean constant
@@ -16,12 +17,12 @@ class Prior_constant(Prior):
         """
         self.update_arguments(yp=yp,add=add,**kwargs)
 
-    def get(self,X,Y,get_derivatives=True,**kwargs):
+    def get(self,features,targets,get_derivatives=True,**kwargs):
         if get_derivatives:
-            yp=np.zeros(Y.shape)
-            yp[:,0]=self.yp
+            yp=np.zeros(targets.shape)
+            yp[:,0]=self.prior_mean
             return yp
-        return np.full(Y.shape,self.yp)
+        return np.full(targets.shape,self.prior_mean)
     
     def get_parameters(self,**kwargs):
         return dict(yp=self.yp,add=self.add)
@@ -29,18 +30,21 @@ class Prior_constant(Prior):
     def update_arguments(self,yp=None,add=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
+
         Parameters:
             yp : float
                 The prior mean constant
             add : float
                 A value added to the found prior mean from data.
+
         Returns:
             self: The updated object itself.
         """
         if add is not None:
             self.add=add
         if yp is not None:
-            self.yp=yp+self.add
+            self.yp=yp
+        self.prior_mean=self.yp+self.add
         return self
     
     def get_arguments(self):

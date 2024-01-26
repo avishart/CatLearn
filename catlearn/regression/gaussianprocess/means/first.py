@@ -8,6 +8,7 @@ class Prior_first(Prior_constant):
         The prior mean is used as a baseline of the target values.
         The prior mean is the first target value if given else it is 0. 
         A value can be added to the constant.
+        
         Parameters:
             yp : float
                 The prior mean constant
@@ -16,6 +17,6 @@ class Prior_first(Prior_constant):
         """
         self.update_arguments(yp=yp,add=add,**kwargs)
     
-    def update(self,X,Y,**kwargs):
-        self.update_arguments(yp=Y.item(0))
+    def update(self,features,targets,**kwargs):
+        self.update_arguments(yp=targets.item(0))
         return self

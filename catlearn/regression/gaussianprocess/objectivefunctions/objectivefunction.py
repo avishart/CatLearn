@@ -131,14 +131,14 @@ class ObjectiveFuction:
 
     def kxx_reg(self,model,X,**kwargs):
         " Get covariance matrix with regularization. "
-        KXX=model.kernel(X,get_derivatives=model.use_derivatives)
+        KXX=model.get_kernel(X,get_derivatives=model.use_derivatives)
         KXX_n=model.add_regularization(KXX,len(X),overwrite=False)
         return KXX_n,KXX,len(KXX)
     
     def kxx_corr(self,model,X,**kwargs):
         " Get covariance matrix with or without noise correction. "
         # Calculate the kernel with and without noise
-        KXX=model.kernel(X,get_derivatives=model.use_derivatives)
+        KXX=model.get_kernel(X,get_derivatives=model.use_derivatives)
         n_data=len(KXX)
         KXX=self.add_correction(model,KXX,n_data)
         return KXX,n_data
@@ -153,10 +153,10 @@ class ObjectiveFuction:
     def y_prior(self,X,Y,model,L=None,low=None,**kwargs):
         " Update prior and subtract to target. "
         Y_p=Y.copy()
-        model.prior.update(X,Y_p,L=L,low=low,**kwargs)
+        model.update_priormean(X,Y_p,L=L,low=low,**kwargs)
         if model.use_derivatives:
-            return (Y_p-model.prior.get(X,Y_p,get_derivatives=True)).T.reshape(-1,1)
-        return (Y_p-model.prior.get(X,Y_p,get_derivatives=False))[:,0:1]
+            return (Y_p-model.get_priormean(X,Y_p,get_derivatives=True)).T.reshape(-1,1)
+        return (Y_p-model.get_priormean(X,Y_p,get_derivatives=False))[:,0:1]
     
     def coef_cholesky(self,model,X,Y,**kwargs):
         " Calculate the coefficients by using Cholesky decomposition. "
@@ -227,13 +227,12 @@ class ObjectiveFuction:
         return K_deriv
     
     def get_prefactor2(self,model,**kwargs):
-        " Get the prefactor hyperparameter in log space and the squared in linear space (exp). "
-        prefactor=model.hp['prefactor'][0]
-        return prefactor,np.exp(2.0*prefactor)
+        " Get the squared prefactor hyperparameter in linear (exp) space. "
+        return model.get_prefactor()
     
     def get_prior_parameters(self,model,**kwargs):
         " Get the prior parameters. "
-        return model.prior.get_parameters()
+        return model.get_prior_parameters(**kwargs)
     
     def get_arguments(self):
         " Get the arguments of the class itself. "

@@ -7,6 +7,7 @@ class SE(Kernel):
         """
         The Kernel class with hyperparameters.
         Squared exponential or radial basis kernel class.
+
         Parameters:
             use_derivatives: bool
                 Whether to use the derivatives of the targets.
@@ -56,11 +57,12 @@ class SE(Kernel):
             if self.use_fingerprint:
                 return self.get_KQX_ext_fp(features,features2,Q,X,D,K,get_derivatives=get_derivatives)
             return self.get_KQX_ext(features,features2,Q,X,D,K,get_derivatives=get_derivatives)
-        return np.exp((-0.5)*D)
+        return K
     
     def get_KXX_ext(self,features,X,D,K,**kwargs):
         """
         Make the extended symmetric kernel matrix without fingerprints.
+
         Parameters:
             features: (N,D) array
                 Features with N data points.
@@ -70,6 +72,7 @@ class SE(Kernel):
                 All squared euclidean distances.
             K: (N,N) array
                 The covariance matrix without derivatives of the features.
+
         Returns:
             (N*D+N,N*D+N) array : The extended symmetric kernel matrix.
         """
@@ -102,6 +105,7 @@ class SE(Kernel):
     def get_KXX_ext_fp(self,features,X,D,K,**kwargs):
         """
         Make the extended symmetric kernel matrix with fingerprints.
+
         Parameters:
             features: (N) list of fingerprint objects
                 Features with N data points.
@@ -111,6 +115,7 @@ class SE(Kernel):
                 All squared euclidean distances.
             K: (N,N) array
                 The covariance matrix without derivatives of the features.
+
         Returns:
             (N*Dx+N,N*Dx+N) array : The extended symmetric kernel matrix.
         """
@@ -144,6 +149,7 @@ class SE(Kernel):
     def get_KQX_ext(self,features,features2,Q,X,D,K,get_derivatives=True,**kwargs):
         """
         Make the extended kernel matrix without fingerprints.
+
         Parameters:
             features: (M,D) array or (M) list of fingerprint objects
                 Features with M data points.
@@ -159,6 +165,7 @@ class SE(Kernel):
                 The covariance matrix without derivatives of the features.
             get_derivatives: bool
                 Whether to predict derivatives of target.
+
         Returns:
             (M*D+N,N*D+N) array : The extended kernel matrix.
         """
@@ -196,6 +203,7 @@ class SE(Kernel):
     def get_KQX_ext_fp(self,features,features2,Q,X,D,K,get_derivatives=True,**kwargs):
         """
         Make the extended kernel matrix with fingerprints.
+
         Parameters:
             features: (M,D) array or (M) list of fingerprint objects
                 Features with M data points.
@@ -211,6 +219,7 @@ class SE(Kernel):
                 The covariance matrix without derivatives of the features.
             get_derivatives: bool
                 Whether to predict derivatives of target.
+
         Returns:
             (M*Dx+N,N*Dx+N) array : The extended kernel matrix.
         """
@@ -255,9 +264,11 @@ class SE(Kernel):
         Make the derivative of the kernel matrix wrt. the scaled distance matrix.
         The prefactors of the kernel and distance are cancelled out except for the length scale.
         The distance matrix contains one of the length scales.
+
         Parameters:
             K : (N,M) array
                 The kernel matrix without derivatives.
+
         Returns:
             float: The outer derivative value.
             and
@@ -270,9 +281,11 @@ class SE(Kernel):
         Make the hessian of the kernel matrix wrt. the scaled distance matrix.
         The prefactors of the kernel and distance are cancelled out except for the length scale.
         The distance matrices contain one of the length scales.
+
         Parameters:
             K : (N,M) array
                 The kernel matrix without derivatives.
+
         Returns:
             float: The outer hessian value.
             and
@@ -280,35 +293,6 @@ class SE(Kernel):
         """
         return 0.25,K
     
-    def get_distance_derivative(self,Q,X,nd1,nd2,dim,axis=0,**kwargs):
-        " Get the derivative of the scaled distance matrix wrt the features/fingerprint. "    
-        dDpre=2.0*np.exp(-self.hp['length'][0]) if axis==0 else -2.0*np.exp(-self.hp['length'][0])
-        return dDpre,Q.T.reshape(dim,nd1,1)-X.T.reshape(dim,1,nd2)
-    
-    def get_distance_derivative_fp(self,Q,fp_deriv,X=None,axis=0,**kwargs):
-        " Get the derivative of the distance matrix wrt the features/fingerprint. "  
-        dDpre=2.0*np.exp(-self.hp['length'][0]) if axis==0 else -2.0*np.exp(-self.hp['length'][0])
-        if X is None:
-            Q_chain=np.einsum('lj,ikj->ilk',Q,fp_deriv)
-            return dDpre,Q_chain-np.diagonal(Q_chain,axis1=1,axis2=2)[:,None,:]
-        if axis==0:
-            Q_chain=np.einsum('kj,ikj->ik',Q,fp_deriv)
-            X_chain=np.einsum('lj,ikj->ikl',X,fp_deriv)
-            return dDpre,Q_chain[:,:,None]-X_chain
-        Q_chain=np.einsum('lj,ikj->ilk',Q,fp_deriv)
-        X_chain=np.einsum('kj,ikj->ik',X,fp_deriv)
-        return dDpre,Q_chain-X_chain[:,None,:]
-    
-    def get_distance_hessian(self,**kwargs):
-        " Get the derivative of the scaled distance matrix wrt the features/fingerprint. "    
-        dDpre=-2.0*np.exp(-2*self.hp['length'][0])
-        return dDpre,1.0
-    
-    def get_distance_hessian_fp(self,fp_deriv1,fp_deriv2,**kwargs):
-        " Get the derivative of the scaled distance matrix wrt the features/fingerprint. "    
-        dDpre=-2.0*np.exp(-2*self.hp['length'][0])
-        return dDpre,np.einsum('dji,eki->dejk',fp_deriv1,fp_deriv2,optimize=True)
-
     def diag(self,features,get_derivatives=True,**kwargs):
         nd1=len(features)
         K_diag=np.ones(nd1)
@@ -319,7 +303,10 @@ class SE(Kernel):
                 return np.append(K_diag,np.exp(-2.0*self.hp['length'][0])*Kdd_diag)
             return np.append(K_diag,np.exp(-2.0*self.hp['length'][0])*np.ones(nd1*len(features[0])))
         return K_diag
-        
+    
+    def diag_deriv(self,features,**kwargs):
+        return 0.0
+    
     def get_gradients(self,features,hp,KXX,correction=True,**kwargs):
         hp_deriv={}
         if 'length' in hp:
@@ -357,3 +344,32 @@ class SE(Kernel):
                 Kd=D*KXX
             hp_deriv['length']=np.array([Kd])
         return hp_deriv
+    
+    def get_distance_derivative(self,Q,X,nd1,nd2,dim,axis=0,**kwargs):
+        " Get the derivative of the scaled distance matrix wrt the features/fingerprint. "    
+        dDpre=2.0*np.exp(-self.hp['length'][0]) if axis==0 else -2.0*np.exp(-self.hp['length'][0])
+        return dDpre,Q.T.reshape(dim,nd1,1)-X.T.reshape(dim,1,nd2)
+    
+    def get_distance_derivative_fp(self,Q,fp_deriv,X=None,axis=0,**kwargs):
+        " Get the derivative of the distance matrix wrt the features/fingerprint. "  
+        dDpre=2.0*np.exp(-self.hp['length'][0]) if axis==0 else -2.0*np.exp(-self.hp['length'][0])
+        if X is None:
+            Q_chain=np.einsum('lj,ikj->ilk',Q,fp_deriv)
+            return dDpre,Q_chain-np.diagonal(Q_chain,axis1=1,axis2=2)[:,None,:]
+        if axis==0:
+            Q_chain=np.einsum('kj,ikj->ik',Q,fp_deriv)
+            X_chain=np.einsum('lj,ikj->ikl',X,fp_deriv)
+            return dDpre,Q_chain[:,:,None]-X_chain
+        Q_chain=np.einsum('lj,ikj->ilk',Q,fp_deriv)
+        X_chain=np.einsum('kj,ikj->ik',X,fp_deriv)
+        return dDpre,Q_chain-X_chain[:,None,:]
+    
+    def get_distance_hessian(self,**kwargs):
+        " Get the derivative of the scaled distance matrix wrt the features/fingerprint. "    
+        dDpre=-2.0*np.exp(-2*self.hp['length'][0])
+        return dDpre,1.0
+    
+    def get_distance_hessian_fp(self,fp_deriv1,fp_deriv2,**kwargs):
+        " Get the derivative of the scaled distance matrix wrt the features/fingerprint. "    
+        dDpre=-2.0*np.exp(-2*self.hp['length'][0])
+        return dDpre,np.einsum('dji,eki->dejk',fp_deriv1,fp_deriv2,optimize=True)

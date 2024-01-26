@@ -1,5 +1,6 @@
 import numpy as np
-from ase.calculators.calculator import Calculator, all_changes
+from ase.calculators.calculator import Calculator,all_changes
+from ase.constraints import FixAtoms
 
 class Baseline_calculator(Calculator):
     implemented_properties=['energy','forces']
@@ -65,17 +66,25 @@ class Baseline_calculator(Calculator):
         " Get the energy and forces. "
         return 0.0,np.zeros((len(atoms),3))
     
-    def get_constrains(self,atoms):
-        " Get the indicies of the atoms that does not have fixed constrains "
+    def get_constraints(self,atoms,**kwargs):
+        """
+        Get the indicies of the atoms that does not have fixed constraints.
+
+        Parameters:
+            atoms : ASE Atoms
+                The ASE Atoms object with a calculator.
+
+        Returns:
+            list: A list of indicies for the moving atoms if constraints are used. 
+        """
         not_masked=list(range(len(atoms)))
         if not self.reduce_dimensions:
             return not_masked
         constraints=atoms.constraints
         if len(constraints)>0:
-            from ase.constraints import FixAtoms
-            index_mask=np.array([c.get_indices() for c in constraints if isinstance(c,FixAtoms)]).flatten()
-            index_mask=sorted(list(set(index_mask)))
-            return [i for i in not_masked if i not in index_mask]
+            index_mask=np.concatenate([c.get_indices() for c in constraints if isinstance(c,FixAtoms)])
+            index_mask=set(index_mask)
+            return list(set(not_masked).difference(index_mask))
         return not_masked
     
     def get_arguments(self):

@@ -110,7 +110,7 @@ class FBPMGP(HyperparameterFitter):
     def kxx_corr(self,model,X,**kwargs):
         " Get covariance matrix with or without noise correction"
         # Calculate the kernel with and without noise
-        KXX=model.kernel(X,get_derivatives=model.use_derivatives)
+        KXX=model.get_kernel(X,get_derivatives=model.use_derivatives)
         n_data=len(KXX)
         KXX=self.add_correction(model,KXX,n_data)
         return KXX,n_data
@@ -125,33 +125,33 @@ class FBPMGP(HyperparameterFitter):
     def y_prior(self,X,Y,model,L=None,low=None,**kwargs):
         " Update prior and subtract target "
         Y_p=Y.copy()
-        model.prior.update(X,Y_p,**kwargs)
+        model.update_priormean(X,Y_p,L=L,low=low,**kwargs)
         if model.use_derivatives:
-            Y_p=Y_p-model.prior.get(X,Y_p,get_derivatives=True)
-            Y_p=Y_p.T.reshape(-1,1)
-        else:
-            Y_p=Y_p-model.prior.get(X,Y_p,get_derivatives=False)
-        return Y_p,model
+            return (Y_p-model.get_priormean(X,Y_p,get_derivatives=True)).T.reshape(-1,1)
+        return (Y_p-model.get_priormean(X,Y_p,get_derivatives=False))[:,0:1]
     
     def get_eig(self,model,X,Y,**kwargs):
-        " Calculate the eigenvalues " 
+        " Calculate the eigenvalues. " 
         # Calculate the kernel with and without noise
-        KXX=model.kernel(X,get_derivatives=model.use_derivatives)
-        n_data=len(KXX)
-        KXX[range(n_data),range(n_data)]+=model.get_correction(np.diag(KXX))
+        KXX,n_data=self.kxx_corr(model,X)
         # Eigendecomposition
-        D,U=eigh(KXX)
+        try:
+            D,U=eigh(KXX)
+        except Exception as e:
+            import logging
+            import scipy.linalg
+            logging.error("An error occurred: %s", str(e))
+            # More robust but slower eigendecomposition
+            D,U=scipy.linalg.eigh(KXX,driver='ev')
         # Subtract the prior mean to the training target
-        Y_p,model=self.y_prior(X,Y,model,D=D,U=U)
-        UTY=np.matmul(U.T,Y_p)
-        UTY2=UTY.reshape(-1)**2
-        return D,U,UTY,UTY2,Y_p,KXX,n_data
+        Y_p=self.y_prior(X,Y,model,D=D,U=U)
+        UTY=(np.matmul(U.T,Y_p)).reshape(-1)**2
+        return D,U,Y_p,UTY,KXX,n_data
     
     def get_eig_without_Yp(self,model,X,Y_p,n_data,**kwargs):
         " Calculate the eigenvalues without using the prior mean " 
         # Calculate the kernel with and without noise
-        KXX=model.kernel(X,get_derivatives=model.use_derivatives)
-        KXX[range(n_data),range(n_data)]+=model.get_correction(np.diag(KXX))
+        KXX,n_data=self.kxx_corr(model,X)
         # Eigendecomposition
         try:
             D,U=eigh(KXX)
@@ -170,11 +170,12 @@ class FBPMGP(HyperparameterFitter):
         self.bounds.update_bounds(model,X,Y,parameters)
         lines=self.bounds.make_lines(ngrid=ngrid)
         grids={}
+        model_hp=model.get_hyperparams()
         for p,para in enumerate(parameters):
             if para_bool[para]:
                 grids[para]=lines[p].copy()
             else:
-                grids[para]=np.array([model.hp[para][0]])
+                grids[para]=np.array([model_hp[para][0]])
         return grids
     
     def trapz_coef(self,grids,para_bool,**kwargs):
@@ -229,7 +230,7 @@ class FBPMGP(HyperparameterFitter):
     def get_test_KQ(self,model,Q,X_tr,use_derivatives=False,**kwargs):
         " Get the test point if they are not given and get the covariance matrix "
         Q=self.get_test_points(Q,X_tr).copy()
-        KQQ=model.kernel.diag(Q,get_derivatives=use_derivatives)
+        KQQ=model.kernel_diag(Q,len(Q),get_derivatives=use_derivatives,include_noise=False)
         return Q,KQQ
     
     def get_prefactors(self,grids,n_data,**kwargs):
@@ -248,8 +249,8 @@ class FBPMGP(HyperparameterFitter):
         # Training part
         D,U,UTY,UTY2,Y_p,KXX=self.get_eig_without_Yp(model,X,Y_p,n_data)
         # Test part
-        KQQ=model.kernel.diag(Q,get_derivatives=get_derivatives)
-        KQX=model.kernel(Q,X,get_derivatives=get_derivatives)
+        KQQ=model.kernel_diag(Q,len(Q),get_derivatives=get_derivatives,include_noise=False)
+        KQX=model.get_kernel(Q,X,get_derivatives=get_derivatives)
         UKQX=np.matmul(KQX,U)
         return D,UTY,UTY2,KQQ,UKQX
     
@@ -318,7 +319,7 @@ class FBPMGP(HyperparameterFitter):
         theta=np.array([hp_best[para] for para in hp_best.keys()]).reshape(-1)
         sol={'fun':kl_min,'hp':hp_best,'x':theta,'nfev':len_l,'success':True}
         if self.get_prior_mean:
-            sol['prior']=model.prior.get_parameters()
+            sol['prior']=model.get_prior_parameters()
         return sol
     
     def fbpmgp(self,theta,model,parameters,X,Y,pdis=None,Q=None,ngrid=100,**kwargs):
@@ -332,9 +333,9 @@ class FBPMGP(HyperparameterFitter):
         # Get test data
         Q=self.get_test_points(Q,X).copy()
         # Update prior mean 
-        Y_p,model=self.y_prior(X,Y,model)
+        Y_p=self.y_prior(X,Y,model)
         use_derivatives=model.use_derivatives
-        yp=model.prior.get(Q,np.zeros((len(Q),len(Y[0]))),get_derivatives=use_derivatives).reshape(-1)
+        yp=model.get_priormean(Q,np.zeros((len(Q),len(Y[0]))),get_derivatives=use_derivatives).reshape(-1)
         n_data=len(Y_p)
         # Initialize fb
         df={key:np.array([]) for key in ['ll','length','noise','prefactor']}
