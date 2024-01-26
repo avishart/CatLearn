@@ -135,8 +135,9 @@ class MLGO:
         # Define local optimizer
         local_opt_kwargs_default=dict(trajectory='local_opt.traj')
         if local_opt is None:
-            from ase.optimize import LBFGS
-            local_opt=LBFGS
+            from ase.optimize import FIRE
+            local_opt=FIRE
+            local_opt_kwargs_default.update(dict(dt=0.05,maxstep=0.2,a=1.0,astart=1.0,fa=0.999))
         self.local_opt=local_opt
         local_opt_kwargs_default.update(local_opt_kwargs)
         self.local_opt_kwargs=local_opt_kwargs_default.copy()
