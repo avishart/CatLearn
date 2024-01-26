@@ -10,7 +10,10 @@ def copy_atoms(atoms,**kwargs):
         ASE Atoms: The copy of the Atoms object with saved data in the calculator.
     """
     # Save the properties calculated
-    results=atoms.calc.results.copy()
+    if atoms.calc is not None:
+        results=atoms.calc.results.copy()
+    else:
+        results={}
     # Copy the ASE Atoms object
     atoms0=atoms.copy()
     # Store the properties in a calculator
