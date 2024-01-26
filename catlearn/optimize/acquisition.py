@@ -12,7 +12,7 @@ class Acquisition:
                     - 'max': Sort after the largest values.
                     - 'random' : Sort randomly
         """
-        self.set_parameters(objective=objective,**kwargs)
+        self.update_arguments(objective=objective,**kwargs)
 
     def calculate(self,energy,uncertainty=None,**kwargs):
         " Calculate the acqusition function value. "
@@ -28,7 +28,7 @@ class Acquisition:
             return np.random.permutation(list(range(len(candidates))))
         return np.random.permutation(list(range(len(candidates))))
     
-    def set_parameters(self,objective=None,**kwargs):
+    def update_arguments(self,objective=None,**kwargs):
         " Set the parameters of the Acquisition function class."
         if objective is not None:
             self.objective=objective.lower()
@@ -65,14 +65,14 @@ class AcqUncertainty(Acquisition):
 class AcqUCB(Acquisition):
     def __init__(self,objective='max',kappa=2.0,kappamax=3.0,**kwargs):
         " The predicted upper confidence interval (ucb) as the acqusition function. "
-        self.set_parameters(objective=objective,kappa=kappa,kappamax=kappamax,**kwargs)
+        self.update_arguments(objective=objective,kappa=kappa,kappamax=kappamax,**kwargs)
 
     def calculate(self,energy,uncertainty=None,**kwargs):
         " Calculate the acqusition function value as the predicted ucb. "
         kappa=np.random.uniform(0,self.kappamax) if self.kappa=='random' else self.kappa
         return energy+kappa*uncertainty
     
-    def set_parameters(self,objective=None,kappa=None,kappamax=None,**kwargs):
+    def update_arguments(self,objective=None,kappa=None,kappamax=None,**kwargs):
         " Set the parameters of the Acquisition function class."
         if objective is not None:
             self.objective=objective.lower()
@@ -95,14 +95,14 @@ class AcqUCB(Acquisition):
 class AcqLCB(Acquisition):
     def __init__(self,objective='min',kappa=2.0,kappamax=3.0,**kwargs):
         " The predicted lower confidence interval (lcb) as the acqusition function. "
-        self.set_parameters(objective=objective,kappa=kappa,kappamax=kappamax,**kwargs)
+        self.update_arguments(objective=objective,kappa=kappa,kappamax=kappamax,**kwargs)
 
     def calculate(self,energy,uncertainty=None,**kwargs):
         " Calculate the acqusition function value as the predicted lcb. "
         kappa=np.random.uniform(0,self.kappamax) if self.kappa=='random' else self.kappa
         return energy-kappa*uncertainty
     
-    def set_parameters(self,objective=None,kappa=None,kappamax=None,**kwargs):
+    def update_arguments(self,objective=None,kappa=None,kappamax=None,**kwargs):
         " Set the parameters of the Acquisition function class."
         if objective is not None:
             self.objective=objective.lower()
@@ -125,7 +125,7 @@ class AcqLCB(Acquisition):
 class AcqIter(Acquisition):
     def __init__(self,objective='max',niter=2,**kwargs):
         " The predicted energy or uncertainty dependent on the iteration as the acqusition function. "
-        self.set_parameters(objective=objective,niter=niter,**kwargs)
+        self.update_arguments(objective=objective,niter=niter,**kwargs)
         self.iter=0
 
     def calculate(self,energy,uncertainty=None,**kwargs):
@@ -135,7 +135,7 @@ class AcqIter(Acquisition):
             return energy
         return uncertainty
     
-    def set_parameters(self,objective=None,niter=None,**kwargs):
+    def update_arguments(self,objective=None,niter=None,**kwargs):
         " Set the parameters of the Acquisition function class."
         if objective is not None:
             self.objective=objective.lower()
@@ -154,7 +154,7 @@ class AcqIter(Acquisition):
 class AcqUME(Acquisition):
     def __init__(self,objective='max',unc_convergence=0.05,**kwargs):
         " The predicted uncertainty when it is larger than unc_convergence else predicted energy as the acqusition function. "
-        self.set_parameters(objective=objective,unc_convergence=unc_convergence,**kwargs)
+        self.update_arguments(objective=objective,unc_convergence=unc_convergence,**kwargs)
 
     def calculate(self,energy,uncertainty=None,**kwargs):
         " Calculate the acqusition function value as the predicted uncertainty when it is is larger than unc_convergence else predicted energy. "
@@ -164,7 +164,7 @@ class AcqUME(Acquisition):
             return uncertainty
         return -uncertainty
     
-    def set_parameters(self,objective=None,unc_convergence=None,**kwargs):
+    def update_arguments(self,objective=None,unc_convergence=None,**kwargs):
         " Set the parameters of the Acquisition function class."
         if objective is not None:
             self.objective=objective.lower()
@@ -183,7 +183,7 @@ class AcqUME(Acquisition):
 class AcqUUCB(Acquisition):
     def __init__(self,objective='max',kappa=2.0,kappamax=3.0,unc_convergence=0.05,**kwargs):
         " The predicted uncertainty when it is larger than unc_convergence else upper confidence interval (ucb) as the acqusition function. "
-        self.set_parameters(objective=objective,kappa=kappa,kappamax=kappamax,unc_convergence=unc_convergence,**kwargs)
+        self.update_arguments(objective=objective,kappa=kappa,kappamax=kappamax,unc_convergence=unc_convergence,**kwargs)
 
     def calculate(self,energy,uncertainty=None,**kwargs):
         " Calculate the acqusition function value as the predicted uncertainty when it is is larger than unc_convergence else ucb. "
@@ -192,7 +192,7 @@ class AcqUUCB(Acquisition):
             return energy+kappa*uncertainty  
         return uncertainty
     
-    def set_parameters(self,objective=None,kappa=None,kappamax=None,unc_convergence=None,**kwargs):
+    def update_arguments(self,objective=None,kappa=None,kappamax=None,unc_convergence=None,**kwargs):
         " Set the parameters of the Acquisition function class."
         if objective is not None:
             self.objective=objective.lower()
@@ -217,7 +217,7 @@ class AcqUUCB(Acquisition):
 class AcqULCB(Acquisition):
     def __init__(self,objective='min',kappa=2.0,kappamax=3.0,unc_convergence=0.05,**kwargs):
         " The predicted uncertainty when it is larger than unc_convergence else lower confidence interval (lcb) as the acqusition function. "
-        self.set_parameters(objective=objective,kappa=kappa,kappamax=kappamax,unc_convergence=unc_convergence,**kwargs)
+        self.update_arguments(objective=objective,kappa=kappa,kappamax=kappamax,unc_convergence=unc_convergence,**kwargs)
 
     def calculate(self,energy,uncertainty=None,**kwargs):
         " Calculate the acqusition function value as the predicted uncertainty when it is is larger than unc_convergence else lcb. "
@@ -226,7 +226,7 @@ class AcqULCB(Acquisition):
             return energy-kappa*uncertainty  
         return -uncertainty
     
-    def set_parameters(self,objective=None,kappa=None,kappamax=None,unc_convergence=None,**kwargs):
+    def update_arguments(self,objective=None,kappa=None,kappamax=None,unc_convergence=None,**kwargs):
         " Set the parameters of the Acquisition function class."
         if objective is not None:
             self.objective=objective.lower()
@@ -251,7 +251,7 @@ class AcqULCB(Acquisition):
 class AcqEI(Acquisition):
     def __init__(self,objective='max',ebest=None,**kwargs):
         " The predicted expected improvement as the acqusition function. "
-        self.set_parameters(objective=objective,ebest=ebest,**kwargs)
+        self.update_arguments(objective=objective,ebest=ebest,**kwargs)
 
     def calculate(self,energy,uncertainty=None,**kwargs):
         " Calculate the acqusition function value as the predicted expected improvement. "
@@ -262,7 +262,7 @@ class AcqEI(Acquisition):
             return -a
         return a
     
-    def set_parameters(self,objective=None,ebest=None,**kwargs):
+    def update_arguments(self,objective=None,ebest=None,**kwargs):
         " Set the parameters of the Acquisition function class."
         if objective is not None:
             self.objective=objective.lower()
@@ -281,7 +281,7 @@ class AcqEI(Acquisition):
 class AcqPI(Acquisition):
     def __init__(self,objective='max',ebest=None,**kwargs):
         " The predicted probability of improvement as the acqusition function. "
-        self.set_parameters(objective=objective,ebest=ebest,**kwargs)
+        self.update_arguments(objective=objective,ebest=ebest,**kwargs)
 
     def calculate(self,energy,uncertainty=None,**kwargs):
         " Calculate the acqusition function value as the predicted expected improvement. "
@@ -291,7 +291,7 @@ class AcqPI(Acquisition):
             return -norm.cdf(z)
         return norm.cdf(z)
     
-    def set_parameters(self,objective=None,ebest=None,**kwargs):
+    def update_arguments(self,objective=None,ebest=None,**kwargs):
         " Set the parameters of the Acquisition function class."
         if objective is not None:
             self.objective=objective.lower()

@@ -191,7 +191,7 @@ class MLNEB:
         """
         # Active learning parameters
         candidate=None
-        self.acq.set_parameters(unc_convergence=unc_convergence)
+        self.acq.update_arguments(unc_convergence=unc_convergence)
         self.trajectory_neb=TrajectoryWriter(self.trajectory,mode='w',properties=['energy','forces'])
         # Define the last images that can be used to restart the interpolation
         self.last_images=self.make_interpolation(interpolation=self.interpolation)

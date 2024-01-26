@@ -168,7 +168,7 @@ class MLGO:
         # Set the random seed
         np.random.seed(seed)
         # Update the acquisition function
-        self.acq.set_parameters(unc_convergence=unc_convergence)
+        self.acq.update_arguments(unc_convergence=unc_convergence)
         # Calculate initial data if enough data is not given
         self.extra_initial_data(self.initial_points)
         # Run global search
