@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from .functions import create_func,make_train_test_set
+from .functions import create_func,make_train_test_set,check_minima
 
 class TestGPOptimizerASEParallel(unittest.TestCase):
     """ Test if the Gaussian Process can be optimized with all existing optimization methods and objective functions that works in parallel with ASE. """
@@ -33,9 +33,9 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         np.random.seed(1)
         # Optimize the hyperparameters
         sol=gp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-        # Test the solution deviation
-        self.assertTrue(abs(sol['fun']-44.702)<1e-2) 
-        self.assertTrue(np.linalg.norm(sol['x']-np.array([2.55,-2.00,1.69]))<1e-2)
+        # Test the solution is a minimum
+        is_minima=check_minima(sol,x_tr,f_tr,gp,pdis=None,is_model_gp=True)
+        self.assertTrue(is_minima)
    
     def test_grid(self):
         "Test if the GP can be brute-force grid optimized in parallel"
@@ -68,9 +68,9 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         np.random.seed(1)
         # Optimize the hyperparameters
         sol=gp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-        # Test the solution deviation
-        self.assertTrue(abs(sol['fun']-49.515)<1e-2) 
-        self.assertTrue(np.linalg.norm(sol['x']-np.array([1.75,-70.98,1.84]))<1e-2)
+        # Test the solution is a minimum
+        is_minima=check_minima(sol,x_tr,f_tr,gp,pdis=None,is_model_gp=True)
+        self.assertTrue(is_minima)
 
     def test_line(self):
         "Test if the GP can be iteratively line search optimized in parallel"
@@ -103,9 +103,9 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         np.random.seed(1)
         # Optimize the hyperparameters
         sol=gp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-        # Test the solution deviation
-        self.assertTrue(abs(sol['fun']-47.442)<1e-2) 
-        self.assertTrue(np.linalg.norm(sol['x']-np.array([2.06,-70.98,1.98]))<1e-2)
+        # Test the solution is a minimum
+        is_minima=check_minima(sol,x_tr,f_tr,gp,pdis=None,is_model_gp=True)
+        self.assertTrue(is_minima)
     
     def test_line_search_scale(self):
         "Test if the GP can be optimized from line search in the length-scale hyperparameter in parallel"
@@ -138,9 +138,9 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         np.random.seed(1)
         # Optimize the hyperparameters
         sol=gp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-        # Test the solution deviation
-        self.assertTrue(abs(sol['fun']-44.702)<1e-2) 
-        self.assertTrue(np.linalg.norm(sol['x']-np.array([2.55,-2.00,1.69]))<1e-2)
+        # Test the solution is a minimum
+        is_minima=check_minima(sol,x_tr,f_tr,gp,pdis=None,is_model_gp=True)
+        self.assertTrue(is_minima)
 
 if __name__ == '__main__':
     unittest.main()

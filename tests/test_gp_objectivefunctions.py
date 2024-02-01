@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from .functions import create_func,make_train_test_set
+from .functions import create_func,make_train_test_set,check_minima
 
 class TestGPObjectiveFunctions(unittest.TestCase):
     """ Test if the Gaussian Process can be optimized with all existing objective functions. """
@@ -26,16 +26,8 @@ class TestGPObjectiveFunctions(unittest.TestCase):
                   GPE()]
         # Make the optimizer
         optimizer=ScipyOptimizer(maxiter=500,jac=True,method='l-bfgs-b',use_bounds=False,tol=1e-12)
-        # Make a list of the solution values that the test compares to
-        sol_list=[{'fun':47.042,'x':np.array([1.97,-15.39,1.79])},
-                  {'fun':47.042,'x':np.array([1.97,-17.48,1.79])},
-                  {'fun':47.042,'x':np.array([1.97,-17.48,1.84])},
-                  {'fun':0.803, 'x':np.array([2.91,-25.69,8.22])},
-                  {'fun':7.098, 'x':np.array([1.70,-12.07,0.00])},
-                  {'fun':7.098, 'x':np.array([1.70,-12.07,1.53])},
-                  {'fun':7.098,'x':np.array([1.70,-15.72,-25.70])}]
         # Test the objective function objects
-        for index,obj_func in enumerate(obj_list):
+        for obj_func in obj_list:
             with self.subTest(obj_func=obj_func):
                 # Construct the hyperparameter fitter
                 hpfitter=HyperparameterFitter(func=obj_func,optimizer=optimizer)
@@ -45,9 +37,9 @@ class TestGPObjectiveFunctions(unittest.TestCase):
                 np.random.seed(1)
                 # Optimize the hyperparameters
                 sol=gp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-                # Test the solution deviation
-                self.assertTrue(abs(sol['fun']-sol_list[index]['fun'])<1e-2) 
-                self.assertTrue(np.linalg.norm(sol['x']-sol_list[index]['x'])<1e-2)
+                # Test the solution is a minimum
+                is_minima=check_minima(sol,x_tr,f_tr,gp,pdis=None,func=obj_func,is_model_gp=True)
+                self.assertTrue(is_minima)
     
     def test_line_search_scale(self):
         "Test if the GP can be optimized from line search in the length-scale hyperparameter with all objective functions that uses eigendecomposition"
@@ -66,7 +58,7 @@ class TestGPObjectiveFunctions(unittest.TestCase):
         # Make fixed boundary conditions for one of the tests
         fixed_bounds=HPBoundaries(bounds_dict=dict(length=[[-3.0,3.0]],noise=[[-8.0,0.0]],prefactor=[[-2.0,4.0]]),log=True)
         # Make the optimizers
-        line_optimizer=FineGridSearch(tol=1e-5,loops=3,ngrid=80,optimize=True,multiple_min=True)
+        line_optimizer=FineGridSearch(tol=1e-5,loops=3,ngrid=80,optimize=True,multiple_min=False)
         optimizer=FactorizedOptimizer(line_optimizer=line_optimizer,maxiter=500,ngrid=80,parallel=False)
         # Define the list of objective function objects that are tested
         obj_list=[(None,FactorizedLogLikelihood(modification=False,ngrid=250,noise_optimizer=NoiseGrid())),
@@ -76,16 +68,8 @@ class TestGPObjectiveFunctions(unittest.TestCase):
                   (fixed_bounds,FactorizedLogLikelihood(modification=False,ngrid=250,noise_optimizer=NoiseGrid())),
                   (None,FactorizedLogLikelihoodSVD(modification=False,ngrid=250,noise_optimizer=NoiseGrid())),
                   (None,FactorizedGPP(modification=False,ngrid=250,noise_optimizer=NoiseGrid()))]
-        # Make a list of the solution values that the test compares to
-        sol_list=[{'fun':44.703,'x':np.array([2.55,-2.01,1.70])},
-                  {'fun':44.703,'x':np.array([2.55,-2.01,1.72])},
-                  {'fun':44.702,'x':np.array([2.55,-2.00,1.69])},
-                  {'fun':44.702,'x':np.array([2.55,-1.99,1.69])},
-                  {'fun':44.702,'x':np.array([2.55,-1.99,1.69])},
-                  {'fun':44.703,'x':np.array([2.55,-2.01,1.70])},
-                  {'fun':-2.843,'x':np.array([2.96,-70.98,6.82])}]
         # Test the objective function objects
-        for index,(bounds,obj_func) in enumerate(obj_list):
+        for bounds,obj_func in obj_list:
             with self.subTest(bounds=bounds,obj_func=obj_func):
                 # Construct the hyperparameter fitter
                 hpfitter=HyperparameterFitter(func=obj_func,optimizer=optimizer,bounds=bounds)
@@ -95,9 +79,9 @@ class TestGPObjectiveFunctions(unittest.TestCase):
                 np.random.seed(1)
                 # Optimize the hyperparameters
                 sol=gp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-                # Test the solution deviation
-                self.assertTrue(abs(sol['fun']-sol_list[index]['fun'])<1e-2) 
-                self.assertTrue(np.linalg.norm(sol['x']-sol_list[index]['x'])<1e-2)
+                # Test the solution is a minimum
+                is_minima=check_minima(sol,x_tr,f_tr,gp,pdis=None,func=obj_func,is_model_gp=True)
+                self.assertTrue(is_minima)
 
 
 if __name__ == '__main__':

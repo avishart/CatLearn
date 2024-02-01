@@ -13,7 +13,8 @@ class TestGPCalc(unittest.TestCase):
         from catlearn.regression.gaussianprocess.objectivefunctions.gp.likelihood import LogLikelihood
         from catlearn.regression.gaussianprocess.hpfitter import HyperparameterFitter
         from catlearn.regression.gaussianprocess.fingerprint import Cartesian
-        from catlearn.regression.gaussianprocess.calculator import Database,DatabaseDistance,DatabaseHybrid,DatabaseMin,DatabaseRandom,DatabaseLast,DatabaseRestart,DatabasePointsInterest,MLModel,MLCalculator
+        from catlearn.regression.gaussianprocess.calculator import Database,DatabaseDistance,DatabaseHybrid,DatabaseMin,DatabaseRandom,DatabaseLast,DatabaseRestart,DatabasePointsInterest,DatabasePointsInterestEach
+        from catlearn.regression.gaussianprocess.calculator import MLModel,MLCalculator
         # Create the data set
         x,f,g=create_h2_atoms(gridsize=50,seed=1)
         ## Whether to learn from the derivatives
@@ -40,9 +41,11 @@ class TestGPCalc(unittest.TestCase):
                      (DatabaseRestart,True,dict(npoints=npoints,initial_indicies=[0])),
                      (DatabaseRestart,True,dict(npoints=npoints,initial_indicies=[])),
                      (DatabasePointsInterest,True,dict(npoints=npoints,initial_indicies=[0],point_interest=x_te)),
-                     (DatabasePointsInterest,True,dict(npoints=npoints,initial_indicies=[],point_interest=x_te))]
+                     (DatabasePointsInterest,True,dict(npoints=npoints,initial_indicies=[],point_interest=x_te)),
+                     (DatabasePointsInterestEach,True,dict(npoints=npoints,initial_indicies=[0],point_interest=x_te)),
+                     (DatabasePointsInterestEach,True,dict(npoints=npoints,initial_indicies=[],point_interest=x_te))]
         # Make a list of the error values that the test compares to
-        error_list=[0.00166,0.00166,0.00359,0.00359,0.00003,0.00003,0.000002,0.000002,0.000018,0.00003,0.01270,0.02064,0.00655,0.00102,0.000002,0.000002]
+        error_list=[0.00166,0.00166,0.00359,0.00359,0.00003,0.00003,0.000002,0.000002,0.000018,0.00003,0.01270,0.02064,0.00655,0.00102,0.000002,0.000002,0.000002,0.000002]
         # Test the database objects
         for index,(data,use_fingerprint,data_kwarg) in enumerate(data_kwargs):
             with self.subTest(data=data,use_fingerprint=use_fingerprint,data_kwarg=data_kwarg):
