@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '5.1.13' 
+VERSION = '5.1.14' 
 DESCRIPTION = 'Machine Learning using atomic-scale calculations'
 LONG_DESCRIPTION = 'Machine Learning using atomic-scale calculations'
 
@@ -13,8 +13,9 @@ setup(name="catlearn",
       description=DESCRIPTION,
       long_description=LONG_DESCRIPTION,
       packages=find_packages(),
-      install_requires=['numpy>=1.20.3','scipy>=1.8.0','ase>=3.22.1','mpi4py>=3.0.3'], 
+      install_requires=['numpy>=1.20.3','scipy>=1.8.0','ase>=3.22.1'], 
       python_requires='>=3.7',
+      extras_require={'optional':['mpi4py>=3.0.3']},
       test_suite='tests',
       tests_require=['unittest'],
       keywords=['python','gaussian process','machine learning','regression'],
