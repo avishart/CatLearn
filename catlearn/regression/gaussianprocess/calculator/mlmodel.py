@@ -56,10 +56,10 @@ class MLModel:
         Returns:
             self: The updated object itself.
         """
-        if isinstance(atoms_list,(list,np.ndarray)):
-            self.database.add_set(atoms_list)
-        else:
-            self.database.add(atoms_list)
+        if not isinstance(atoms_list,(list,np.ndarray)):
+            atoms_list=[atoms_list]
+        self.database.add_set(atoms_list)
+        self.store_baseline_targets(atoms_list)
         return self
 
     def train_model(self,**kwargs):
@@ -71,9 +71,8 @@ class MLModel:
         """
         # Get data from the data base
         features,targets=self.get_data()
-        # Correct targets with a baselin
-        if self.use_baseline:
-            targets=self.baseline_corrected_targets(targets)
+        # Correct targets with the baseline
+        targets=self.get_baseline_corrected_targets(targets)
         # Train model
         if self.optimize:
             # Optimize the hyperparameters and train the ML model
@@ -227,6 +226,9 @@ class MLModel:
             self.use_baseline=False
         else:
             self.use_baseline=True
+        # Make a list of the baseline targets
+        if baseline is not None or database is not None:
+            self.baseline_targets=[]
         # Check that the model and database have the same attributes
         self.check_attributes()
         return self
@@ -256,8 +258,7 @@ class MLModel:
                                  get_derivtives_var=get_force_uncertainties,
                                  get_var_derivatives=get_unc_derivatives)
         # Correct the predicted targets with the baseline if it is used
-        if self.use_baseline:
-            y=self.add_baseline_correction(y,atoms=atoms,use_derivatives=get_forces)
+        y=self.add_baseline_correction(y,atoms=atoms,use_derivatives=get_forces)
         # Extract the energy
         energy=y[0][0]
         # Extract the forces if they are requested
@@ -308,20 +309,27 @@ class MLModel:
         return results
     
     def add_baseline_correction(self,targets,atoms,use_derivatives=True,**kwargs):
-        " Baseline correction if a baseline is used. Add the baseline correction to an atom object. "
-        # Calculate the baseline for the ASE atoms object
-        y_base=self.calculate_baseline([atoms],use_derivatives=use_derivatives,**kwargs)
-        # Add baseline correction to the targets
-        return targets+np.array(y_base)[0]
+        " Add the baseline correction to the targets if a baseline is used. "
+        if self.use_baseline:
+            # Calculate the baseline for the ASE atoms object
+            y_base=self.calculate_baseline([atoms],use_derivatives=use_derivatives,**kwargs)
+            # Add baseline correction to the targets
+            return targets+np.array(y_base)[0]
+        return targets
     
-    def baseline_corrected_targets(self,targets,**kwargs):
-        " Baseline correction if a baseline is used. Subtract the baseline correction from training targets. "
-        # Get the ASE atoms from the database
-        atoms_list=self.database.get_atoms()
+    def get_baseline_corrected_targets(self,targets,**kwargs):
+        " Get the baseline corrected targets if a baseline is used. The baseline correction is subtracted from training targets. "
+        if self.use_baseline:
+            return targets-np.array(self.baseline_targets)
+        return targets
+    
+    def store_baseline_targets(self,atoms_list,**kwargs):
+        " Store the baseline correction on the targets. "
         # Calculate the baseline for each ASE atoms objects
-        y_base=self.calculate_baseline(atoms_list,use_derivatives=self.database.use_derivatives,**kwargs)
-        # Subtract baseline correction from the targets
-        return targets-np.array(y_base)
+        if self.use_baseline:
+            y_base=self.calculate_baseline(atoms_list,use_derivatives=self.database.use_derivatives,**kwargs)
+            self.baseline_targets.extend(y_base)
+        return self.baseline_targets
     
     def calculate_baseline(self,atoms_list,use_derivatives=True,**kwargs):
         " Calculate the baseline for each ASE atoms object. "
@@ -343,6 +351,21 @@ class MLModel:
         features=self.database.get_features()
         targets=self.database.get_targets()
         return features,targets
+    
+    def get_data_atoms(self,**kwargs):
+        " Get the atoms stored in the data base. "
+        return self.database.get_atoms()
+    
+    def reset_database(self,**kwargs):
+        """
+        Reset the database by emptying the lists. 
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.database.reset_database()
+        self.baseline_targets=[]
+        return self
     
     def make_targets(self,atoms,use_derivatives=True,**kwargs):
         " Make the target in the data base. "
@@ -375,7 +398,7 @@ class MLModel:
         # Get the constants made within the class
         constant_kwargs=dict()
         # Get the objects made within the class
-        object_kwargs=dict()
+        object_kwargs=dict(baseline_targets=self.baseline_targets.copy())
         return arg_kwargs,constant_kwargs,object_kwargs
 
     def copy(self):
