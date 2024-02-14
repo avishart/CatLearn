@@ -471,7 +471,7 @@ class MLNEB:
                 neb_opt,images=self.mlneb_opt_no_max_unc(neb_opt,images,fmax=fmax,ml_steps=ml_steps,climb=climb,**kwargs)
             else:
                 # Stop the MLNEB if the uncertainty becomes too large
-                neb_opt,images=self.mlneb_opt_max_unc(neb_opt,images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc,climb=climb,**kwargs)
+                neb_opt,images=self.mlneb_opt_max_unc(neb_opt,images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc,unc_convergence=unc_convergence,climb=climb,**kwargs)
             # Check if the MLNEB is converged
             converged=neb_opt.converged()
             # Check the number of iterations used
@@ -493,18 +493,17 @@ class MLNEB:
             self.last_images_tmp=[image.copy() for image in images]
         return neb_opt,images
     
-    def mlneb_opt_max_unc(self,neb_opt,images,fmax=0.05,ml_steps=750,max_unc=0.25,climb=False,**kwargs):
+    def mlneb_opt_max_unc(self,neb_opt,images,fmax=0.05,ml_steps=750,max_unc=0.25,unc_convergence=0.05,climb=False,**kwargs):
         " Run the MLNEB, but stop it if the uncertainty becomes too large. "
         for i in range(1,ml_steps+1):
-            # Make backup of images before NEB step that can be used as a restart interpolation
-            if not climb:
-                self.last_images_tmp=[image.copy() for image in images]
             # Run the NEB on the surrogate surface
             neb_opt.run(fmax=fmax,steps=i)
             # Calculate energy and uncertainty
             energy_path,unc_path=self.get_predictions(images)
+            # Get the maximum uncertainty of the path
+            max_unc_path=np.max(unc_path)
             # Check if the uncertainty is too large
-            if np.max(unc_path)>=max_unc:
+            if max_unc_path>=max_unc:
                 self.message_system('NEB on surrogate surface stopped due to high uncertainty!')
                 break
             # Check if there is a problem with prediction
@@ -514,10 +513,11 @@ class MLNEB:
                     image.get_forces()
                 self.message_system('Stopped due to NaN value in prediction!')
                 break
+            # Make backup of images before the next NEB step, which can be used as a restart interpolation
+            if not climb and (not self.check_path_unc or max_unc_path<=unc_convergence):
+                self.last_images_tmp=[image.copy() for image in images]
             # Check if the NEB is converged on the predicted surface
             if neb_opt.converged():
-                if not climb:
-                    self.last_images_tmp=[image.copy() for image in images]
                 break
         return neb_opt,images
 
