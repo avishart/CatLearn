@@ -170,7 +170,7 @@ class MLNEB:
         self.use_prev_calculations(prev_calculations)
               
 
-    def run(self,fmax=0.05,unc_convergence=0.05,steps=500,ml_steps=1500,max_unc=0.25,**kwargs):
+    def run(self,fmax=0.05,unc_convergence=0.05,steps=200,ml_steps=1500,max_unc=0.25,**kwargs):
         """ 
         Run the active learning NEB process. 
 
