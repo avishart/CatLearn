@@ -516,7 +516,7 @@ def get_default_database(fp=None,use_derivatives=True,database_reduction=False,d
         use_fingerprint=True
     # Make the data base ready
     if isinstance(database_reduction,str):
-        data_kwargs=dict(reduce_dimensions=True,use_derivatives=use_derivatives,use_fingerprint=use_fingerprint,npoints=50,initial_indicies=[0,1],include_last=True)
+        data_kwargs=dict(reduce_dimensions=True,use_derivatives=use_derivatives,use_fingerprint=use_fingerprint,npoints=50,initial_indicies=[0,1],include_last=1)
         data_kwargs.update(database_reduction_kwargs)
         if database_reduction.lower()=='distance':
             from .database_reduction import DatabaseDistance
