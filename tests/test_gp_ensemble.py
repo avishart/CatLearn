@@ -44,7 +44,9 @@ class TestGPEnsemble(unittest.TestCase):
         from catlearn.regression.gaussianprocess.ensemble.clustering.k_means import K_means
         from catlearn.regression.gaussianprocess.ensemble.clustering.k_means_auto import K_means_auto
         from catlearn.regression.gaussianprocess.ensemble.clustering.k_means_number import K_means_number
-        from catlearn.regression.gaussianprocess.ensemble.clustering.distance import DistanceClustering
+        from catlearn.regression.gaussianprocess.ensemble.clustering.fixed import FixedClustering
+        from catlearn.regression.gaussianprocess.ensemble.clustering.random import RandomClustering
+        from catlearn.regression.gaussianprocess.ensemble.clustering.random_number import RandomClustering_number
         # Create the data set
         x,f,g=create_func()
         ## Whether to learn from the derivatives
@@ -56,9 +58,11 @@ class TestGPEnsemble(unittest.TestCase):
         clustering_list=[K_means(k=4,maxiter=20,tol=1e-3,metric='euclidean'),
                          K_means_auto(min_data=6,max_data=12,maxiter=20,tol=1e-3,metric='euclidean'),
                          K_means_number(data_number=12,maxiter=20,tol=1e-3,metric='euclidean'),
-                         DistanceClustering(centroids=np.array([[-30.0],[60.0]]),metric='euclidean')]
+                         FixedClustering(centroids=np.array([[-30.0],[60.0]]),metric='euclidean'),
+                         RandomClustering(n_clusters=4,equal_size=True),
+                         RandomClustering_number(data_number=12)]
         # Make a list of the error values that the test compares to
-        error_list=[1.73289,1.75136,1.73401,1.74409]
+        error_list=[1.73289,1.75136,1.73401,1.74409,1.88037,0.61394]
         # Test the baseline objects
         for index,clustering in enumerate(clustering_list):
             with self.subTest(clustering=clustering):
@@ -117,7 +121,9 @@ class TestGPEnsembleDerivatives(unittest.TestCase):
         from catlearn.regression.gaussianprocess.ensemble.clustering.k_means import K_means
         from catlearn.regression.gaussianprocess.ensemble.clustering.k_means_auto import K_means_auto
         from catlearn.regression.gaussianprocess.ensemble.clustering.k_means_number import K_means_number
-        from catlearn.regression.gaussianprocess.ensemble.clustering.distance import DistanceClustering
+        from catlearn.regression.gaussianprocess.ensemble.clustering.fixed import FixedClustering
+        from catlearn.regression.gaussianprocess.ensemble.clustering.random import RandomClustering
+        from catlearn.regression.gaussianprocess.ensemble.clustering.random_number import RandomClustering_number
         # Create the data set
         x,f,g=create_func()
         ## Whether to learn from the derivatives
@@ -129,9 +135,11 @@ class TestGPEnsembleDerivatives(unittest.TestCase):
         clustering_list=[K_means(k=4,maxiter=20,tol=1e-3,metric='euclidean'),
                          K_means_auto(min_data=6,max_data=12,maxiter=20,tol=1e-3,metric='euclidean'),
                          K_means_number(data_number=12,maxiter=20,tol=1e-3,metric='euclidean'),
-                         DistanceClustering(centroids=np.array([[-30.0],[60.0]]),metric='euclidean')]
+                         FixedClustering(centroids=np.array([[-30.0],[60.0]]),metric='euclidean'),
+                         RandomClustering(n_clusters=4,equal_size=True),
+                         RandomClustering_number(data_number=12)]
         # Make a list of the error values that the test compares to
-        error_list=[0.17265,0.15492,0.14095,0.16393]
+        error_list=[0.17265,0.15492,0.14095,0.16393,0.59046,0.24236]
         # Test the baseline objects
         for index,clustering in enumerate(clustering_list):
             with self.subTest(clustering=clustering):

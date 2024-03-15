@@ -1,12 +1,12 @@
 import numpy as np
-from scipy.spatial.distance import cdist
-from .clustering import Clustering
+from .k_means import K_means
 
-class DistanceClustering(Clustering):
+class FixedClustering(K_means):
     def __init__(self,metric='euclidean',centroids=np.array([]),**kwargs):
         """
         Clustering class object for data sets.
-        Use distances to pre-defined centroids for clustering
+        Use distances to pre-defined fixed centroids for clustering.
+
         Parameters:
             metric : str
                 The metric used to calculate the distances of the data.
@@ -25,12 +25,14 @@ class DistanceClustering(Clustering):
     def update_arguments(self,metric=None,centroids=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
+
         Parameters:
             metric : str
                 The metric used to calculate the distances of the data.
             centroids : (K,D) array
                 An array with the centroids of the K clusters. 
                 The centroids must have the same dimensions as the features.
+                
         Returns:
             self: The updated object itself.
         """
@@ -43,7 +45,8 @@ class DistanceClustering(Clustering):
     def get_arguments(self):
         " Get the arguments of the class itself. "
         # Get the arguments given to the class in the initialization
-        arg_kwargs=dict(metric=self.metric,centroids=self.centroids)
+        arg_kwargs=dict(metric=self.metric,
+                        centroids=self.centroids)
         # Get the constants made within the class
         constant_kwargs=dict()
         # Get the objects made within the class
