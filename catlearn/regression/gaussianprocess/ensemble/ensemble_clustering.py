@@ -2,7 +2,7 @@ import numpy as np
 from .ensemble import EnsembleModel
 
 class EnsembleClustering(EnsembleModel):
-    def __init__(self,model=None,clustering=None,use_variance_ensemble=True,use_same_prior_mean=True,**kwargs):
+    def __init__(self,model=None,clustering=None,use_variance_ensemble=True,use_softmax=False,use_same_prior_mean=True,**kwargs):
         """
         Ensemble model of machine learning models with ensembles from a clustering algorithm..
         Parameters:
@@ -13,6 +13,9 @@ class EnsembleClustering(EnsembleModel):
             use_variance_ensemble : bool
                 Whether to use the predicted variances to weight the predictions.
                 Else an average of the predictions is used.
+            use_softmax : bool
+                Whether to use the softmax of the predicted inverse variances as weights. 
+                It is only active if use_variance_ensemble=True, too.
             use_same_prior_mean : bool
                 Whether to use the same prior mean for all models.
         """
@@ -28,6 +31,7 @@ class EnsembleClustering(EnsembleModel):
         self.update_arguments(model=model,
                               clustering=clustering,
                               use_variance_ensemble=use_variance_ensemble,
+                              use_softmax=use_softmax,
                               use_same_prior_mean=use_same_prior_mean,
                               **kwargs)
         
@@ -74,7 +78,7 @@ class EnsembleClustering(EnsembleModel):
             self.models.append(model)         
         return sols
     
-    def update_arguments(self,model=None,clustering=None,use_variance_ensemble=None,use_same_prior_mean=None,**kwargs):
+    def update_arguments(self,model=None,clustering=None,use_variance_ensemble=None,use_softmax=None,use_same_prior_mean=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
         Parameters:
@@ -85,6 +89,9 @@ class EnsembleClustering(EnsembleModel):
             use_variance_ensemble : bool
                 Whether to use the predicted variances to weight the predictions.
                 Else an average of the predictions is used.
+            use_softmax : bool
+                Whether to use the softmax of the predicted inverse variances as weights. 
+                It is only active if use_variance_ensemble=True, too.
             use_same_prior_mean : bool
                 Whether to use the same prior mean for all models.
         Returns:
@@ -95,10 +102,14 @@ class EnsembleClustering(EnsembleModel):
             # Set descriptor of the ensemble model
             self.n_models=1
             self.models=[]
+            # Get the prior mean instance
+            self.prior=self.model.prior.copy()
         if clustering is not None:
             self.clustering=clustering.copy()
         if use_variance_ensemble is not None:
             self.use_variance_ensemble=use_variance_ensemble
+        if use_softmax is not None:
+            self.use_softmax=use_softmax
         if use_same_prior_mean is not None:
             self.use_same_prior_mean=use_same_prior_mean
         return self
@@ -118,6 +129,7 @@ class EnsembleClustering(EnsembleModel):
         arg_kwargs=dict(model=self.model,
                         clustering=self.clustering,
                         use_variance_ensemble=self.use_variance_ensemble,
+                        use_softmax=self.use_softmax,
                         use_same_prior_mean=self.use_same_prior_mean)
         # Get the constants made within the class
         constant_kwargs=dict(n_models=self.n_models)
