@@ -38,6 +38,14 @@ class Fingerprint:
             return FingerprintObject(vector=vector,derivative=derivative)
         return FingerprintObject(vector=vector,derivative=None)
     
+    def get_use_derivatives(self):
+        " Get whether the derivatives of the targets are used. "
+        return self.use_derivatives
+
+    def get_reduce_dimensions(self):
+        " Get whether the reduction of the fingerprint space is used if constrains are used. "
+        return self.reduce_dimensions
+    
     def update_arguments(self,reduce_dimensions=None,use_derivatives=None,mic=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.

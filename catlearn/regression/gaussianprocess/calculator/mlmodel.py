@@ -379,9 +379,9 @@ class MLModel:
     
     def check_attributes(self):
         " Check if all attributes agree between the class and subclasses. "
-        if self.model.kernel.use_fingerprint!=self.database.use_fingerprint:
+        if self.model.get_use_fingerprint()!=self.database.get_use_fingerprint():
             raise Exception('Model and Database do not agree whether to use fingerprints!')
-        if self.model.use_derivatives!=self.database.use_derivatives:
+        if self.model.get_use_derivatives()!=self.database.get_use_derivatives():
             raise Exception('Model and Database do not agree whether to use derivatives/forces!')
         return True
 
