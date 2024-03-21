@@ -248,6 +248,9 @@ class MLNEB:
         from .interpolate_band import make_interpolation
         # Make the interpolation path
         images=make_interpolation(self.start.copy(),self.end.copy(),n_images=self.n_images,method=interpolation,**self.interpolation_kwargs)
+        # Check interpolation has the right number of images
+        if len(images)!=self.n_images:
+            raise Exception('The interpolated path has the wrong number of images!')
         # Attach the ML calculator to all images
         images=self.attach_mlcalc(images)
         return images
