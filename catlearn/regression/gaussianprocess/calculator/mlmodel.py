@@ -424,7 +424,7 @@ class MLModel:
     
 
 
-def get_default_model(model='tp',prior='median',use_derivatives=True,use_fingerprint=False,parallel=False,**kwargs):
+def get_default_model(model='tp',prior='median',use_derivatives=True,use_fingerprint=False,global_optimization=True,parallel=False,n_reduced=None,**kwargs):
     """
     Get the default ML model from the simple given arguments.
 
@@ -438,13 +438,22 @@ def get_default_model(model='tp',prior='median',use_derivatives=True,use_fingerp
         use_fingerprint : bool
             Whether to use fingerprints for the features.
             This has to be the same as for the database!
+        global_optimization : bool
+            Whether to perform a global optimization of the hyperparameters.
+            A local optimization is used if global_optimization=False, which can not be parallelized.
         parallel : bool
             Whether to optimize the hyperparameters in parallel.
+        n_reduced : int or None
+            If n_reduced is an integer, the hyperparameters are only optimized when the data set size is equal to or below the integer.
+            If n_reduced is None, the hyperparameter is always optimized.
 
     Returns:
         model : Model
             The Machine Learning Model with kernel and prior that are optimized.
     """
+    # Check that the model is given as a string
+    if not isinstance(model,str):
+        return model
     # Make the prior mean from given string
     if isinstance(prior,str):
         if prior.lower()=='median':
@@ -462,28 +471,55 @@ def get_default_model(model='tp',prior='median',use_derivatives=True,use_fingerp
     # Construct the kernel class object
     from ..kernel.se import SE
     kernel=SE(use_fingerprint=use_fingerprint,use_derivatives=use_derivatives)
-    # Set the hyperparameter optimization method with or without parallelization
-    from ..optimizers.globaloptimizer import FactorizedOptimizer
-    if parallel:
-        from ..optimizers.linesearcher import FineGridSearch
-        line_optimizer=FineGridSearch(optimize=True,multiple_min=False,ngrid=80,loops=3,parallel=True)
-    else:
-        from ..optimizers.linesearcher import GoldenSearch
-        line_optimizer=GoldenSearch(optimize=True,multiple_min=False,parallel=False)
-    optimizer=FactorizedOptimizer(line_optimizer=line_optimizer,ngrid=80,calculate_init=False,parallel=parallel)
-    # Use either the Student t process or the Gaussian process
-    if isinstance(model,str):
-        from ..hpfitter import HyperparameterFitter    
-        if model.lower()=='tp':
-            from ..models.tp import TProcess
-            from ..objectivefunctions.tp.factorized_likelihood import FactorizedLogLikelihood
-            hpfitter=HyperparameterFitter(func=FactorizedLogLikelihood(),optimizer=optimizer)
-            model=TProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter,a=1e-3,b=1e-4)
+    # Set the hyperparameter optimization method
+    if global_optimization:
+        # Set global optimization with or without parallelization
+        from ..optimizers.globaloptimizer import FactorizedOptimizer
+        if parallel:
+            from ..optimizers.linesearcher import FineGridSearch
+            line_optimizer=FineGridSearch(optimize=True,multiple_min=False,ngrid=80,loops=3,parallel=True)
         else:
-            from ..models.gp import GaussianProcess
+            from ..optimizers.linesearcher import GoldenSearch
+            line_optimizer=GoldenSearch(optimize=True,multiple_min=False,parallel=False)
+        optimizer=FactorizedOptimizer(line_optimizer=line_optimizer,ngrid=80,calculate_init=False,parallel=parallel)
+    else:
+        from ..optimizers.localoptimizer import ScipyOptimizer
+        # Make the local optimizer
+        optimizer=ScipyOptimizer(maxiter=500,jac=True,method='l-bfgs-b',use_bounds=False,tol=1e-12)
+        if parallel:
+            import warnings
+            warnings.warn('Parallel optimization is not implemented with local optimization!') 
+    # Use either the Student t process or the Gaussian process
+    if model.lower()=='tp':
+        # Set model
+        from ..models.tp import TProcess
+        model=TProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives,a=1e-3,b=1e-4)
+        # Set objective function
+        if global_optimization:
+            from ..objectivefunctions.tp.factorized_likelihood import FactorizedLogLikelihood
+            func=FactorizedLogLikelihood()
+        else:
+            from ..objectivefunctions.tp.likelihood import LogLikelihood
+            func=LogLikelihood()
+    else:
+        # Set model
+        from ..models.gp import GaussianProcess
+        model=GaussianProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives)
+        # Set objective function
+        if global_optimization:
             from ..objectivefunctions.gp.factorized_likelihood import FactorizedLogLikelihood
-            hpfitter=HyperparameterFitter(func=FactorizedLogLikelihood(),optimizer=optimizer)
-            model=GaussianProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter)
+            func=FactorizedLogLikelihood()
+        else:
+            from ..objectivefunctions.gp.likelihood import LogLikelihood
+            func=LogLikelihood()
+    # Set hpfitter and whether a maximum data set size is applied 
+    if n_reduced is None:
+        from ..hpfitter import HyperparameterFitter
+        hpfitter=HyperparameterFitter(func=func,optimizer=optimizer)
+    else:
+        from ..hpfitter.redhpfitter import ReducedHyperparameterFitter
+        hpfitter=ReducedHyperparameterFitter(func=func,optimizer=optimizer,opt_tr_size=n_reduced)
+    model.update_arguments(hpfitter=hpfitter)
     return model
 
 
@@ -548,7 +584,7 @@ def get_default_database(fp=None,use_derivatives=True,database_reduction=False,d
     return database
 
 
-def get_default_mlmodel(model='tp',fp=None,baseline=None,prior='median',use_derivatives=True,parallel=False,use_pdis=True,database_reduction=False,database_reduction_kwargs={},verbose=False,**kwargs):
+def get_default_mlmodel(model='tp',fp=None,baseline=None,prior='median',use_derivatives=True,global_optimization=True,parallel=False,use_pdis=True,n_reduced=None,database_reduction=False,database_reduction_kwargs={},verbose=False,**kwargs):
     """
     Get the default ML model with a database for the ASE Atoms from the simple given arguments.
 
@@ -564,10 +600,16 @@ def get_default_mlmodel(model='tp',fp=None,baseline=None,prior='median',use_deri
             Specify what prior mean should be used.
         use_derivatives : bool
             Whether to use derivatives of the targets.
+        global_optimization : bool
+            Whether to perform a global optimization of the hyperparameters.
+            A local optimization is used if global_optimization=False, which can not be parallelized.
         parallel : bool
             Whether to optimize the hyperparameters in parallel.
         use_pdis : bool
             Whether to make prior distributions for the hyperparameters.
+        n_reduced : int or None
+            If n_reduced is an integer, the hyperparameters are only optimized when the data set size is equal to or below the integer.
+            If n_reduced is None, the hyperparameter is always optimized.
         database_reduction : bool
             Whether to used a reduced database after a number of training points.
         database_reduction_kwargs : dict
@@ -586,7 +628,7 @@ def get_default_mlmodel(model='tp',fp=None,baseline=None,prior='median',use_deri
         use_fingerprint=True
     # Make the model
     if isinstance(model,str):
-        model=get_default_model(model=model,prior=prior,use_derivatives=use_derivatives,use_fingerprint=use_fingerprint,parallel=parallel)
+        model=get_default_model(model=model,prior=prior,use_derivatives=use_derivatives,use_fingerprint=use_fingerprint,global_optimization=global_optimization,parallel=parallel,n_reduced=n_reduced)
     # Make the database
     database=get_default_database(fp=fp,use_derivatives=use_derivatives,database_reduction=database_reduction,database_reduction_kwargs=database_reduction_kwargs)
     # Make prior distributions for the hyperparameters if specified

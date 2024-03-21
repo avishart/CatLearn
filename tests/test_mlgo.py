@@ -29,7 +29,7 @@ class TestMLGO(unittest.TestCase):
         # Set random seed
         np.random.seed(1)
         # Initialize MLGO
-        mlgo=MLGO(slab=slab,ads=ads,ase_calc=EMT(),bounds=bounds,initial_points=2,norelax_points=10,min_steps=6,full_output=False,local_opt_kwargs=dict(logfile=None))
+        mlgo=MLGO(slab=slab,ads=ads,ase_calc=EMT(),bounds=bounds,initial_points=2,norelax_points=10,min_steps=6,full_output=False,local_opt_kwargs=dict(logfile=None),tabletxt=None)
         # Test if the MLGO can be run
         mlgo.run(fmax=0.05,unc_convergence=0.025,steps=50,max_unc=0.050,ml_steps=1000,ml_chains=2,relax=True,local_steps=100,seed=0)
         # Check that MLGO converged
