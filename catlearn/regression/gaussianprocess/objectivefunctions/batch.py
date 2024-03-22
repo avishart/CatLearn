@@ -51,7 +51,7 @@ class BatchFuction(ObjectiveFuction):
         n_batches=self.get_number_batches(n_data)
         indicies=np.arange(n_data)
         i_batches=self.randomized_batches(indicies,n_data,n_batches,**kwargs)
-        n_full_data=len(np.array(i_batches).reshape(-1))
+        n_full_data=sum([len(i_batch) for i_batch in i_batches])
         # Sum function values together from batches
         fvalue=0.0
         deriv=0.0
