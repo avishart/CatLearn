@@ -10,7 +10,7 @@ class MLGO:
                  apply_constraint=True,force_consistent=None,scale_fmax=0.5,save_memory=False,
                  local_opt=None,local_opt_kwargs={},opt_kwargs={},
                  bounds=None,initial_points=2,norelax_points=10,min_steps=8,
-                 trajectory='evaluated.traj',tabletxt=None,full_output=False,**kwargs):
+                 trajectory='evaluated.traj',tabletxt='mlgo_summary.txt',full_output=False,**kwargs):
         """ 
         Machine learning accelerated global adsorption optimization with active learning.
 

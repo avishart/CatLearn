@@ -15,7 +15,7 @@ class MLNEB:
                  apply_constraint=True,force_consistent=None,scale_fmax=0.8,
                  local_opt=None,local_opt_kwargs=dict(),
                  trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',
-                 tabletxt=None,full_output=False,**kwargs):
+                 tabletxt='mlneb_summary.txt',full_output=False,**kwargs):
         """ 
         Nudged elastic band (NEB) with Machine Learning as active learning.
 
