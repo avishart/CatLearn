@@ -96,7 +96,7 @@ class MLGO:
         # Set initial parameters
         self.step=0
         self.error=0
-        self.energies=np.array([])
+        self.energies=[]
         self.emin=np.inf
         self.best_candidate=None
         # Boundary conditions for adsorbate position and angles
@@ -294,6 +294,8 @@ class MLGO:
                 self.emin=energy
                 self.best_candidate=self.mlcalc.copy_atoms(candidate)
                 self.best_x=self.x.copy()
+            # Save the energy
+            self.energies.append(energy)
         # Broadcast convergence statement if MPI is used
         self.best_candidate,self.emin=broadcast([self.best_candidate,self.emin],root=0)
         return self.best_candidate
