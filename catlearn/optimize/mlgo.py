@@ -7,7 +7,7 @@ from ase.parallel import world,broadcast
 class MLGO:
     def __init__(self,slab,ads,ase_calc,ads2=None,mlcalc=None,acq=None,
                  prev_calculations=None,use_database_check=True,
-                 apply_constraint=True,force_consistent=None,scale_fmax=0.5,save_memory=False,
+                 apply_constraint=True,force_consistent=None,scale_fmax=0.8,save_memory=False,
                  local_opt=None,local_opt_kwargs={},opt_kwargs={},
                  bounds=None,initial_points=2,norelax_points=10,min_steps=8,
                  trajectory='evaluated.traj',tabletxt='mlgo_summary.txt',full_output=False,**kwargs):
@@ -137,7 +137,7 @@ class MLGO:
         if local_opt is None:
             from ase.optimize import FIRE
             local_opt=FIRE
-            local_opt_kwargs_default.update(dict(dt=0.05,maxstep=0.2,a=1.0,astart=1.0,fa=0.999))
+            local_opt_kwargs_default.update(dict(dt=0.05,maxstep=0.2,a=1.0,astart=1.0,fa=0.999,downhill_check=True))
         self.local_opt=local_opt
         local_opt_kwargs_default.update(local_opt_kwargs)
         self.local_opt_kwargs=local_opt_kwargs_default.copy()
