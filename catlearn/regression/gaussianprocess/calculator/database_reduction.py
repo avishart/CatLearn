@@ -4,7 +4,7 @@ from .database import Database
 from ase.io import write
 
 class Database_Reduction(Database):
-    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=True,**kwargs):
+    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=1,**kwargs):
         """ 
         Database of ASE atoms objects that are converted into fingerprints and targets. 
         The used Database is a reduced set of the full Database. 
@@ -23,8 +23,8 @@ class Database_Reduction(Database):
                 Number of points that are used from the database.
             initial_indicies : list
                 The indicies of the data points that must be included in the used data base.
-            include_last : bool
-                Whether to include the last data point in the used data base.
+            include_last : int
+                Number of last data point to include in the used data base.
         """
         # The negative forces have to be used since the derivatives are used in the ML models
         self.use_negative_forces=True
@@ -61,8 +61,8 @@ class Database_Reduction(Database):
                 Number of points that are used from the database.
             initial_indicies : list
                 The indicies of the data points that must be included in the used data base.
-            include_last : bool
-                Whether to include the last data point in the used data base.
+            include_last : int
+                Number of last data point to include in the used data base.
 
         Returns:
             self: The updated object itself.
@@ -86,7 +86,11 @@ class Database_Reduction(Database):
         if initial_indicies is not None:
             self.initial_indicies=np.array(initial_indicies,dtype=int)
         if include_last is not None:
-            self.include_last=include_last
+            self.include_last=int(abs(include_last))
+        # Check that too many last points are not included
+        n_extra=self.npoints-len(self.initial_indicies)
+        if self.include_last>n_extra:
+            self.include_last=n_extra if n_extra>=0 else 0
         # Check that the database and the fingerprint have the same attributes
         self.check_attributes()
         # Reset the database if an argument has been changed
@@ -141,6 +145,15 @@ class Database_Reduction(Database):
         indicies=self.get_reduction_indicies()
         return np.array(self.targets)[indicies]
     
+    def get_all_targets(self,**kwargs):
+        """
+        Get all the targets of the atoms in the database.
+
+        Returns:
+            array: A matrix array with the saved targets.
+        """
+        return np.array(self.targets)
+    
     def get_initial_indicies(self,**kwargs):
         """
         Get the initial indicies of the used atoms in the database.
@@ -149,6 +162,38 @@ class Database_Reduction(Database):
             array: The initial indicies of the atoms used.
         """
         return self.initial_indicies.copy()
+
+    def get_last_indicies(self,indicies,not_indicies,**kwargs):
+        """
+        Include the last indicies that are not in the used indicies list.
+
+        Parameters:
+            indicies : list
+                A list of used indicies.
+            not_indicies : list
+                A list of indicies that not used yet.
+
+        Returns:
+            list: A list of the used indicies including the last indicies.
+        """
+        if self.include_last!=0:
+            indicies=np.append(indicies,[not_indicies[-self.include_last:]])
+        return indicies
+    
+    def get_not_indicies(self,indicies,all_indicies,**kwargs):
+        """
+        Get a list of the indicies that are not in the used indicies list.
+
+        Parameters:
+            indicies : list
+                A list of indicies.
+            all_indicies : list
+                A list of all indicies.
+
+        Returns:
+            list: A list of indicies that not used.
+        """
+        return list(set(all_indicies).difference(indicies))
     
     def save_data(self,trajectory='data.traj',**kwargs):
         """
@@ -214,7 +259,7 @@ class Database_Reduction(Database):
 
 
 class DatabaseDistance(Database_Reduction):
-    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=True,**kwargs):
+    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=1,**kwargs):
         """ 
         Database of ASE atoms objects that are converted into fingerprints and targets. 
         The used Database is a reduced set of the full Database. 
@@ -233,8 +278,8 @@ class DatabaseDistance(Database_Reduction):
                 Number of points that are used from the database.
             initial_indicies : list
                 The indicies of the data points that must be included in the used data base.
-            include_last : bool
-                Whether to include the last data point in the used data base.
+            include_last : int
+                Number of last data point to include in the used data base.
         """
         super().__init__(fingerprint=fingerprint,
                          reduce_dimensions=reduce_dimensions,
@@ -249,9 +294,10 @@ class DatabaseDistance(Database_Reduction):
         " Reduce the training set with the points farthest from each other. "
         # Get the fixed indicies
         indicies=self.get_initial_indicies()
+        # Get the indicies for the system not already included
+        not_indicies=self.get_not_indicies(indicies,all_indicies)
         # Include the last point
-        if self.include_last:
-            indicies=np.append(indicies,[all_indicies[-1]])
+        indicies=self.get_last_indicies(indicies,not_indicies)
         # Get a random index if no fixed index exist
         if len(indicies)==0:
             indicies=np.array([np.random.choice(all_indicies)])
@@ -260,7 +306,7 @@ class DatabaseDistance(Database_Reduction):
         fdim=len(features[0])
         for i in range(len(indicies),self.npoints):
             # Get the indicies for the system not already included
-            not_indicies=[j for j in all_indicies if j not in indicies]
+            not_indicies=self.get_not_indicies(indicies,all_indicies)
             # Calculate the distances to the points already used
             dist=cdist(features[indicies].reshape(-1,fdim),features[not_indicies].reshape(-1,fdim))
             # Choose the point furthest from the points already used
@@ -270,7 +316,7 @@ class DatabaseDistance(Database_Reduction):
 
     
 class DatabaseRandom(Database_Reduction):
-    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=True,**kwargs):
+    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=1,**kwargs):
         """ 
         Database of ASE atoms objects that are converted into fingerprints and targets. 
         The used Database is a reduced set of the full Database. 
@@ -289,8 +335,8 @@ class DatabaseRandom(Database_Reduction):
                 Number of points that are used from the database.
             initial_indicies : list
                 The indicies of the data points that must be included in the used data base.
-            include_last : bool
-                Whether to include the last data point in the used data base.
+            include_last : int
+                Number of last data point to include in the used data base.
         """
         super().__init__(fingerprint=fingerprint,
                          reduce_dimensions=reduce_dimensions,
@@ -305,18 +351,19 @@ class DatabaseRandom(Database_Reduction):
         " Random select the training points. "
         # Get the fixed indicies
         indicies=self.get_initial_indicies()
-        # Include the last point
-        if self.include_last:
-            indicies=np.append(indicies,[all_indicies[-1]])
         # Get the indicies for the system not already included
-        not_indicies=[j for j in all_indicies if j not in indicies]
+        not_indicies=self.get_not_indicies(indicies,all_indicies)
+        # Include the last point
+        indicies=self.get_last_indicies(indicies,not_indicies)
+        # Get the indicies for the system not already included
+        not_indicies=self.get_not_indicies(indicies,all_indicies)
         # Randomly get the indicies
         indicies=np.append(indicies,np.random.permutation(not_indicies)[:int(self.npoints-len(indicies))])
         return np.array(indicies,dtype=int)
     
     
 class DatabaseHybrid(Database_Reduction):
-    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=True,**kwargs):
+    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=1,random_fraction=3,**kwargs):
         """ 
         Database of ASE atoms objects that are converted into fingerprints and targets. 
         The used Database is a reduced set of the full Database. 
@@ -335,8 +382,10 @@ class DatabaseHybrid(Database_Reduction):
                 Number of points that are used from the database.
             initial_indicies : list
                 The indicies of the data points that must be included in the used data base.
-            include_last : bool
-                Whether to include the last data point in the used data base.
+            include_last : int
+                Number of last data point to include in the used data base.
+            random_fraction : int
+                How often the data point is sampled randomly. 
         """
         super().__init__(fingerprint=fingerprint,
                          reduce_dimensions=reduce_dimensions,
@@ -345,15 +394,79 @@ class DatabaseHybrid(Database_Reduction):
                          npoints=npoints,
                          initial_indicies=initial_indicies,
                          include_last=include_last,
+                         random_fraction=random_fraction,
                          **kwargs)
+        
+    def update_arguments(self,fingerprint=None,reduce_dimensions=None,use_derivatives=None,use_fingerprint=None,npoints=None,initial_indicies=None,include_last=None,random_fraction=None,**kwargs):
+        """
+        Update the class with its arguments. The existing arguments are used if they are not given.
+
+        Parameters:
+            fingerprint : Fingerprint object
+                An object as a fingerprint class that convert atoms to fingerprint.
+            reduce_dimensions: bool
+                Whether to reduce the fingerprint space if constrains are used.
+            use_derivatives : bool
+                Whether to use derivatives/forces in the targets.
+            use_fingerprint : bool
+                Whether the kernel uses fingerprint objects (True) or arrays (False).
+            npoints : int
+                Number of points that are used from the database.
+            initial_indicies : list
+                The indicies of the data points that must be included in the used data base.
+            include_last : int
+                Number of last data point to include in the used data base.
+            random_fraction : int
+                How often the data point is sampled randomly. 
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Control if the database has to be reset
+        reset_database=False
+        if fingerprint is not None:
+            self.fingerprint=fingerprint.copy()
+            reset_database=True
+        if reduce_dimensions is not None:
+            self.reduce_dimensions=reduce_dimensions
+            reset_database=True
+        if use_derivatives is not None:
+            self.use_derivatives=use_derivatives
+            reset_database=True
+        if use_fingerprint is not None:
+            self.use_fingerprint=use_fingerprint
+            reset_database=True
+        if npoints is not None:
+            self.npoints=int(npoints)
+        if initial_indicies is not None:
+            self.initial_indicies=np.array(initial_indicies,dtype=int)
+        if include_last is not None:
+            self.include_last=int(abs(include_last))
+        if random_fraction is not None:
+            self.random_fraction=int(abs(random_fraction))
+            if self.random_fraction==0:
+                self.random_fraction=1
+        # Check that too many last points are not included
+        n_extra=self.npoints-len(self.initial_indicies)
+        if self.include_last>n_extra:
+            self.include_last=n_extra if n_extra>=0 else 0
+        # Check that the database and the fingerprint have the same attributes
+        self.check_attributes()
+        # Reset the database if an argument has been changed
+        if reset_database:
+            self.reset_database()
+        # Store that the data base has changed
+        self.update_indicies=True
+        return self
 
     def make_reduction(self,all_indicies,**kwargs):
         " Use a combination of random sampling and farthest distance to reduce training set. "
         # Get the fixed indicies
         indicies=self.get_initial_indicies()
+        # Get the indicies for the system not already included
+        not_indicies=self.get_not_indicies(indicies,all_indicies)
         # Include the last point
-        if self.include_last:
-            indicies=np.append(indicies,[all_indicies[-1]])
+        indicies=self.get_last_indicies(indicies,not_indicies)
         # Get a random index if no fixed index exist
         if len(indicies)==0:
             indicies=[np.random.choice(all_indicies)]
@@ -362,9 +475,9 @@ class DatabaseHybrid(Database_Reduction):
         fdim=len(features[0])
         for i in range(len(indicies),self.npoints):
             # Get the indicies for the system not already included
-            not_indicies=[j for j in all_indicies if j not in indicies]
-            if i%3==0:
-                # Get a random index every third time
+            not_indicies=self.get_not_indicies(indicies,all_indicies)
+            if i%self.random_fraction==0:
+                # Get a random index 
                 indicies=np.append(indicies,[np.random.choice(not_indicies)])
             else:
                 # Calculate the distances to the points already used
@@ -374,9 +487,29 @@ class DatabaseHybrid(Database_Reduction):
                 indicies=np.append(indicies,[not_indicies[i_max]])                
         return np.array(indicies,dtype=int)
     
+    def get_arguments(self):
+        " Get the arguments of the class itself. "
+        # Get the arguments given to the class in the initialization
+        arg_kwargs=dict(fingerprint=self.fingerprint,
+                        reduce_dimensions=self.reduce_dimensions,
+                        use_derivatives=self.use_derivatives,
+                        use_fingerprint=self.use_fingerprint,
+                        npoints=self.npoints,
+                        initial_indicies=self.initial_indicies,
+                        include_last=self.include_last,
+                        random_fraction=self.random_fraction)
+        # Get the constants made within the class
+        constant_kwargs=dict(update_indicies=self.update_indicies)
+        # Get the objects made within the class
+        object_kwargs=dict(atoms_list=self.atoms_list.copy(),
+                           features=self.features.copy(),
+                           targets=self.targets.copy(),
+                           indicies=self.indicies.copy())
+        return arg_kwargs,constant_kwargs,object_kwargs
+    
     
 class DatabaseMin(Database_Reduction):
-    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=True,**kwargs):
+    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=1,force_targets=False,**kwargs):
         """ 
         Database of ASE atoms objects that are converted into fingerprints and targets. 
         The used Database is a reduced set of the full Database. 
@@ -395,8 +528,10 @@ class DatabaseMin(Database_Reduction):
                 Number of points that are used from the database.
             initial_indicies : list
                 The indicies of the data points that must be included in the used data base.
-            include_last : bool
-                Whether to include the last data point in the used data base.
+            include_last : int
+                Number of last data point to include in the used data base.
+            force_targets : bool
+                Whether to include the derivatives/forces in targets when the smallest targets are found.
         """
         super().__init__(fingerprint=fingerprint,
                          reduce_dimensions=reduce_dimensions,
@@ -405,25 +540,114 @@ class DatabaseMin(Database_Reduction):
                          npoints=npoints,
                          initial_indicies=initial_indicies,
                          include_last=include_last,
+                         force_targets=force_targets,
                          **kwargs)
+        
+    def update_arguments(self,fingerprint=None,reduce_dimensions=None,use_derivatives=None,use_fingerprint=None,npoints=None,initial_indicies=None,include_last=None,force_targets=None,**kwargs):
+        """
+        Update the class with its arguments. The existing arguments are used if they are not given.
+
+        Parameters:
+            fingerprint : Fingerprint object
+                An object as a fingerprint class that convert atoms to fingerprint.
+            reduce_dimensions: bool
+                Whether to reduce the fingerprint space if constrains are used.
+            use_derivatives : bool
+                Whether to use derivatives/forces in the targets.
+            use_fingerprint : bool
+                Whether the kernel uses fingerprint objects (True) or arrays (False).
+            npoints : int
+                Number of points that are used from the database.
+            initial_indicies : list
+                The indicies of the data points that must be included in the used data base.
+            include_last : int
+                Number of last data point to include in the used data base.
+            force_targets : bool
+                Whether to include the derivatives/forces in targets when the smallest targets are found.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Control if the database has to be reset
+        reset_database=False
+        if fingerprint is not None:
+            self.fingerprint=fingerprint.copy()
+            reset_database=True
+        if reduce_dimensions is not None:
+            self.reduce_dimensions=reduce_dimensions
+            reset_database=True
+        if use_derivatives is not None:
+            self.use_derivatives=use_derivatives
+            reset_database=True
+        if use_fingerprint is not None:
+            self.use_fingerprint=use_fingerprint
+            reset_database=True
+        if npoints is not None:
+            self.npoints=int(npoints)
+        if initial_indicies is not None:
+            self.initial_indicies=np.array(initial_indicies,dtype=int)
+        if include_last is not None:
+            self.include_last=int(abs(include_last))
+        if force_targets is not None:
+            self.force_targets=force_targets
+        # Check that too many last points are not included
+        n_extra=self.npoints-len(self.initial_indicies)
+        if self.include_last>n_extra:
+            self.include_last=n_extra if n_extra>=0 else 0
+        # Check that the database and the fingerprint have the same attributes
+        self.check_attributes()
+        # Reset the database if an argument has been changed
+        if reset_database:
+            self.reset_database()
+        # Store that the data base has changed
+        self.update_indicies=True
+        return self
 
     def make_reduction(self,all_indicies,**kwargs):
         " Use the targets with smallest norms in the training set. "
         # Get the fixed indicies
         indicies=self.get_initial_indicies()
-        # Include the last point
-        if self.include_last:
-            indicies=np.append(indicies,[all_indicies[-1]])
         # Get the indicies for the system not already included
-        not_indicies=np.array([j for j in all_indicies if j not in indicies])
-        # Get the points with the lowest norm of the targets
-        i_sort=np.argsort(np.linalg.norm(np.array(self.targets)[not_indicies],axis=1))
-        indicies=np.append(indicies,not_indicies[i_sort[:int(self.npoints-len(indicies))]])
+        not_indicies=self.get_not_indicies(indicies,all_indicies)
+        # Include the last point
+        indicies=self.get_last_indicies(indicies,not_indicies)
+        # Get the indicies for the system not already included
+        not_indicies=np.array(self.get_not_indicies(indicies,all_indicies))
+        # Get the targets
+        targets=self.get_all_targets()[not_indicies]
+        if self.force_targets:
+            # Get the points with the lowest norm of the targets
+            i_sort=np.argsort(np.linalg.norm(targets,axis=1))
+        else:
+            # Get the points with the lowest energies
+            i_sort=np.argsort(targets[:,0])
+        i_sort=i_sort[:int(self.npoints-len(indicies))]
+        indicies=np.append(indicies,not_indicies[i_sort])
         return np.array(indicies,dtype=int)
+    
+    def get_arguments(self):
+        " Get the arguments of the class itself. "
+        # Get the arguments given to the class in the initialization
+        arg_kwargs=dict(fingerprint=self.fingerprint,
+                        reduce_dimensions=self.reduce_dimensions,
+                        use_derivatives=self.use_derivatives,
+                        use_fingerprint=self.use_fingerprint,
+                        npoints=self.npoints,
+                        initial_indicies=self.initial_indicies,
+                        include_last=self.include_last,
+                        force_targets=self.force_targets)
+        # Get the constants made within the class
+        constant_kwargs=dict(update_indicies=self.update_indicies)
+        # Get the objects made within the class
+        object_kwargs=dict(atoms_list=self.atoms_list.copy(),
+                           features=self.features.copy(),
+                           targets=self.targets.copy(),
+                           indicies=self.indicies.copy())
+        return arg_kwargs,constant_kwargs,object_kwargs
 
     
 class DatabaseLast(Database_Reduction):
-    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=True,**kwargs):
+    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=1,**kwargs):
         """ 
         Database of ASE atoms objects that are converted into fingerprints and targets. 
         The used Database is a reduced set of the full Database. 
@@ -442,8 +666,8 @@ class DatabaseLast(Database_Reduction):
                 Number of points that are used from the database.
             initial_indicies : list
                 The indicies of the data points that must be included in the used data base.
-            include_last : bool
-                Whether to include the last data point in the used data base.
+            include_last : int
+                Number of last data point to include in the used data base.
         """
         super().__init__(fingerprint=fingerprint,
                          reduce_dimensions=reduce_dimensions,
@@ -459,14 +683,15 @@ class DatabaseLast(Database_Reduction):
         # Get the fixed indicies
         indicies=self.get_initial_indicies()
         # Get the indicies for the system not already included
-        not_indicies=[j for j in all_indicies if j not in indicies]
+        not_indicies=self.get_not_indicies(indicies,all_indicies)
         # Get the last points in the database
-        indicies=np.append(indicies,not_indicies[-int(self.npoints-len(indicies)):])
+        if self.npoints>len(indicies):
+            indicies=np.append(indicies,not_indicies[-int(self.npoints-len(indicies)):])
         return np.array(indicies,dtype=int)
     
     
 class DatabaseRestart(Database_Reduction):
-    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=True,**kwargs):
+    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=1,**kwargs):
         """ 
         Database of ASE atoms objects that are converted into fingerprints and targets. 
         The used Database is a reduced set of the full Database. 
@@ -486,8 +711,8 @@ class DatabaseRestart(Database_Reduction):
                 Number of points that are used from the database.
             initial_indicies : list
                 The indicies of the data points that must be included in the used data base.
-            include_last : bool
-                Whether to include the last data point in the used data base.
+            include_last : int
+                Number of last data point to include in the used data base.
         """
         super().__init__(fingerprint=fingerprint,
                          reduce_dimensions=reduce_dimensions,
@@ -504,26 +729,29 @@ class DatabaseRestart(Database_Reduction):
         indicies=self.get_initial_indicies()
         # Get the data set size
         data_len=len(all_indicies)
-        # Get the data point after the first restart
-        n_use=data_len-self.npoints
-        if n_use<=0:
-            return all_indicies
-        else:
-            # Get the number of points that are not initial indicies
-            nfree=self.npoints-len(indicies)
-            # Get the excess of data points after each restart
-            n_extra=int(n_use%nfree)
-            if n_extra==0:
-                # Last iteration before restart
-                indicies=np.append(indicies,all_indicies[-nfree:])
-            else:
-                # Restarted indicies
-                indicies=np.append(indicies,all_indicies[-n_extra:])
+        # Check how many last points are used
+        lasts=self.include_last
+        if lasts==0:
+            lasts=1
+        # Get the minimum number of points in the database
+        n_initial=len(indicies)
+        if lasts>1:
+            n_initial+=lasts-1
+        # Get the number of data point after the first restart
+        n_use=data_len-self.npoints-1
+        # Get the number of points that are not initial or last indicies
+        nfree=self.npoints-n_initial
+        # Get the excess of data points after each restart
+        n_extra=int(n_use%nfree)
+        # Get the indicies for the system not already included
+        not_indicies=self.get_not_indicies(indicies,all_indicies)
+        # Include the indicies
+        indicies=np.append(indicies,not_indicies[-(n_extra+lasts):])
         return np.array(indicies,dtype=int)
 
 
 class DatabasePointsInterest(DatabaseLast):
-    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=True,point_interest=[],**kwargs):
+    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=1,feature_distance=True,point_interest=[],**kwargs):
         """ 
         Database of ASE atoms objects that are converted into fingerprints and targets. 
         The used Database is a reduced set of the full Database. 
@@ -543,8 +771,10 @@ class DatabasePointsInterest(DatabaseLast):
                 Number of points that are used from the database.
             initial_indicies : list
                 The indicies of the data points that must be included in the used data base.
-            include_last : bool
-                Whether to include the last data point in the used data base.
+            include_last : int
+                Number of last data point to include in the used data base.
+            feature_distance : bool
+                Whether to calculate the distance in feature space (True) or Cartesian coordinate space (False).
             point_interest : list
                 A list of the points of interest as ASE Atoms instances. 
         """
@@ -555,6 +785,7 @@ class DatabasePointsInterest(DatabaseLast):
                          npoints=npoints,
                          initial_indicies=initial_indicies,
                          include_last=include_last,
+                         feature_distance=feature_distance,
                          point_interest=point_interest,
                          **kwargs)
         
@@ -568,8 +799,65 @@ class DatabasePointsInterest(DatabaseLast):
         if self.use_fingerprint:
             return np.array([feature.get_vector() for feature in self.fp_interest])
         return np.array(self.fp_interest)
+    
+    def get_positions(self,atoms_list,**kwargs):
+        """ 
+        Get the Cartesian coordinates of the atoms.
+
+       Parameters:
+            atoms_list : list or ASE Atoms
+                A list of ASE Atoms.
+
+        Returns:
+            list: A list of the positions of the atoms for each system.
+        """
+        return np.array([atoms.get_positions().reshape(-1) for atoms in atoms_list])
+    
+    def get_positions_interest(self,**kwargs):
+        """ 
+        Get the Cartesian coordinates of the atoms of interest.
+
+        Returns:
+            list: A list of the positions of the atoms of interest for each system.
+        """
+        return self.get_positions(self.point_interest)
+    
+    def get_all_positions(self,**kwargs):
+        """ 
+        Get the Cartesian coordinates of all the atoms in the database.
+
+        Returns:
+            list: A list of the positions of all the atoms in the database for each system.
+        """
+        return self.get_positions(self.get_all_atoms())
+    
+    def get_distances(self,not_indicies,**kwargs):
+        """
+        Calculate the distances to the points of interest.
+
+        Parameters:
+            not_indicies : list
+                A list of indicies that not used yet.
+
+        Returns:
+            array: The distances to the points of interest.
+        """
+        # Get either features or coordinates
+        if self.feature_distance:
+            # Get all the features
+            features=self.get_all_feature_vectors()
+            features_interest=self.get_feature_interest()
+        else:
+            # Get all the coordinates
+            features=self.get_all_positions()
+            features_interest=self.get_positions_interest()
+        # Get the dimension
+        fdim=len(features[0])
+        # Calculate the minimum distances to the points of interest
+        dist=cdist(features_interest,features[not_indicies].reshape(-1,fdim))
+        return dist
         
-    def update_arguments(self,fingerprint=None,reduce_dimensions=None,use_derivatives=None,use_fingerprint=None,npoints=None,initial_indicies=None,include_last=None,point_interest=None,**kwargs):
+    def update_arguments(self,fingerprint=None,reduce_dimensions=None,use_derivatives=None,use_fingerprint=None,npoints=None,initial_indicies=None,include_last=None,feature_distance=None,point_interest=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
 
@@ -586,8 +874,10 @@ class DatabasePointsInterest(DatabaseLast):
                 Number of points that are used from the database.
             initial_indicies : list
                 The indicies of the data points that must be included in the used data base.
-            include_last : bool
-                Whether to include the last data point in the used data base.
+            include_last : int
+                Number of last data point to include in the used data base.
+            feature_distance : bool
+                Whether to calculate the distance in feature space (True) or Cartesian coordinate space (False).
             point_interest : list
                 A list of the points of interest as ASE Atoms instances. 
 
@@ -613,10 +903,16 @@ class DatabasePointsInterest(DatabaseLast):
         if initial_indicies is not None:
             self.initial_indicies=np.array(initial_indicies,dtype=int)
         if include_last is not None:
-            self.include_last=include_last
+            self.include_last=int(abs(include_last))
+        if feature_distance is not None:
+            self.feature_distance=feature_distance
         if point_interest is not None:
             self.point_interest=[atoms.copy() for atoms in point_interest]
             self.fp_interest=[self.make_atoms_feature(atoms) for atoms in self.point_interest]
+        # Check that too many last points are not included
+        n_extra=self.npoints-len(self.initial_indicies)
+        if self.include_last>n_extra:
+            self.include_last=n_extra if n_extra>=0 else 0
         # Check that the database and the fingerprint have the same attributes
         self.check_attributes()
         # Reset the database if an argument has been changed
@@ -633,17 +929,15 @@ class DatabasePointsInterest(DatabaseLast):
             return super().make_reduction(all_indicies,**kwargs)
         # Get the fixed indicies
         indicies=self.get_initial_indicies()
-        # Include the last point
-        if self.include_last:
-            indicies=np.append(indicies,[all_indicies[-1]])
-        # Get all the features
-        features=self.get_all_feature_vectors()
-        features_interest=self.get_feature_interest()
-        fdim=len(features[0])
         # Get the indicies for the system not already included
-        not_indicies=np.array([j for j in all_indicies if j not in indicies])
-        # Calculate the minimum distances to the points of interest
-        dist=cdist(features_interest,features[not_indicies].reshape(-1,fdim))
+        not_indicies=self.get_not_indicies(indicies,all_indicies)
+        # Include the last point
+        indicies=self.get_last_indicies(indicies,not_indicies)
+        # Get the indicies for the system not already included
+        not_indicies=np.array(self.get_not_indicies(indicies,all_indicies))
+        # Calculate the distances to the points of interest
+        dist=self.get_distances(not_indicies)
+        # Get the minimum distances to the points of interest
         dist=np.min(dist,axis=0)
         i_min=np.argsort(dist)[:int(self.npoints-len(indicies))]
         # Get the indicies
@@ -660,6 +954,7 @@ class DatabasePointsInterest(DatabaseLast):
                         npoints=self.npoints,
                         initial_indicies=self.initial_indicies,
                         include_last=self.include_last,
+                        feature_distance=self.feature_distance,
                         point_interest=self.point_interest)
         # Get the constants made within the class
         constant_kwargs=dict(update_indicies=self.update_indicies)
@@ -672,7 +967,7 @@ class DatabasePointsInterest(DatabaseLast):
     
 
 class DatabasePointsInterestEach(DatabasePointsInterest):
-    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=True,point_interest=[],**kwargs):
+    def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=1,feature_distance=True,point_interest=[],**kwargs):
         """ 
         Database of ASE atoms objects that are converted into fingerprints and targets. 
         The used Database is a reduced set of the full Database. 
@@ -692,8 +987,10 @@ class DatabasePointsInterestEach(DatabasePointsInterest):
                 Number of points that are used from the database.
             initial_indicies : list
                 The indicies of the data points that must be included in the used data base.
-            include_last : bool
-                Whether to include the last data point in the used data base.
+            include_last : int
+                Number of last data point to include in the used data base.
+            feature_distance : bool
+                Whether to calculate the distance in feature space (True) or Cartesian coordinate space (False).
             point_interest : list
                 A list of the points of interest as ASE Atoms instances. 
         """
@@ -704,6 +1001,7 @@ class DatabasePointsInterestEach(DatabasePointsInterest):
                          npoints=npoints,
                          initial_indicies=initial_indicies,
                          include_last=include_last,
+                         feature_distance=feature_distance,
                          point_interest=point_interest,
                          **kwargs)
         
@@ -714,18 +1012,16 @@ class DatabasePointsInterestEach(DatabasePointsInterest):
             return super().make_reduction(all_indicies,**kwargs)
         # Get the fixed indicies
         indicies=self.get_initial_indicies()
-        # Include the last point
-        if self.include_last:
-            indicies=np.append(indicies,[all_indicies[-1]])
-        # Get all the features
-        features=self.get_all_feature_vectors()
-        features_interest=self.get_feature_interest()
-        fdim=len(features[0])
-        n_points_interest=len(features_interest)
         # Get the indicies for the system not already included
-        not_indicies=np.array([j for j in all_indicies if j not in indicies])
+        not_indicies=self.get_not_indicies(indicies,all_indicies)
+        # Include the last point
+        indicies=self.get_last_indicies(indicies,not_indicies)
+        # Get the indicies for the system not already included
+        not_indicies=np.array(self.get_not_indicies(indicies,all_indicies))
         # Calculate the distances to the points of interest
-        dist=cdist(features_interest,features[not_indicies].reshape(-1,fdim))
+        dist=self.get_distances(not_indicies)
+        # Get the number of points of interest
+        n_points_interest=len(dist)
         # Iterate over the points of interests
         p=0
         while len(indicies)<self.npoints:

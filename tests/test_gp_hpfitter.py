@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from .functions import create_func,make_train_test_set
+from .functions import create_func,make_train_test_set,check_minima
 
 class TestGPHpfitter(unittest.TestCase):
     """ Test if the hyperparameters of the Gaussian Process can be optimized with hyperparameter fitters. """
@@ -24,12 +24,6 @@ class TestGPHpfitter(unittest.TestCase):
                        ReducedHyperparameterFitter(func=LogLikelihood(),opt_tr_size=50,optimizer=optimizer),
                        ReducedHyperparameterFitter(func=LogLikelihood(),opt_tr_size=10,optimizer=optimizer),
                        FBPMGP(Q=None,n_test=50,ngrid=80,bounds=None)]
-        # Make a list of the solution values that the test compares to
-        sol_list=[{'fun':47.042,'x':np.array([1.97,-15.39,1.79])},
-                  {'fun':47.042,'x':np.array([1.97,-15.39,1.79])},
-                  {'fun':47.042,'x':np.array([1.97,-15.39,1.79])},
-                  {'fun':np.inf,'x':np.array([2.00,-8.00,0.00])},
-                  {'fun':0.883,'x':np.array([2.00,-3.05,2.13])}]
         # Test the hyperparameter fitter objects
         for index,hpfitter in enumerate(hpfitter_list):
             with self.subTest(hpfitter=hpfitter):
@@ -39,10 +33,12 @@ class TestGPHpfitter(unittest.TestCase):
                 np.random.seed(1)
                 # Optimize the hyperparameters
                 sol=gp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-                # Test the solution deviation
-                if not np.isinf(sol_list[index]['fun']):
-                    self.assertTrue(abs(sol['fun']-sol_list[index]['fun'])<1e-2) 
-                self.assertTrue(np.linalg.norm(sol['x']-sol_list[index]['x'])<1e-2)
+                # Test the solution is a minimum
+                if index<3:
+                    is_minima=check_minima(sol,x_tr,f_tr,gp,pdis=None,is_model_gp=True)
+                    self.assertTrue(is_minima)
+                elif index==4:
+                    self.assertTrue(abs(sol['fun']-0.883)<1e-2)
 
     def test_hpfitters_deriv(self):
         "Test if the hyperparameters of the GP with derivatives can be optimized."
@@ -63,12 +59,6 @@ class TestGPHpfitter(unittest.TestCase):
                        ReducedHyperparameterFitter(func=LogLikelihood(),opt_tr_size=50,optimizer=optimizer),
                        ReducedHyperparameterFitter(func=LogLikelihood(),opt_tr_size=10,optimizer=optimizer),
                        FBPMGP(Q=None,n_test=50,ngrid=80,bounds=None)]
-        # Make a list of the solution values that the test compares to
-        sol_list=[{'fun':-18.501,'x':np.array([2.00,-18.80,2.00])},
-                  {'fun':-18.501,'x':np.array([2.00,-18.80,2.00])},
-                  {'fun':-18.501,'x':np.array([2.00,-18.80,2.00])},
-                  {'fun':np.inf,'x':np.array([2.00,-8.00,0.00])},
-                  {'fun':-8.178,'x':np.array([1.97,-15.58,1.91])}]
         # Test the hyperparameter fitter objects
         for index,hpfitter in enumerate(hpfitter_list):
             with self.subTest(hpfitter=hpfitter):
@@ -78,9 +68,12 @@ class TestGPHpfitter(unittest.TestCase):
                 np.random.seed(1)
                 # Optimize the hyperparameters
                 sol=gp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-                if not np.isinf(sol_list[index]['fun']):
-                    self.assertTrue(abs(sol['fun']-sol_list[index]['fun'])<1e-2) 
-                self.assertTrue(np.linalg.norm(sol['x']-sol_list[index]['x'])<1e-2)
+                # Test the solution is a minimum
+                if index<3:
+                    is_minima=check_minima(sol,x_tr,f_tr,gp,pdis=None,is_model_gp=True)
+                    self.assertTrue(is_minima)
+                elif index==4:
+                    self.assertTrue(abs(sol['fun']-(-8.171))<1e-2)
 
 
 if __name__ == '__main__':

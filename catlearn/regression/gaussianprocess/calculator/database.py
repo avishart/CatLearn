@@ -237,6 +237,18 @@ class Database:
                                 use_negative_forces=self.use_negative_forces)
         self.targets.append(target)
         return self
+    
+    def get_use_derivatives(self):
+        " Get whether the derivatives of the targets are used. "
+        return self.use_derivatives
+
+    def get_reduce_dimensions(self):
+        " Get whether the reduction of the fingerprint space is used if constrains are used. "
+        return self.reduce_dimensions
+    
+    def get_use_fingerprint(self):
+        " Get whether a fingerprint is used as the features. "
+        return self.use_fingerprint
 
     def update_arguments(self,fingerprint=None,reduce_dimensions=None,use_derivatives=None,use_fingerprint=None,**kwargs):
         """
@@ -284,7 +296,7 @@ class Database:
 
     def check_attributes(self):
         " Check if all attributes agree between the class and subclasses. "
-        if self.reduce_dimensions!=self.fingerprint.reduce_dimensions:
+        if self.reduce_dimensions!=self.fingerprint.get_reduce_dimensions():
             raise Exception('Database and Fingerprint do not agree whether to reduce dimensions!')
         return True
     

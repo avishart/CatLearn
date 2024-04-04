@@ -3,19 +3,19 @@ from ase.io import read
 from ase.io.trajectory import TrajectoryWriter
 from ase.parallel import world,broadcast
 import datetime
-from .neb.improvedneb import ImprovedTangentNEB
+from .neb.ewneb import EWNEB
 
 class MLNEB:
     def __init__(self,start,end,ase_calc,mlcalc=None,acq=None,
                  interpolation='idpp',interpolation_kwargs=dict(),
-                 climb=True,neb_method=ImprovedTangentNEB,neb_kwargs=dict(),n_images=15,
+                 climb=True,neb_method=EWNEB,neb_kwargs=dict(),n_images=15,
                  prev_calculations=None,use_database_check=True,
                  use_restart_path=True,check_path_unc=True,check_path_fmax=True,
                  use_low_unc_ci=True,save_memory=False,
                  apply_constraint=True,force_consistent=None,scale_fmax=0.8,
                  local_opt=None,local_opt_kwargs=dict(),
                  trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',
-                 tabletxt=None,full_output=False,**kwargs):
+                 tabletxt='mlneb_summary.txt',full_output=False,**kwargs):
         """ 
         Nudged elastic band (NEB) with Machine Learning as active learning.
 
@@ -170,7 +170,7 @@ class MLNEB:
         self.use_prev_calculations(prev_calculations)
               
 
-    def run(self,fmax=0.05,unc_convergence=0.05,steps=500,ml_steps=1500,max_unc=0.25,**kwargs):
+    def run(self,fmax=0.05,unc_convergence=0.05,steps=200,ml_steps=1500,max_unc=0.25,**kwargs):
         """ 
         Run the active learning NEB process. 
 
@@ -191,7 +191,7 @@ class MLNEB:
         """
         # Active learning parameters
         candidate=None
-        self.acq.set_parameters(unc_convergence=unc_convergence)
+        self.acq.update_arguments(unc_convergence=unc_convergence)
         self.trajectory_neb=TrajectoryWriter(self.trajectory,mode='w',properties=['energy','forces'])
         # Define the last images that can be used to restart the interpolation
         self.last_images=self.make_interpolation(interpolation=self.interpolation)
@@ -248,6 +248,9 @@ class MLNEB:
         from .interpolate_band import make_interpolation
         # Make the interpolation path
         images=make_interpolation(self.start.copy(),self.end.copy(),n_images=self.n_images,method=interpolation,**self.interpolation_kwargs)
+        # Check interpolation has the right number of images
+        if len(images)!=self.n_images:
+            raise Exception('The interpolated path has the wrong number of images!')
         # Attach the ML calculator to all images
         images=self.attach_mlcalc(images)
         return images
@@ -471,7 +474,7 @@ class MLNEB:
                 neb_opt,images=self.mlneb_opt_no_max_unc(neb_opt,images,fmax=fmax,ml_steps=ml_steps,climb=climb,**kwargs)
             else:
                 # Stop the MLNEB if the uncertainty becomes too large
-                neb_opt,images=self.mlneb_opt_max_unc(neb_opt,images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc,climb=climb,**kwargs)
+                neb_opt,images=self.mlneb_opt_max_unc(neb_opt,images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc,unc_convergence=unc_convergence,climb=climb,**kwargs)
             # Check if the MLNEB is converged
             converged=neb_opt.converged()
             # Check the number of iterations used
@@ -493,18 +496,17 @@ class MLNEB:
             self.last_images_tmp=[image.copy() for image in images]
         return neb_opt,images
     
-    def mlneb_opt_max_unc(self,neb_opt,images,fmax=0.05,ml_steps=750,max_unc=0.25,climb=False,**kwargs):
+    def mlneb_opt_max_unc(self,neb_opt,images,fmax=0.05,ml_steps=750,max_unc=0.25,unc_convergence=0.05,climb=False,**kwargs):
         " Run the MLNEB, but stop it if the uncertainty becomes too large. "
         for i in range(1,ml_steps+1):
-            # Make backup of images before NEB step that can be used as a restart interpolation
-            if not climb:
-                self.last_images_tmp=[image.copy() for image in images]
             # Run the NEB on the surrogate surface
             neb_opt.run(fmax=fmax,steps=i)
             # Calculate energy and uncertainty
             energy_path,unc_path=self.get_predictions(images)
+            # Get the maximum uncertainty of the path
+            max_unc_path=np.max(unc_path)
             # Check if the uncertainty is too large
-            if np.max(unc_path)>=max_unc:
+            if max_unc_path>=max_unc:
                 self.message_system('NEB on surrogate surface stopped due to high uncertainty!')
                 break
             # Check if there is a problem with prediction
@@ -514,10 +516,11 @@ class MLNEB:
                     image.get_forces()
                 self.message_system('Stopped due to NaN value in prediction!')
                 break
+            # Make backup of images before the next NEB step, which can be used as a restart interpolation
+            if not climb and (not self.check_path_unc or max_unc_path<=unc_convergence):
+                self.last_images_tmp=[image.copy() for image in images]
             # Check if the NEB is converged on the predicted surface
             if neb_opt.converged():
-                if not climb:
-                    self.last_images_tmp=[image.copy() for image in images]
                 break
         return neb_opt,images
 

@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.spatial.distance import cdist
 from .clustering import Clustering
 
 class K_means(Clustering):
@@ -6,6 +7,7 @@ class K_means(Clustering):
         """
         Clustering class object for data sets.
         The K-means++ algorithm for clustering.
+
         Parameters:
             metric : str
                 The metric used to calculate the distances of the data.
@@ -16,6 +18,10 @@ class K_means(Clustering):
             tol : float
                 The tolerance before the cluster fit is converged.
         """
+        # Set default descriptors
+        self.centroids=np.array([])
+        self.n_clusters=1
+        # Set the arguments
         super().__init__(metric=metric,
                          n_clusters=n_clusters,
                          maxiter=maxiter,
@@ -34,9 +40,31 @@ class K_means(Clustering):
         # Return the cluster indicies
         return self.cluster(X)
     
+    def cluster(self,X,**kwargs):
+        indicies=np.arange(len(X))
+        i_min=np.argmin(self.calculate_distances(X,self.centroids),axis=1)
+        return [indicies[i_min==ki] for ki in range(self.n_clusters)]
+    
+    def set_centroids(self,centroids,**kwargs):
+        """
+        Set user defined centroids. 
+
+        Parameters:
+            centroids : (K,D) array
+                An array with the centroids of the K clusters. 
+                The centroids must have the same dimensions as the features.
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.centroids=centroids.copy()
+        self.n_clusters=len(self.centroids)
+        return self
+    
     def update_arguments(self,metric=None,n_clusters=None,maxiter=None,tol=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
+
         Parameters:
             metric : str
                 The metric used to calculate the distances of the data.
@@ -46,6 +74,7 @@ class K_means(Clustering):
                 The maximum number of iterations used to fit the clusters.
             tol : float
                 The tolerance before the cluster fit is converged.
+                
         Returns:
             self: The updated object itself.
         """
@@ -58,6 +87,10 @@ class K_means(Clustering):
         if tol is not None:
             self.tol=tol
         return self
+    
+    def calculate_distances(self,Q,X,**kwargs):
+        " Calculate the distances. "
+        return cdist(Q,X,metric=self.metric)
     
     def initiate_centroids(self,X,**kwargs):
         " Initial the centroids from the K-mean++ method. "

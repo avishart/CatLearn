@@ -1,15 +1,19 @@
 import numpy as np
+from ..means.constant import Prior_constant
 
 class EnsembleModel:
-    def __init__(self,model=None,use_variance_ensemble=True,use_same_prior_mean=True,**kwargs):
+    def __init__(self,model=None,use_variance_ensemble=True,use_softmax=False,use_same_prior_mean=True,**kwargs):
         """
         Ensemble model of machine learning models.
         Parameters:
             model : Model
                 The Machine Learning Model with kernel and prior that are optimized.
             use_variance_ensemble : bool
-                Whether to use the predicted variances to weight the predictions.
+                Whether to use the predicted inverse variances to weight the predictions.
                 Else an average of the predictions is used.
+            use_softmax : bool
+                Whether to use the softmax of the predicted inverse variances as weights. 
+                It is only active if use_variance_ensemble=True, too.
             use_same_prior_mean : bool
                 Whether to use the same prior mean for all models.
         """
@@ -20,6 +24,7 @@ class EnsembleModel:
         # Set the arguments
         self.update_arguments(model=model,
                               use_variance_ensemble=use_variance_ensemble,
+                              use_softmax=use_softmax,
                               use_same_prior_mean=use_same_prior_mean,
                               **kwargs)
         
@@ -184,7 +189,15 @@ class EnsembleModel:
         """
         raise NotImplementedError()
     
-    def update_arguments(self,model=None,use_variance_ensemble=None,use_same_prior_mean=None,**kwargs):
+    def get_use_derivatives(self):
+        " Get whether the derivatives of the targets are used. "
+        return self.model.get_use_derivatives()
+    
+    def get_use_fingerprint(self):
+        " Get whether a fingerprint is used as the features. "
+        return self.model.get_use_fingerprint()
+    
+    def update_arguments(self,model=None,use_variance_ensemble=None,use_softmax=None,use_same_prior_mean=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
         Parameters:
@@ -193,6 +206,9 @@ class EnsembleModel:
             use_variance_ensemble : bool
                 Whether to use the predicted variances to weight the predictions.
                 Else an average of the predictions is used.
+            use_softmax : bool
+                Whether to use the softmax of the predicted inverse variances as weights. 
+                It is only active if use_variance_ensemble=True, too.
             use_same_prior_mean : bool
                 Whether to use the same prior mean for all models.
         Returns:
@@ -203,8 +219,12 @@ class EnsembleModel:
             # Set descriptor of the ensemble model
             self.n_models=1
             self.models=[]
+            # Get the prior mean instance
+            self.prior=self.model.prior.copy()
         if use_variance_ensemble is not None:
             self.use_variance_ensemble=use_variance_ensemble
+        if use_softmax is not None:
+            self.use_softmax=use_softmax
         if use_same_prior_mean is not None:
             self.use_same_prior_mean=use_same_prior_mean
         return self
@@ -270,18 +290,12 @@ class EnsembleModel:
         # Default predictions
         var_predict=None
         var_deriv=None
-        if var_preds is None:
-            raise Exception('The predicted variance is missing!')
-        # Use the predicted variance to weight predictions
-        var_coef=1.0/var_preds[:,:,0:1]#.reshape(len(var_preds),len(var_preds[0]),1)
-        var_norma=np.sum(var_coef,axis=0)
-        weights=var_coef/var_norma
+        # Calculate the weights
+        weights,weights_deriv=self.get_weights(var_preds,var_derivs,get_derivatives)
         # Calculate the prediction mean
         Y_predict=np.sum(weights*Y_preds,axis=0)
         # Calculate the derivative of the prediction mean
         if get_derivatives:
-            # Calculate the derivative of the weights
-            weights_deriv=weights*((-var_coef*var_derivs)+np.sum(weights*var_coef*var_derivs,axis=0))
             # Add extra contribution to derivative of the prediction mean from weights derivative
             Y_predict[:,1:]+=np.sum(Y_preds[:,:,0:1]*weights_deriv,axis=0)
         # Calculate the predicted variance
@@ -296,6 +310,27 @@ class EnsembleModel:
             var_deriv+=np.sum(var_preds[:,:,0:1]*weights_deriv,axis=0)
         return Y_predict,var_predict,var_deriv
     
+    def get_weights(self,var_preds=None,var_derivs=None,get_derivatives=False,**kwargs):
+        " Calculate the weights. "
+        weights_deriv=None
+        if var_preds is None:
+            raise Exception('The predicted variance is missing!')
+        # Use the predicted variance to weight predictions
+        if self.use_softmax:
+            var_coef=np.exp(-var_preds[:,:,0:1])
+        else:
+            var_coef=1.0/var_preds[:,:,0:1]
+        # Normalize the weights
+        weights=var_coef/np.sum(var_coef,axis=0)
+        # Calculate the derivative of the prediction mean
+        if get_derivatives:
+            # Calculate the derivative of the weights
+            if self.use_softmax:
+                weights_deriv=weights*(np.sum(weights*var_derivs,axis=0)-var_derivs)
+            else:
+                weights_deriv=weights*(np.sum(weights*var_coef*var_derivs,axis=0)-(var_coef*var_derivs))
+        return weights,weights_deriv
+    
     def get_models(self,**kwargs):
         " Get the models. "
         return [model.copy() for model in self.models]
@@ -303,9 +338,9 @@ class EnsembleModel:
     def set_same_prior_mean(self,model,features,targets,**kwargs):
         " Set the same prior mean constant for the models. "
         if self.use_same_prior_mean:
-            from ..means.constant import Prior_constant
-            ymean=np.mean(targets[:,0])
-            model.update_arguments(prior=Prior_constant(yp=ymean))
+            self.prior.update(features,targets,**kwargs)
+            prior_parameters=self.prior.get_parameters()
+            model.update_arguments(prior=Prior_constant(**prior_parameters))
         return model
         
     def get_arguments(self):
@@ -313,6 +348,7 @@ class EnsembleModel:
         # Get the arguments given to the class in the initialization
         arg_kwargs=dict(model=self.model,
                         use_variance_ensemble=self.use_variance_ensemble,
+                        use_softmax=self.use_softmax,
                         use_same_prior_mean=self.use_same_prior_mean)
         # Get the constants made within the class
         constant_kwargs=dict(n_models=self.n_models)

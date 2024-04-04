@@ -1,11 +1,7 @@
 import numpy as np
-from .improvedneb import ImprovedTangentNEB
+from .ewneb import EWNEB
 
-class EWNEB(ImprovedTangentNEB):
-    def __init__(self,images,k=0.1,kl_scale=0.1,use_minimum=False,climb=False,remove_rotation_and_translation=False,**kwargs):
-        super().__init__(images,k=k,climb=climb,remove_rotation_and_translation=remove_rotation_and_translation,**kwargs)
-        self.kl_scale=kl_scale
-        self.use_minimum=use_minimum
+class AvgEWNEB(EWNEB):
     
     def get_parallel_forces(self,tangent,pos_p,pos_m,**kwargs):
         energies=self.get_energies()
@@ -16,8 +12,10 @@ class EWNEB(ImprovedTangentNEB):
         emax=np.max(energies)
         k_l=self.k*self.kl_scale
         if e0<emax:
-            a=(emax-energies[:-1])/(emax-e0)
-            k=np.where(a<1.0,(1.0-a)*self.k+a*k_l,k_l)
+            a=(emax-energies)/(emax-e0)
+            a=np.where(a<1.0,a,1.0)
+            a=0.5*(a[1:]+a[:-1])
+            k=((1.0-a)*self.k)+(a*k_l)
         else:
             k=k_l.copy()
         forces_parallel=(k[1:]*np.linalg.norm(pos_p,axis=(1,2)))-(k[:-1]*np.linalg.norm(pos_m,axis=(1,2)))

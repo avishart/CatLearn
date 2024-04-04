@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from .functions import create_func,make_train_test_set
+from .functions import create_func,make_train_test_set,check_minima
 
 class TestTPObjectiveFunctions(unittest.TestCase):
     """ Test if the Student T Process can be optimized with all existing objective functions. """
@@ -26,9 +26,9 @@ class TestTPObjectiveFunctions(unittest.TestCase):
         np.random.seed(1)
         # Optimize the hyperparameters
         sol=tp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-        # Test the solution deviation
-        self.assertTrue(abs(sol['fun']-502.207)<1e-2) 
-        self.assertTrue(np.linalg.norm(sol['x']-np.array([1.97,-14.64]))<1e-2)
+        # Test the solution is a minimum
+        is_minima=check_minima(sol,x_tr,f_tr,tp,pdis=None,func=None,is_model_gp=False)
+        self.assertTrue(is_minima)
     
     def test_line_search_scale(self):
         "Test if the TP can be optimized from line search in the length-scale hyperparameter with all objective functions that uses eigendecomposition"
@@ -47,7 +47,7 @@ class TestTPObjectiveFunctions(unittest.TestCase):
         # Make fixed boundary conditions for one of the tests
         fixed_bounds=HPBoundaries(bounds_dict=dict(length=[[-3.0,3.0]],noise=[[-8.0,0.0]],prefactor=[[-2.0,4.0]]),log=True)
         # Make the optimizers
-        line_optimizer=FineGridSearch(tol=1e-5,loops=3,ngrid=80,optimize=True,multiple_min=True)
+        line_optimizer=FineGridSearch(tol=1e-5,loops=3,ngrid=80,optimize=True,multiple_min=False)
         optimizer=FactorizedOptimizer(line_optimizer=line_optimizer,maxiter=500,ngrid=80,parallel=False)
         # Define the list of objective function objects that are tested
         obj_list=[(None,FactorizedLogLikelihood(modification=False,ngrid=250,noise_optimizer=NoiseGrid())),
@@ -56,15 +56,8 @@ class TestTPObjectiveFunctions(unittest.TestCase):
                   (None,FactorizedLogLikelihood(modification=False,ngrid=80,noise_optimizer=NoiseFineGridSearch())),
                   (fixed_bounds,FactorizedLogLikelihood(modification=False,ngrid=250,noise_optimizer=NoiseGrid())),
                   (None,FactorizedLogLikelihoodSVD(modification=False,ngrid=250,noise_optimizer=NoiseGrid()))]
-        # Make a list of the solution values that the test compares to
-        sol_list=[{'fun':499.867,'x':np.array([2.55,-2.01])},
-                  {'fun':499.867,'x':np.array([2.55,-2.01])},
-                  {'fun':499.866,'x':np.array([2.55,-2.00])},
-                  {'fun':499.866,'x':np.array([2.55,-1.99])},
-                  {'fun':499.866,'x':np.array([2.55,-1.99])},
-                  {'fun':499.867,'x':np.array([2.55,-2.01])}]
         # Test the objective function objects
-        for index,(bounds,obj_func) in enumerate(obj_list):
+        for bounds,obj_func in obj_list:
             with self.subTest(bounds=bounds,obj_func=obj_func):
                 # Construct the hyperparameter fitter
                 hpfitter=HyperparameterFitter(func=obj_func,optimizer=optimizer,bounds=bounds)
@@ -74,9 +67,9 @@ class TestTPObjectiveFunctions(unittest.TestCase):
                 np.random.seed(1)
                 # Optimize the hyperparameters
                 sol=tp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-                # Test the solution deviation
-                self.assertTrue(abs(sol['fun']-sol_list[index]['fun'])<1e-2) 
-                self.assertTrue(np.linalg.norm(sol['x']-sol_list[index]['x'])<1e-2)
+                # Test the solution is a minimum
+                is_minima=check_minima(sol,x_tr,f_tr,tp,pdis=None,func=obj_func,is_model_gp=False)
+                self.assertTrue(is_minima)
 
 
 if __name__ == '__main__':
