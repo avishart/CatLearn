@@ -447,64 +447,67 @@ class MLNEB:
 
     def mlneb_opt(self,images,fmax=0.05,ml_steps=750,max_unc=0.25,unc_convergence=0.05,climb=False,**kwargs):
         " Run the ML NEB with checking uncertainties if selected. "
-        # Construct the NEB
-        neb=self.neb_method(images,climb=climb,**self.neb_kwargs)
-        with self.local_opt(neb,**self.local_opt_kwargs) as neb_opt:
-            # Run the MLNEB fully without consider the uncertainty
-            if max_unc==False or max_unc is None:
-                neb_opt,images=self.mlneb_opt_no_max_unc(neb_opt,images,fmax=fmax,ml_steps=ml_steps,climb=climb,**kwargs)
-            else:
-                # Stop the MLNEB if the uncertainty becomes too large
-                neb_opt,images=self.mlneb_opt_max_unc(neb_opt,images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc,unc_convergence=unc_convergence,climb=climb,**kwargs)
-            # Check if the MLNEB is converged
-            converged=neb_opt.converged()
-            # Check the number of iterations used
-            nsteps=neb_opt.nsteps
+        # Run the MLNEB fully without consider the uncertainty
+        if max_unc==False or max_unc is None:
+            images,converged=self.mlneb_opt_no_max_unc(images,fmax=fmax,ml_steps=ml_steps,climb=climb,**kwargs)
+        else:
+            # Stop the MLNEB if the uncertainty becomes too large
+            images,converged=self.mlneb_opt_max_unc(images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc,unc_convergence=unc_convergence,climb=climb,**kwargs)
         # Activate climbing when the NEB is converged
         if converged:
             self.message_system('NEB on surrogate surface converged!')
-            if not climb and nsteps<ml_steps and self.climb:
+            if not climb and self.climb:
                 # Check that the uncertainty is low enough to do CI-NEB if requested
                 if not self.use_low_unc_ci or np.max(self.get_predictions(images)[1])<=unc_convergence:
                     self.message_system('Starting NEB with climbing image on surrogate surface.')
-                    return self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps-nsteps,max_unc=max_unc,unc_convergence=unc_convergence,climb=True)
+                    return self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc,unc_convergence=unc_convergence,climb=True)
         return images,converged
     
-    def mlneb_opt_no_max_unc(self,neb_opt,images,fmax=0.05,ml_steps=750,climb=False,**kwargs):
+    def mlneb_opt_no_max_unc(self,images,fmax=0.05,ml_steps=750,climb=False,**kwargs):
         " Run the MLNEB fully without consider the uncertainty. "
-        neb_opt.run(fmax=fmax,steps=ml_steps)
-        if not climb:
-            self.last_images_tmp=[image.copy() for image in images]
-        return neb_opt,images
-    
-    def mlneb_opt_max_unc(self,neb_opt,images,fmax=0.05,ml_steps=750,max_unc=0.25,unc_convergence=0.05,climb=False,**kwargs):
-        " Run the MLNEB, but stop it if the uncertainty becomes too large. "
-        for i in range(1,ml_steps+1):
-            # Run the NEB on the surrogate surface
-            neb_opt.run(fmax=fmax,steps=i)
-            # Calculate energy and uncertainty
-            energy_path,unc_path=self.get_predictions(images)
-            # Get the maximum uncertainty of the path
-            max_unc_path=np.max(unc_path)
-            # Check if the uncertainty is too large
-            if max_unc_path>=max_unc:
-                self.message_system('NEB on surrogate surface stopped due to high uncertainty!')
-                break
-            # Check if there is a problem with prediction
-            if np.isnan(energy_path).any():
-                images=self.make_interpolation(interpolation=self.last_images_tmp)
-                for image in images:
-                    image.get_forces()
-                self.message_system('Stopped due to NaN value in prediction!')
-                break
-            # Make backup of images before the next NEB step, which can be used as a restart interpolation
-            if not climb and (not self.check_path_unc or max_unc_path<=unc_convergence):
+        # Construct the NEB
+        neb=self.neb_method(images,climb=climb,**self.neb_kwargs)
+        with self.local_opt(neb,**self.local_opt_kwargs) as neb_opt:
+            neb_opt.run(fmax=fmax,steps=ml_steps)
+            if not climb:
                 self.last_images_tmp=[image.copy() for image in images]
-            # Check if the NEB is converged on the predicted surface
-            if neb_opt.converged():
-                break
-        return neb_opt,images
-
+            # Check if the MLNEB is converged
+            converged=neb_opt.converged()
+        return images,converged
+    
+    def mlneb_opt_max_unc(self,images,fmax=0.05,ml_steps=750,max_unc=0.25,unc_convergence=0.05,climb=False,**kwargs):
+        " Run the MLNEB, but stop it if the uncertainty becomes too large. "
+        # Construct the NEB
+        neb=self.neb_method(images,climb=climb,**self.neb_kwargs)
+        with self.local_opt(neb,**self.local_opt_kwargs) as neb_opt:
+            for i in range(1,ml_steps+1):
+                # Run the NEB on the surrogate surface
+                neb_opt.run(fmax=fmax,steps=i)
+                # Calculate energy and uncertainty
+                energy_path,unc_path=self.get_predictions(images)
+                # Get the maximum uncertainty of the path
+                max_unc_path=np.max(unc_path)
+                # Check if the uncertainty is too large
+                if max_unc_path>=max_unc:
+                    self.message_system('NEB on surrogate surface stopped due to high uncertainty!')
+                    break
+                # Check if there is a problem with prediction
+                if np.isnan(energy_path).any():
+                    images=self.make_interpolation(interpolation=self.last_images_tmp)
+                    for image in images:
+                        image.get_forces()
+                    self.message_system('Stopped due to NaN value in prediction!')
+                    break
+                # Make backup of images before the next NEB step, which can be used as a restart interpolation
+                if not climb and (not self.check_path_unc or max_unc_path<=unc_convergence):
+                    self.last_images_tmp=[image.copy() for image in images]
+                # Check if the NEB is converged on the predicted surface
+                if neb_opt.converged():
+                    break
+            # Check if the MLNEB is converged
+            converged=neb_opt.converged()
+        return images,converged
+    
     def save_mlneb(self,images,**kwargs):
         " Save the ML NEB result in the trajectory. "
         self.images=[]
