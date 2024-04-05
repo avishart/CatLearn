@@ -257,51 +257,33 @@ class MLNEB:
     
     def make_reused_interpolation(self,unc_convergence,**kwargs):
         " Make the NEB interpolation path or use the previous path if it has low uncertainty. "
+        # Whether to reuse the previous path
+        reuse_path=True
         # Make the interpolation from the initial points
         if not self.use_restart_path or self.last_images_tmp is None:
             self.message_system('The initial interpolation is used as the initial path!')
-            return self.make_interpolation(interpolation=self.last_images)
-        else:
-            # Reuse the previous path
-            if self.check_path_unc and self.check_path_fmax:
-                uncmax_tmp,fmax_tmp=self.get_path_unc_fmax(interpolation=self.last_images_tmp)
+            reuse_path=False
+        elif self.check_path_unc or self.check_path_fmax:
+            # Get uncertainty and max perpendicular force
+            uncmax_tmp,fmax_tmp=self.get_path_unc_fmax(interpolation=self.last_images_tmp)
+            # Check uncertainty
+            if self.check_path_unc:
                 # Check if the uncertainty is too large
-                if uncmax_tmp<=unc_convergence:
-                    # Check if the perpendicular forces are less for the new path
-                    fmax_last=self.get_path_unc_fmax(interpolation=self.last_images)[1]
-                    if fmax_tmp<=fmax_last:
-                        self.message_system('The last path is used as the initial path!')
-                        self.last_images=[image.copy() for image in self.last_images_tmp]
-                        return self.make_interpolation(interpolation=self.last_images_tmp)
-                    else:
-                        self.last_images_tmp=None
-                        self.message_system('The previous last path is used as the initial path due to fmax!')
-                else:
+                if uncmax_tmp>unc_convergence:
+                    reuse_path=False
                     self.last_images_tmp=None
                     self.message_system('The previous last path is used as the initial path due to uncertainty!')
-            elif self.check_path_unc:
-                uncmax_tmp=self.get_path_unc_fmax(interpolation=self.last_images_tmp)[0]
-                # Check if the uncertainty is too large
-                if uncmax_tmp<=unc_convergence:
-                    self.message_system('The last path is used as the initial path!')
-                    self.last_images=[image.copy() for image in self.last_images_tmp]
-                    return self.make_interpolation(interpolation=self.last_images_tmp)
-                else:
-                    self.last_images_tmp=None
-                    self.message_system('The previous last path is used as the initial path due to uncertainty!')
-            elif self.check_path_fmax:
-                # Check if the perpendicular forces are less for the new path
-                fmax_tmp=self.get_path_unc_fmax(interpolation=self.last_images_tmp)[1]
+            # Check if the perpendicular force are less for the new path
+            if self.check_path_fmax and reuse_path:
                 fmax_last=self.get_path_unc_fmax(interpolation=self.last_images)[1]
-                if fmax_tmp<=fmax_last:
-                    self.message_system('The last path is used as the initial path!')
-                    self.last_images=[image.copy() for image in self.last_images_tmp]
-                    return self.make_interpolation(interpolation=self.last_images_tmp)
-                else:
+                if fmax_tmp>fmax_last:
+                    reuse_path=False
                     self.last_images_tmp=None
                     self.message_system('The previous last path is used as the initial path due to fmax!')
-            else:
-                self.message_system('The last path is used as the initial path!')
+        # Reuse the last path
+        if reuse_path:
+            self.message_system('The last path is used as the initial path!')
+            self.last_images=[image.copy() for image in self.last_images_tmp]
         return self.make_interpolation(interpolation=self.last_images)
 
     def attach_mlcalc(self,imgs,**kwargs):
