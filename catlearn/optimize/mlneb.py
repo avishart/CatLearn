@@ -352,9 +352,8 @@ class MLNEB:
 
     def train_mlmodel(self,**kwargs):
         " Train the ML model "
-        if self.save_memory:
-            if self.rank!=0:
-                return self.mlcalc
+        if self.save_memory and self.rank!=0:
+            return self.mlcalc
         # Update database with the points of interest
         self.update_database_arguments(point_interest=self.last_images[1:-1])
         # Train the ML model
