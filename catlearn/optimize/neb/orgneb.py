@@ -26,6 +26,7 @@ class OriginalNEB:
             self.k=k.copy()
         self.climb=climb
         self.remove_rotation_and_translation=remove_rotation_and_translation
+        self.reset()
 
     def interpolate(self,method='linear',mic=True,**kwargs):
         """
@@ -62,6 +63,7 @@ class OriginalNEB:
             positions : ((Nimg-2)*Natoms,3) array
                 Coordinates of all atoms in all the moving images.
         """
+        self.reset()
         for i,image in enumerate(self.images[1:-1]):
             image.set_positions(positions[i*self.natoms:(i+1)*self.natoms])
         pass
@@ -115,15 +117,26 @@ class OriginalNEB:
     
     def calculate_forces(self,**kwargs):
         " Calculate the forces for all the images separately. "
-        forces=np.array([image.get_forces() for image in self.images[1:-1]])
-        self.real_forces=np.zeros((self.nimages,self.natoms,3))
-        self.real_forces[1:-1]=forces.copy()
-        return forces
+        if self.real_forces is None:
+            self.calculate_properties()
+        return self.real_forces.copy()
     
     def get_energies(self,**kwargs):
         " Get the individual energy for each image. "
-        self.energies=np.array([image.get_potential_energy(**kwargs) for image in self.images])
+        if self.energies is None:
+            self.calculate_properties()
         return self.energies
+    
+    def calculate_properties(self,**kwargs):
+        " Calculate the energy and forces for each image. "
+        self.real_forces=[]
+        self.energies=[]
+        for image in self.images:
+            self.real_forces.append(image.get_forces())
+            self.energies.append(image.get_potential_energy())
+        self.real_forces=np.array(self.real_forces[1:-1])
+        self.energies=np.array(self.energies)
+        return self.energies,self.real_forces
     
     def emax(self,**kwargs):
         " Get maximum energy of the moving images. "
@@ -154,6 +167,12 @@ class OriginalNEB:
         # Sum them
         tangent=tangent_m+tangent_p
         return tangent/(np.linalg.norm(tangent,axis=(1,2)).reshape(-1,1,1))
+    
+    def reset(self):
+        " Reset the stored properties. "
+        self.energies=None
+        self.real_forces=None
+        return self
     
     def __len__(self):
         return int(self.nimages-2)*self.natoms
