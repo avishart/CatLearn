@@ -134,7 +134,7 @@ class MLNEB:
             mlmodel=get_default_mlmodel(model='tp',prior=prior,fp=fp,baseline=None,use_derivatives=True,parallel=(not save_memory),database_reduction=False)
             self.mlcalc=MLCalculator(mlmodel=mlmodel)
         else:
-            self.mlcalc=mlcalc.copy()
+            self.mlcalc=mlcalc
         # Whether to have the full output
         self.full_output=full_output  
         self.set_verbose(verbose=full_output)
