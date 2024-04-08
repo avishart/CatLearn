@@ -120,7 +120,7 @@ class MLGO:
             mlmodel=get_default_mlmodel(model='gp',fp=fp,baseline=Repulsion_calculator(power=4),use_derivatives=True,parallel=(not save_memory),database_reduction=False)
             self.mlcalc=MLCalculator(mlmodel=mlmodel)
         else:
-            self.mlcalc=mlcalc.copy()
+            self.mlcalc=mlcalc
         self.set_verbose(verbose=full_output)
         # Select an acquisition function 
         if acq is None:
