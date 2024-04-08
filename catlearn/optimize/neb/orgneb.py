@@ -119,7 +119,7 @@ class OriginalNEB:
         " Calculate the forces for all the images separately. "
         if self.real_forces is None:
             self.calculate_properties()
-        return self.real_forces.copy()
+        return self.real_forces[1:-1].copy()
     
     def get_energies(self,**kwargs):
         " Get the individual energy for each image. "
@@ -129,13 +129,12 @@ class OriginalNEB:
     
     def calculate_properties(self,**kwargs):
         " Calculate the energy and forces for each image. "
-        self.real_forces=[]
-        self.energies=[]
-        for image in self.images:
-            self.real_forces.append(image.get_forces())
-            self.energies.append(image.get_potential_energy())
-        self.real_forces=np.array(self.real_forces[1:-1])
-        self.energies=np.array(self.energies)
+        self.real_forces=np.zeros((self.nimages,self.natoms,3))
+        self.energies=np.zeros((self.nimages))
+        for i,image in enumerate(self.images):
+            if (not i==0) or (not i==self.nimages-1):
+                self.real_forces[i]=image.get_forces().copy()
+            self.energies[i]=image.get_potential_energy()
         return self.energies,self.real_forces
     
     def emax(self,**kwargs):
@@ -188,5 +187,5 @@ class OriginalNEB:
                 yield atoms
             else:
                 atoms=atoms.copy()
-                self.freeze_results_on_image(atoms,energy=self.energies[i],forces=self.real_forces[i])
-                yield atoms
+                atoms=self.freeze_results_on_image(atoms,energy=self.energies[i],forces=self.real_forces[i])
+            yield atoms
