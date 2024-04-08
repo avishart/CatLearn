@@ -4,6 +4,8 @@ from ase.io.trajectory import TrajectoryWriter
 from ase.parallel import world,broadcast
 import datetime
 from .neb.ewneb import EWNEB
+from .neb.nebimage import NEBImage
+from ..regression.gaussianprocess.calculator.copy_atoms import copy_atoms
 
 class MLNEB:
     def __init__(self,start,end,ase_calc,mlcalc=None,acq=None,
@@ -192,29 +194,29 @@ class MLNEB:
         # Active learning parameters
         candidate=None
         self.acq.update_arguments(unc_convergence=unc_convergence)
-        self.trajectory_neb=TrajectoryWriter(self.trajectory,mode='w',properties=['energy','forces'])
         # Define the last images that can be used to restart the interpolation
         self.last_images=self.make_interpolation(interpolation=self.interpolation)
         self.last_images_tmp=None
         # Calculate a extra data point if only start and end is given
         self.extra_initial_data()
-        # Run the active learning
-        for step in range(1,steps+1):
-            # Train and optimize ML model
-            self.train_mlmodel()
-            # Perform NEB on ML surrogate surface
-            candidate,neb_converged=self.run_mlneb(fmax=fmax*self.scale_fmax,ml_steps=ml_steps,max_unc=max_unc,unc_convergence=unc_convergence)
-            # Evaluate candidate
-            self.evaluate(candidate)
-            # Print the results for this iteration
-            self.print_statement(step)
-            # Check convergence
-            self.converging=self.check_convergence(fmax,unc_convergence,neb_converged)
-            if self.converging:
-                break
-        if self.converging==False:
-            self.message_system('MLNEB did not converge!')
-        self.trajectory_neb.close()
+        # Save MLNEB path trajectory
+        with TrajectoryWriter(self.trajectory,mode='w',properties=['energy','forces','uncertainty']) as self.trajectory_neb:
+            # Run the active learning
+            for step in range(1,steps+1):
+                # Train and optimize ML model
+                self.train_mlmodel()
+                # Perform NEB on ML surrogate surface
+                candidate,neb_converged=self.run_mlneb(fmax=fmax*self.scale_fmax,ml_steps=ml_steps,max_unc=max_unc,unc_convergence=unc_convergence)
+                # Evaluate candidate
+                self.evaluate(candidate)
+                # Print the results for this iteration
+                self.print_statement(step)
+                # Check convergence
+                self.converging=self.check_convergence(fmax,unc_convergence,neb_converged)
+                if self.converging:
+                    break
+            if self.converging==False:
+                self.message_system('MLNEB did not converge!')
         return self
 
     def set_up_endpoints(self,start,end,**kwargs):
@@ -229,18 +231,18 @@ class MLNEB:
         # Store the initial and final energy
         self.start_energy=start.get_potential_energy()
         self.end_energy=end.get_potential_energy()
-        self.start=start.copy()
-        self.end=end.copy()
+        self.start=copy_atoms(start)
+        self.end=copy_atoms(end)
         return 
 
     def use_prev_calculations(self,prev_calculations,**kwargs):
         " Use previous calculations to restart ML calculator."
-        if prev_calculations is None:
-            return
-        if isinstance(prev_calculations,str):
-            prev_calculations=read(prev_calculations,':')
-        # Add calculations to the ML model
-        self.add_training(prev_calculations)
+        if prev_calculations is not None:
+            # Use a trajectory file
+            if isinstance(prev_calculations,str):
+                prev_calculations=read(prev_calculations,':')
+            # Add calculations to the ML model
+            self.add_training(prev_calculations)
         return
 
     def make_interpolation(self,interpolation='idpp',**kwargs):
@@ -288,11 +290,12 @@ class MLNEB:
 
     def attach_mlcalc(self,imgs,**kwargs):
         " Attach the ML calculator to the given images. "
-        images=[]
-        for img in imgs:
+        images=[copy_atoms(self.start)]
+        for img in imgs[1:-1]:
             image=img.copy()
-            image.calc=self.mlcalc.copy()
-            images.append(image)
+            image.calc=self.mlcalc
+            images.append(NEBImage(image))
+        images.append(copy_atoms(self.end))
         return images
 
     def parallel_setup(self,save_memory=False,**kwargs):
@@ -324,7 +327,7 @@ class MLNEB:
         # Store the data
         self.max_abs_forces=np.nanmax(np.linalg.norm(forces,axis=1))
         self.add_training([candidate])
-        self.mlcalc.save_data(trajectory=self.trainingset)
+        self.save_data()
         return
 
     def add_training(self,atoms_list,**kwargs):
@@ -406,8 +409,8 @@ class MLNEB:
         " Calculate the energies and uncertainties with the ML calculator "
         energies=[]
         uncertainties=[]
-        for image in images:
-            uncertainties.append(image.calc.get_uncertainty(image))
+        for image in images[1:-1]:
+            uncertainties.append(image.get_property('uncertainty'))
             energies.append(image.get_potential_energy())
         return np.array(energies),np.array(uncertainties)
 
@@ -437,12 +440,12 @@ class MLNEB:
         self.umax_ml=np.nanmax(unc_path)
         self.umean_ml=np.mean(unc_path)
         # Calculate the acquisition function for each image
-        acq_values=self.acq.calculate(energy_path[1:-1],unc_path[1:-1])
+        acq_values=self.acq.calculate(energy_path,unc_path)
         # Chose the maximum value given by the Acq. class
-        i_min=self.acq.choose(acq_values)[0]
+        i_min=int(self.acq.choose(acq_values)[0])
         # The next training point
-        image=images[int(1+i_min)].copy()
-        self.energy_pred=energy_path[int(1+i_min)]
+        image=images[1+i_min].copy()
+        self.energy_pred=energy_path[i_min]
         return image
 
     def mlneb_opt(self,images,fmax=0.05,ml_steps=750,max_unc=0.25,unc_convergence=0.05,climb=False,**kwargs):
@@ -512,10 +515,15 @@ class MLNEB:
         " Save the ML NEB result in the trajectory. "
         self.images=[]
         for image in images:
-            image=self.mlcalc.copy_atoms(image)
+            image=copy_atoms(image)
             self.images.append(image)
             self.trajectory_neb.write(image)
         return self.images
+    
+    def save_data(self,**kwargs):
+        " Save the training data to trajectory file. "
+        self.mlcalc.save_data(trajectory=self.trainingset)
+        return 
     
     def get_barrier(self,forward=True,**kwargs):
         " Get the forward or backward predicted potential energy barrier. "
