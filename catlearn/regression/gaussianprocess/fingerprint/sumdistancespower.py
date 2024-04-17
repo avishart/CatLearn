@@ -6,6 +6,7 @@ class Sum_distances_power(Sum_distances):
         """ 
         Fingerprint constructer class that convert atoms object into a fingerprint object with vector and derivatives.
         The sum of inverse distance fingerprint scaled with covalent radii in different powers.
+
         Parameters:
             reduce_dimensions : bool
                 Whether to reduce the fingerprint space if constrains are used.
@@ -29,6 +30,7 @@ class Sum_distances_power(Sum_distances):
     def update_arguments(self,reduce_dimensions=None,use_derivatives=None,mic=None,power=None,use_roots=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
+
         Parameters:
             reduce_dimensions : bool
                 Whether to reduce the fingerprint space if constrains are used.
@@ -40,8 +42,9 @@ class Sum_distances_power(Sum_distances):
                 The power of the inverse distances.
             use_roots: bool
                 Whether to use roots of the power elements.
+
         Returns:
-            self: The updated object itself.
+            self: The updated instance itself.
         """
         if reduce_dimensions is not None:
             self.reduce_dimensions=reduce_dimensions

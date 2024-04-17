@@ -9,6 +9,7 @@ class Inv_distances(Fingerprint):
         """ 
         Fingerprint constructer class that convert atoms object into a fingerprint object with vector and derivatives.
         The inverse distance fingerprint constructer class where the sizes are sorted and scaled with covalent radii. 
+
         Parameters:
             reduce_dimensions : bool
                 Whether to reduce the fingerprint space if constrains are used.
@@ -29,6 +30,7 @@ class Inv_distances(Fingerprint):
     def update_arguments(self,reduce_dimensions=None,use_derivatives=None,mic=None,sorting=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
+        
         Parameters:
             reduce_dimensions : bool
                 Whether to reduce the fingerprint space if constrains are used.
@@ -38,8 +40,9 @@ class Inv_distances(Fingerprint):
                 Minimum Image Convention (Shortest distances when periodic boundary is used).
             sorting: bool
                 Whether to sort the inverse distances after size or not.
+
         Returns:
-            self: The updated object itself.
+            self: The updated instance itself.
         """
         if reduce_dimensions is not None:
             self.reduce_dimensions=reduce_dimensions

@@ -6,6 +6,7 @@ class Fingerprint:
     def __init__(self,reduce_dimensions=True,use_derivatives=True,mic=True,**kwargs):
         """ 
         Fingerprint constructer class that convert atoms object into a fingerprint object with vector and derivatives.
+
         Parameters:
             reduce_dimensions : bool
                 Whether to reduce the fingerprint space if constrains are used.
@@ -22,10 +23,12 @@ class Fingerprint:
         
     def __call__(self,atoms,**kwargs):
         """ 
-        Convert atoms to fingerprint and return the fingerprint object 
+        Convert atoms to fingerprint and return the fingerprint object.
+
         Parameters:
             atoms : ASE Atoms
                 The ASE Atoms object that are converted to a fingerprint.
+
         Returns:
             FingerprintObject: Object with the fingerprint array and its derivatives if requested.
         """
@@ -49,6 +52,7 @@ class Fingerprint:
     def update_arguments(self,reduce_dimensions=None,use_derivatives=None,mic=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
+
         Parameters:
             reduce_dimensions : bool
                 Whether to reduce the fingerprint space if constrains are used.
@@ -56,8 +60,9 @@ class Fingerprint:
                 Calculate and store derivatives of the fingerprint wrt. the cartesian coordinates.
             mic : bool
                 Minimum Image Convention (Shortest distances when periodic boundary is used).
+
         Returns:
-            self: The updated object itself.
+            self: The updated instance itself.
         """
         if reduce_dimensions is not None:
             self.reduce_dimensions=reduce_dimensions

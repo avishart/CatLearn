@@ -7,6 +7,7 @@ class Coulomb(Fingerprint):
         """ 
         Fingerprint constructer class that convert atoms object into a fingerprint object with vector and derivatives.
         The Coulomb matrix fingerprint is generated.
+        
         Parameters:
             reduce_dimensions : bool
                 Whether to reduce the fingerprint space if constrains are used.

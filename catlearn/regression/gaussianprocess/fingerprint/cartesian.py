@@ -6,6 +6,7 @@ class Cartesian(Fingerprint):
         """ 
         Fingerprint constructer class that convert atoms object into a fingerprint object with vector and derivatives.
         The cartesian coordinate fingerprint is generated.
+        
         Parameters:
             reduce_dimensions : bool
                 Whether to reduce the fingerprint space if constrains are used.
