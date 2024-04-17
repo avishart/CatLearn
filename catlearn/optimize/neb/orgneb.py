@@ -188,4 +188,4 @@ class OriginalNEB:
             else:
                 atoms=atoms.copy()
                 atoms=self.freeze_results_on_image(atoms,energy=self.energies[i],forces=self.real_forces[i])
-            yield atoms
+                yield atoms
