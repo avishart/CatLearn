@@ -411,6 +411,14 @@ class ModelProcess:
         """
         raise NotImplementedError()
     
+    def get_use_derivatives(self):
+        " Get whether the derivatives of the targets are used. "
+        return self.use_derivatives
+    
+    def get_use_fingerprint(self):
+        " Get whether a fingerprint is used as the features. "
+        return self.kernel.get_use_fingerprint()
+    
     def update_arguments(self,prior=None,kernel=None,hpfitter=None,hp={},use_derivatives=None,use_correction=None,**kwargs):
         """
         Update the Model Process Regressor with its arguments. The existing arguments are used if they are not given.
@@ -539,7 +547,7 @@ class ModelProcess:
 
     def check_attributes(self):
         " Check if all attributes agree between the class and subclasses. "
-        if self.use_derivatives!=self.kernel.use_derivatives:
+        if self.use_derivatives!=self.kernel.get_use_derivatives():
             raise Exception('The Model and the Kernel do not agree whether to use derivatives!')
         return True
 

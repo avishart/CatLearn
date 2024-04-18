@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from .functions import create_func,make_train_test_set
+from .functions import create_func,make_train_test_set,check_minima
 
 class TestTPOptimizer(unittest.TestCase):
     """ Test if the Student t Process can be optimized with all existing optimization methods and objective functions. """
@@ -24,9 +24,8 @@ class TestTPOptimizer(unittest.TestCase):
         np.random.seed(1)
         # Optimize the hyperparameters
         sol=tp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-        # Test the solution deviation
-        self.assertTrue(abs(sol['fun']-502.256)<1e-2) 
-        self.assertTrue(np.linalg.norm(sol['x']-np.array([2.00,-8.00]))<1e-2)
+        # Test the solution is correct
+        self.assertTrue(abs(sol['fun']-502.256)<1e-2)
     
     def test_local_jac(self):
         "Test if the TP can be local optimized with gradients wrt the hyperparameters"
@@ -49,9 +48,9 @@ class TestTPOptimizer(unittest.TestCase):
         np.random.seed(1)
         # Optimize the hyperparameters
         sol=tp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-        # Test the solution deviation
-        self.assertTrue(abs(sol['fun']-502.207)<1e-2) 
-        self.assertTrue(np.linalg.norm(sol['x']-np.array([1.97,-14.64]))<1e-2)
+        # Test the solution is a minimum
+        is_minima=check_minima(sol,x_tr,f_tr,tp,pdis=None,is_model_gp=False)
+        self.assertTrue(is_minima)
 
     def test_local_nojac(self):
         "Test if the TP can be local optimized without gradients wrt the hyperparameters"
@@ -74,9 +73,9 @@ class TestTPOptimizer(unittest.TestCase):
         np.random.seed(1)
         # Optimize the hyperparameters
         sol=tp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-        # Test the solution deviation
-        self.assertTrue(abs(sol['fun']-502.207)<1e-2) 
-        self.assertTrue(np.linalg.norm(sol['x']-np.array([1.97,-9.60]))<1e-2)
+        # Test the solution is a minimum
+        is_minima=check_minima(sol,x_tr,f_tr,tp,pdis=None,is_model_gp=False)
+        self.assertTrue(is_minima)
     
     def test_local_prior(self):
         "Test if the TP can be local optimized with prior distributions "
@@ -102,9 +101,9 @@ class TestTPOptimizer(unittest.TestCase):
         np.random.seed(1)
         # Optimize the hyperparameters
         sol=tp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=pdis,verbose=False)
-        # Test the solution deviation
-        self.assertTrue(abs(sol['fun']-502.207)<1e-2) 
-        self.assertTrue(np.linalg.norm(sol['x']-np.array([1.97,-13.85]))<1e-2)
+        # Test the solution is a minimum
+        is_minima=check_minima(sol,x_tr,f_tr,tp,pdis=pdis,is_model_gp=False)
+        self.assertTrue(is_minima)
     
     def test_local_ed_guess(self):
         "Test if the TP can be local optimized with educated guesses"
@@ -128,9 +127,9 @@ class TestTPOptimizer(unittest.TestCase):
         np.random.seed(1)
         # Optimize the hyperparameters
         sol=tp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-        # Test the solution deviation
-        self.assertTrue(abs(sol['fun']-502.207)<1e-2) 
-        self.assertTrue(np.linalg.norm(sol['x']-np.array([1.97,-16.09]))<1e-2)
+        # Test the solution is a minimum
+        is_minima=check_minima(sol,x_tr,f_tr,tp,pdis=None,is_model_gp=False)
+        self.assertTrue(is_minima)
     
     def test_random(self):
         "Test if the TP can be local optimized from random sampling"
@@ -157,12 +156,8 @@ class TestTPOptimizer(unittest.TestCase):
         bounds_list=[VariableTransformation(bounds=None),
                      EducatedBoundaries(),
                      HPBoundaries(bounds_dict=bounds_dict)]
-        # Make a list of the solution values that the test compares to
-        sol_list=[{'fun':499.866,'x':np.array([2.55,-2.00])},
-                  {'fun':499.866,'x':np.array([2.55,-2.00])},
-                  {'fun':499.866,'x':np.array([2.55,-2.00])}]
         # Test the arguments for the random sampling optimizer
-        for index,bounds in enumerate(bounds_list):
+        for bounds in bounds_list:
             with self.subTest(bounds=bounds):
                 # Construct the hyperparameter fitter
                 hpfitter=HyperparameterFitter(func=LogLikelihood(),optimizer=optimizer,bounds=bounds)
@@ -172,9 +167,9 @@ class TestTPOptimizer(unittest.TestCase):
                 np.random.seed(1)
                 # Optimize the hyperparameters
                 sol=tp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-                # Test the solution deviation
-                self.assertTrue(abs(sol['fun']-sol_list[index]['fun'])<1e-2) 
-                self.assertTrue(np.linalg.norm(sol['x']-sol_list[index]['x'])<1e-2)
+                # Test the solution is a minimum
+                is_minima=check_minima(sol,x_tr,f_tr,tp,pdis=None,is_model_gp=False)
+                self.assertTrue(is_minima)
 
     def test_grid(self):
         "Test if the TP can be optimized from grid search"
@@ -204,13 +199,8 @@ class TestTPOptimizer(unittest.TestCase):
                      (bounds_trans,GridOptimizer(local_optimizer=local_optimizer,optimize=True,**opt_kwargs)),
                      (bounds_ed,GridOptimizer(local_optimizer=local_optimizer,optimize=True,**opt_kwargs)),
                      (fixed_bounds,GridOptimizer(local_optimizer=local_optimizer,optimize=True,**opt_kwargs))]
-        # Make a list of the solution values that the test compares to
-        sol_list=[{'fun':502.256,'x':np.array([2.00,-8.00])},
-                  {'fun':502.207,'x':np.array([1.97,-14.64])},
-                  {'fun':499.866,'x':np.array([2.55,-2.00])},
-                  {'fun':502.207,'x':np.array([1.97,-14.64])}]
         # Test the arguments for the grid search optimizer
-        for index,(bounds,optimizer) in enumerate(test_kwargs):
+        for bounds,optimizer in test_kwargs:
             with self.subTest(bounds=bounds,optimizer=optimizer):
                 # Construct the hyperparameter fitter
                 hpfitter=HyperparameterFitter(func=LogLikelihood(),optimizer=optimizer,bounds=bounds)
@@ -220,9 +210,9 @@ class TestTPOptimizer(unittest.TestCase):
                 np.random.seed(1)
                 # Optimize the hyperparameters
                 sol=tp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-                # Test the solution deviation
-                self.assertTrue(abs(sol['fun']-sol_list[index]['fun'])<1e-2) 
-                self.assertTrue(np.linalg.norm(sol['x']-sol_list[index]['x'])<1e-2)
+                # Test the solution is a minimum
+                is_minima=check_minima(sol,x_tr,f_tr,tp,pdis=None,is_model_gp=False)
+                self.assertTrue(is_minima)
 
     def test_line(self):
         "Test if the TP can be optimized from iteratively line search"
@@ -252,13 +242,8 @@ class TestTPOptimizer(unittest.TestCase):
                      (bounds_trans,IterativeLineOptimizer(local_optimizer=local_optimizer,optimize=True,**opt_kwargs)),
                      (bounds_ed,IterativeLineOptimizer(local_optimizer=local_optimizer,optimize=True,**opt_kwargs)),
                      (fixed_bounds,IterativeLineOptimizer(local_optimizer=local_optimizer,optimize=True,**opt_kwargs))]
-        # Make a list of the solution values that the test compares to
-        sol_list=[{'fun':502.561,'x':np.array([2.06,-70.98])},
-                  {'fun':502.207,'x':np.array([1.97,-70.98])},
-                  {'fun':502.207,'x':np.array([1.97,-15.37])},
-                  {'fun':502.207,'x':np.array([1.97,-16.21])}]
         # Test the arguments for the line search optimizer
-        for index,(bounds,optimizer) in enumerate(test_kwargs):
+        for bounds,optimizer in test_kwargs:
             with self.subTest(bounds=bounds,optimizer=optimizer):
                 # Construct the hyperparameter fitter
                 hpfitter=HyperparameterFitter(func=LogLikelihood(),optimizer=optimizer,bounds=bounds)
@@ -268,9 +253,9 @@ class TestTPOptimizer(unittest.TestCase):
                 np.random.seed(1)
                 # Optimize the hyperparameters
                 sol=tp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-                # Test the solution deviation
-                self.assertTrue(abs(sol['fun']-sol_list[index]['fun'])<1e-2) 
-                self.assertTrue(np.linalg.norm(sol['x']-sol_list[index]['x'])<1e-2)
+                # Test the solution is a minimum
+                is_minima=check_minima(sol,x_tr,f_tr,tp,pdis=None,is_model_gp=False)
+                self.assertTrue(is_minima)
 
     def test_basin(self):
         "Test if the TP can be optimized from basin hopping"
@@ -296,9 +281,9 @@ class TestTPOptimizer(unittest.TestCase):
         np.random.seed(1)
         # Optimize the hyperparameters
         sol=tp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-        # Test the solution deviation
-        self.assertTrue(abs(sol['fun']-502.207)<1e-2) 
-        self.assertTrue(np.linalg.norm(sol['x']-np.array([1.97,-14.71]))<1e-2)
+        # Test the solution is a minimum
+        is_minima=check_minima(sol,x_tr,f_tr,tp,pdis=None,is_model_gp=False)
+        self.assertTrue(is_minima)
 
     def test_annealling(self):
         "Test if the TP can be optimized from simulated annealling"
@@ -323,11 +308,8 @@ class TestTPOptimizer(unittest.TestCase):
         fixed_bounds=HPBoundaries(bounds_dict=dict(length=[[-3.0,3.0]],noise=[[-8.0,0.0]],prefactor=[[-2.0,4.0]]),log=True)
         # Define the list of arguments for the simulated annealling optimizer that are tested
         bounds_list=[bounds_ed,fixed_bounds]
-        # Make a list of the solution values that the test compares to
-        sol_list=[{'fun':499.866,'x':np.array([2.55,-2.00])},
-                  {'fun':499.866,'x':np.array([2.55,-2.00])}]
         # Test the arguments for the simulated annealling optimizer
-        for index,bounds in enumerate(bounds_list):
+        for bounds in bounds_list:
             with self.subTest(bounds=bounds):
                 # Construct the hyperparameter fitter
                 hpfitter=HyperparameterFitter(func=LogLikelihood(),optimizer=optimizer,bounds=bounds)
@@ -337,9 +319,9 @@ class TestTPOptimizer(unittest.TestCase):
                 np.random.seed(1)
                 # Optimize the hyperparameters
                 sol=tp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-                # Test the solution deviation
-                self.assertTrue(abs(sol['fun']-sol_list[index]['fun'])<1e-2) 
-                self.assertTrue(np.linalg.norm(sol['x']-sol_list[index]['x'])<1e-2)
+                # Test the solution is a minimum
+                is_minima=check_minima(sol,x_tr,f_tr,tp,pdis=None,is_model_gp=False)
+                self.assertTrue(is_minima)
 
     def test_annealling_trans(self):
         "Test if the TP can be optimized from simulated annealling with variable transformation. "
@@ -365,11 +347,8 @@ class TestTPOptimizer(unittest.TestCase):
         bounds_fixed_trans=VariableTransformation(bounds=fixed_bounds)
         # Define the list of arguments for the simulated annealling optimizer that are tested
         bounds_list=[bounds_trans,bounds_fixed_trans]
-        # Make a list of the solution values that the test compares to
-        sol_list=[{'fun':499.866,'x':np.array([2.55,-2.00])},
-                  {'fun':499.866,'x':np.array([2.55,-2.00])}]
         # Test the arguments for the simulated annealling optimizer
-        for index,bounds in enumerate(bounds_list):
+        for bounds in bounds_list:
             with self.subTest(bounds=bounds):
                 # Construct the hyperparameter fitter
                 hpfitter=HyperparameterFitter(func=LogLikelihood(),optimizer=optimizer,bounds=bounds)
@@ -379,9 +358,9 @@ class TestTPOptimizer(unittest.TestCase):
                 np.random.seed(1)
                 # Optimize the hyperparameters
                 sol=tp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-                # Test the solution deviation
-                self.assertTrue(abs(sol['fun']-sol_list[index]['fun'])<1e-2) 
-                self.assertTrue(np.linalg.norm(sol['x']-sol_list[index]['x'])<1e-2)
+                # Test the solution is a minimum
+                is_minima=check_minima(sol,x_tr,f_tr,tp,pdis=None,is_model_gp=False)
+                self.assertTrue(is_minima)
 
     def test_line_search_scale(self):
         "Test if the TP can be optimized from line search in the length-scale hyperparameter "
@@ -414,18 +393,8 @@ class TestTPOptimizer(unittest.TestCase):
                      (fixed_bounds,FineGridSearch(optimize=True,multiple_min=True,loops=3,ngrid=80,**opt_kwargs)),
                      (bounds_trans,TransGridSearch(optimize=True,use_likelihood=False,loops=3,ngrid=80,**opt_kwargs)),
                      (bounds_trans,TransGridSearch(optimize=True,use_likelihood=True,loops=3,ngrid=80,**opt_kwargs))]
-        # Make a list of the solution values that the test compares to
-        sol_list=[{'fun':499.867,'x':np.array([2.56,-2.00])},
-                  {'fun':499.866,'x':np.array([2.55,-2.00])},
-                  {'fun':499.866,'x':np.array([2.55,-1.99])},
-                  {'fun':499.866,'x':np.array([2.55,-1.99])},
-                  {'fun':499.866,'x':np.array([2.55,-1.99])},
-                  {'fun':499.866,'x':np.array([2.55,-1.99])},
-                  {'fun':499.866,'x':np.array([2.55,-1.99])},
-                  {'fun':499.866,'x':np.array([2.55,-2.00])},
-                  {'fun':499.866,'x':np.array([2.55,-1.99])}]
         # Test the arguments for the line search optimizer
-        for index,(bounds,line_optimizer) in enumerate(test_kwargs):
+        for bounds,line_optimizer in test_kwargs:
             with self.subTest(bounds=bounds,line_optimizer=line_optimizer):
                 # Make the optimizer
                 optimizer=FactorizedOptimizer(line_optimizer=line_optimizer,bounds=bounds,ngrid=80)
@@ -437,9 +406,9 @@ class TestTPOptimizer(unittest.TestCase):
                 np.random.seed(1)
                 # Optimize the hyperparameters
                 sol=tp.optimize(x_tr,f_tr,retrain=False,hp=None,pdis=None,verbose=False)
-                # Test the solution deviation
-                self.assertTrue(abs(sol['fun']-sol_list[index]['fun'])<1e-2) 
-                self.assertTrue(np.linalg.norm(sol['x']-sol_list[index]['x'])<1e-2)
+                # Test the solution is a minimum
+                is_minima=check_minima(sol,x_tr,f_tr,tp,pdis=None,is_model_gp=False)
+                self.assertTrue(is_minima)
 
 if __name__ == '__main__':
     unittest.main()

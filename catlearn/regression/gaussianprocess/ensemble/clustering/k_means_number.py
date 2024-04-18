@@ -6,6 +6,7 @@ class K_means_number(K_means):
         """
         Clustering class object for data sets.
         The K-means++ algorithm for clustering, but where the number of clusters are updated from a fixed number data point in each cluster.
+
         Parameters:
             metric : str
                 The metric used to calculate the distances of the data.
@@ -42,6 +43,7 @@ class K_means_number(K_means):
     def update_arguments(self,metric=None,data_number=None,maxiter=None,tol=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
+
         Parameters:
             metric : str
                 The metric used to calculate the distances of the data.
@@ -51,6 +53,7 @@ class K_means_number(K_means):
                 The maximum number of iterations used to fit the clusters.
             tol : float
                 The tolerance before the cluster fit is converged.
+                
         Returns:
             self: The updated object itself.
         """

@@ -231,6 +231,8 @@ class ScipyPriorOptimizer(ScipyOptimizer):
         sol=super().run(func,theta,parameters,model,X,Y,pdis,**kwargs)
         # Save the number of evaluations and the new best hyperparameters
         nfev=sol['nfev']
+        # Reset the solution in objective function instance
+        self.reset_func(func)
         # Exclude the prior distributions of the hyperparameters in the optimization
         sol=super().run(func,sol['x'],parameters,model,X,Y,None,**kwargs)
         sol['nfev']+=nfev

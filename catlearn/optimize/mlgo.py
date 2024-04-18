@@ -10,7 +10,7 @@ class MLGO:
                  apply_constraint=True,force_consistent=None,scale_fmax=0.5,save_memory=False,
                  local_opt=None,local_opt_kwargs={},opt_kwargs={},
                  bounds=None,initial_points=2,norelax_points=10,min_steps=8,
-                 trajectory='evaluated.traj',tabletxt=None,full_output=False,**kwargs):
+                 trajectory='evaluated.traj',tabletxt='mlgo_summary.txt',full_output=False,**kwargs):
         """ 
         Machine learning accelerated global adsorption optimization with active learning.
 
@@ -96,7 +96,7 @@ class MLGO:
         # Set initial parameters
         self.step=0
         self.error=0
-        self.energies=np.array([])
+        self.energies=[]
         self.emin=np.inf
         self.best_candidate=None
         # Boundary conditions for adsorbate position and angles
@@ -135,8 +135,9 @@ class MLGO:
         # Define local optimizer
         local_opt_kwargs_default=dict(trajectory='local_opt.traj')
         if local_opt is None:
-            from ase.optimize import LBFGS
-            local_opt=LBFGS
+            from ase.optimize import FIRE
+            local_opt=FIRE
+            local_opt_kwargs_default.update(dict(dt=0.05,maxstep=0.2,a=1.0,astart=1.0,fa=0.999))
         self.local_opt=local_opt
         local_opt_kwargs_default.update(local_opt_kwargs)
         self.local_opt_kwargs=local_opt_kwargs_default.copy()
@@ -168,7 +169,7 @@ class MLGO:
         # Set the random seed
         np.random.seed(seed)
         # Update the acquisition function
-        self.acq.set_parameters(unc_convergence=unc_convergence)
+        self.acq.update_arguments(unc_convergence=unc_convergence)
         # Calculate initial data if enough data is not given
         self.extra_initial_data(self.initial_points)
         # Run global search
@@ -293,6 +294,8 @@ class MLGO:
                 self.emin=energy
                 self.best_candidate=self.mlcalc.copy_atoms(candidate)
                 self.best_x=self.x.copy()
+            # Save the energy
+            self.energies.append(energy)
         # Broadcast convergence statement if MPI is used
         self.best_candidate,self.emin=broadcast([self.best_candidate,self.emin],root=0)
         return self.best_candidate

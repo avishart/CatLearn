@@ -136,6 +136,14 @@ class Kernel:
         """
         return int(1)
     
+    def get_use_derivatives(self):
+        " Get whether the derivatives of the targets are used. "
+        return self.use_derivatives
+    
+    def get_use_fingerprint(self):
+        " Get whether a fingerprint is used as the features. "
+        return self.use_fingerprint
+    
     def update_arguments(self,use_derivatives=None,use_fingerprint=None,hp=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.

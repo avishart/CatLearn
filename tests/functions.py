@@ -41,6 +41,37 @@ def calculate_rmse(ytest,ypred):
     "Calculate the Root-mean squarred error"
     return np.sqrt(np.mean((ypred-ytest)**2))
 
+def check_minima(sol,x_tr,f_tr,model,pdis=None,func=None,is_model_gp=True,dstep=1e-5,dtol=1e-5):
+    " Check if the solution is a minimum. "
+    if is_model_gp:
+        from catlearn.regression.gaussianprocess.objectivefunctions.gp.likelihood import LogLikelihood
+    else:
+        from catlearn.regression.gaussianprocess.objectivefunctions.tp.likelihood import LogLikelihood
+    from catlearn.regression.gaussianprocess.optimizers.optimizer import FunctionEvaluation
+    from catlearn.regression.gaussianprocess.hpfitter import HyperparameterFitter
+    # Construct optimizer
+    if func is None:
+        func=LogLikelihood()
+    hpfitter=HyperparameterFitter(func=func,optimizer=FunctionEvaluation(jac=False))
+    # Get hyperparameter solution
+    hp0=sol['hp'].copy()
+    is_minima=True
+    # Iterate over all hyperparameters
+    for para,value in hp0.items():
+        hp_test=hp0.copy()
+        # Get function value of minimum 
+        sol0=hpfitter.fit(x_tr,f_tr,model,hp=hp_test,pdis=pdis)
+        # Get function value of the larger hyperparameter value
+        hp_test[para]=value+dstep
+        sol1=hpfitter.fit(x_tr,f_tr,model,hp=hp_test,pdis=pdis)
+        # Get function value of the smaller hyperparameter value 
+        hp_test[para]=value-dstep
+        sol2=hpfitter.fit(x_tr,f_tr,model,hp=hp_test,pdis=pdis)
+        # Check if it is a minimum
+        if sol0['fun']-sol1['fun']>(abs(sol0['fun'])*dtol+1e-8) or sol0['fun']-sol2['fun']>(abs(sol0['fun'])*dtol+1e-8):
+            is_minima=False
+    return is_minima
+
 def get_endstructures():
     " Create the initial and final states of a NEB test. "
     from ase.build import fcc100,add_adsorbate

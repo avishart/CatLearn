@@ -102,6 +102,10 @@ class Optimizer:
         " Get the function that evaluates the objective function. "
         return func.function
     
+    def reset_func(self,func,**kwargs):
+        " Reset the solution in objective function instance. "
+        return func.reset_solution()
+    
     def calculate_values(self,thetas,func,func_args=(),**kwargs):
         " Calculate a list of values with a function. "
         if self.parallel:

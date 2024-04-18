@@ -56,10 +56,10 @@ class MLModel:
         Returns:
             self: The updated object itself.
         """
-        if isinstance(atoms_list,(list,np.ndarray)):
-            self.database.add_set(atoms_list)
-        else:
-            self.database.add(atoms_list)
+        if not isinstance(atoms_list,(list,np.ndarray)):
+            atoms_list=[atoms_list]
+        self.database.add_set(atoms_list)
+        self.store_baseline_targets(atoms_list)
         return self
 
     def train_model(self,**kwargs):
@@ -71,9 +71,8 @@ class MLModel:
         """
         # Get data from the data base
         features,targets=self.get_data()
-        # Correct targets with a baselin
-        if self.use_baseline:
-            targets=self.baseline_corrected_targets(targets)
+        # Correct targets with the baseline
+        targets=self.get_baseline_corrected_targets(targets)
         # Train model
         if self.optimize:
             # Optimize the hyperparameters and train the ML model
@@ -227,6 +226,9 @@ class MLModel:
             self.use_baseline=False
         else:
             self.use_baseline=True
+        # Make a list of the baseline targets
+        if baseline is not None or database is not None:
+            self.baseline_targets=[]
         # Check that the model and database have the same attributes
         self.check_attributes()
         return self
@@ -256,8 +258,7 @@ class MLModel:
                                  get_derivtives_var=get_force_uncertainties,
                                  get_var_derivatives=get_unc_derivatives)
         # Correct the predicted targets with the baseline if it is used
-        if self.use_baseline:
-            y=self.add_baseline_correction(y,atoms=atoms,use_derivatives=get_forces)
+        y=self.add_baseline_correction(y,atoms=atoms,use_derivatives=get_forces)
         # Extract the energy
         energy=y[0][0]
         # Extract the forces if they are requested
@@ -308,20 +309,27 @@ class MLModel:
         return results
     
     def add_baseline_correction(self,targets,atoms,use_derivatives=True,**kwargs):
-        " Baseline correction if a baseline is used. Add the baseline correction to an atom object. "
-        # Calculate the baseline for the ASE atoms object
-        y_base=self.calculate_baseline([atoms],use_derivatives=use_derivatives,**kwargs)
-        # Add baseline correction to the targets
-        return targets+np.array(y_base)[0]
+        " Add the baseline correction to the targets if a baseline is used. "
+        if self.use_baseline:
+            # Calculate the baseline for the ASE atoms object
+            y_base=self.calculate_baseline([atoms],use_derivatives=use_derivatives,**kwargs)
+            # Add baseline correction to the targets
+            return targets+np.array(y_base)[0]
+        return targets
     
-    def baseline_corrected_targets(self,targets,**kwargs):
-        " Baseline correction if a baseline is used. Subtract the baseline correction from training targets. "
-        # Get the ASE atoms from the database
-        atoms_list=self.database.get_atoms()
+    def get_baseline_corrected_targets(self,targets,**kwargs):
+        " Get the baseline corrected targets if a baseline is used. The baseline correction is subtracted from training targets. "
+        if self.use_baseline:
+            return targets-np.array(self.baseline_targets)
+        return targets
+    
+    def store_baseline_targets(self,atoms_list,**kwargs):
+        " Store the baseline correction on the targets. "
         # Calculate the baseline for each ASE atoms objects
-        y_base=self.calculate_baseline(atoms_list,use_derivatives=self.database.use_derivatives,**kwargs)
-        # Subtract baseline correction from the targets
-        return targets-np.array(y_base)
+        if self.use_baseline:
+            y_base=self.calculate_baseline(atoms_list,use_derivatives=self.database.use_derivatives,**kwargs)
+            self.baseline_targets.extend(y_base)
+        return self.baseline_targets
     
     def calculate_baseline(self,atoms_list,use_derivatives=True,**kwargs):
         " Calculate the baseline for each ASE atoms object. "
@@ -344,6 +352,21 @@ class MLModel:
         targets=self.database.get_targets()
         return features,targets
     
+    def get_data_atoms(self,**kwargs):
+        " Get the atoms stored in the data base. "
+        return self.database.get_atoms()
+    
+    def reset_database(self,**kwargs):
+        """
+        Reset the database by emptying the lists. 
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.database.reset_database()
+        self.baseline_targets=[]
+        return self
+    
     def make_targets(self,atoms,use_derivatives=True,**kwargs):
         " Make the target in the data base. "
         return self.database.make_target(atoms,use_derivatives=use_derivatives,use_negative_forces=True)
@@ -356,9 +379,9 @@ class MLModel:
     
     def check_attributes(self):
         " Check if all attributes agree between the class and subclasses. "
-        if self.model.kernel.use_fingerprint!=self.database.use_fingerprint:
+        if self.model.get_use_fingerprint()!=self.database.get_use_fingerprint():
             raise Exception('Model and Database do not agree whether to use fingerprints!')
-        if self.model.use_derivatives!=self.database.use_derivatives:
+        if self.model.get_use_derivatives()!=self.database.get_use_derivatives():
             raise Exception('Model and Database do not agree whether to use derivatives/forces!')
         return True
 
@@ -375,7 +398,7 @@ class MLModel:
         # Get the constants made within the class
         constant_kwargs=dict()
         # Get the objects made within the class
-        object_kwargs=dict()
+        object_kwargs=dict(baseline_targets=self.baseline_targets.copy())
         return arg_kwargs,constant_kwargs,object_kwargs
 
     def copy(self):
@@ -401,7 +424,7 @@ class MLModel:
     
 
 
-def get_default_model(model='tp',prior='median',use_derivatives=True,use_fingerprint=False,parallel=False,**kwargs):
+def get_default_model(model='tp',prior='median',use_derivatives=True,use_fingerprint=False,global_optimization=True,parallel=False,n_reduced=None,**kwargs):
     """
     Get the default ML model from the simple given arguments.
 
@@ -415,13 +438,22 @@ def get_default_model(model='tp',prior='median',use_derivatives=True,use_fingerp
         use_fingerprint : bool
             Whether to use fingerprints for the features.
             This has to be the same as for the database!
+        global_optimization : bool
+            Whether to perform a global optimization of the hyperparameters.
+            A local optimization is used if global_optimization=False, which can not be parallelized.
         parallel : bool
             Whether to optimize the hyperparameters in parallel.
+        n_reduced : int or None
+            If n_reduced is an integer, the hyperparameters are only optimized when the data set size is equal to or below the integer.
+            If n_reduced is None, the hyperparameter is always optimized.
 
     Returns:
         model : Model
             The Machine Learning Model with kernel and prior that are optimized.
     """
+    # Check that the model is given as a string
+    if not isinstance(model,str):
+        return model
     # Make the prior mean from given string
     if isinstance(prior,str):
         if prior.lower()=='median':
@@ -439,28 +471,55 @@ def get_default_model(model='tp',prior='median',use_derivatives=True,use_fingerp
     # Construct the kernel class object
     from ..kernel.se import SE
     kernel=SE(use_fingerprint=use_fingerprint,use_derivatives=use_derivatives)
-    # Set the hyperparameter optimization method with or without parallelization
-    from ..optimizers.globaloptimizer import FactorizedOptimizer
-    if parallel:
-        from ..optimizers.linesearcher import FineGridSearch
-        line_optimizer=FineGridSearch(optimize=True,multiple_min=False,ngrid=80,loops=3,parallel=True)
-    else:
-        from ..optimizers.linesearcher import GoldenSearch
-        line_optimizer=GoldenSearch(optimize=True,multiple_min=False,parallel=False)
-    optimizer=FactorizedOptimizer(line_optimizer=line_optimizer,ngrid=80,calculate_init=False,parallel=parallel)
-    # Use either the Student t process or the Gaussian process
-    if isinstance(model,str):
-        from ..hpfitter import HyperparameterFitter    
-        if model.lower()=='tp':
-            from ..models.tp import TProcess
-            from ..objectivefunctions.tp.factorized_likelihood import FactorizedLogLikelihood
-            hpfitter=HyperparameterFitter(func=FactorizedLogLikelihood(),optimizer=optimizer)
-            model=TProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter,a=1e-3,b=1e-4)
+    # Set the hyperparameter optimization method
+    if global_optimization:
+        # Set global optimization with or without parallelization
+        from ..optimizers.globaloptimizer import FactorizedOptimizer
+        if parallel:
+            from ..optimizers.linesearcher import FineGridSearch
+            line_optimizer=FineGridSearch(optimize=True,multiple_min=False,ngrid=80,loops=3,parallel=True)
         else:
-            from ..models.gp import GaussianProcess
+            from ..optimizers.linesearcher import GoldenSearch
+            line_optimizer=GoldenSearch(optimize=True,multiple_min=False,parallel=False)
+        optimizer=FactorizedOptimizer(line_optimizer=line_optimizer,ngrid=80,calculate_init=False,parallel=parallel)
+    else:
+        from ..optimizers.localoptimizer import ScipyOptimizer
+        # Make the local optimizer
+        optimizer=ScipyOptimizer(maxiter=500,jac=True,method='l-bfgs-b',use_bounds=False,tol=1e-12)
+        if parallel:
+            import warnings
+            warnings.warn('Parallel optimization is not implemented with local optimization!') 
+    # Use either the Student t process or the Gaussian process
+    if model.lower()=='tp':
+        # Set model
+        from ..models.tp import TProcess
+        model=TProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives,a=1e-3,b=1e-4)
+        # Set objective function
+        if global_optimization:
+            from ..objectivefunctions.tp.factorized_likelihood import FactorizedLogLikelihood
+            func=FactorizedLogLikelihood()
+        else:
+            from ..objectivefunctions.tp.likelihood import LogLikelihood
+            func=LogLikelihood()
+    else:
+        # Set model
+        from ..models.gp import GaussianProcess
+        model=GaussianProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives)
+        # Set objective function
+        if global_optimization:
             from ..objectivefunctions.gp.factorized_likelihood import FactorizedLogLikelihood
-            hpfitter=HyperparameterFitter(func=FactorizedLogLikelihood(),optimizer=optimizer)
-            model=GaussianProcess(prior=prior,kernel=kernel,use_derivatives=use_derivatives,hpfitter=hpfitter)
+            func=FactorizedLogLikelihood()
+        else:
+            from ..objectivefunctions.gp.likelihood import LogLikelihood
+            func=LogLikelihood()
+    # Set hpfitter and whether a maximum data set size is applied 
+    if n_reduced is None:
+        from ..hpfitter import HyperparameterFitter
+        hpfitter=HyperparameterFitter(func=func,optimizer=optimizer)
+    else:
+        from ..hpfitter.redhpfitter import ReducedHyperparameterFitter
+        hpfitter=ReducedHyperparameterFitter(func=func,optimizer=optimizer,opt_tr_size=n_reduced)
+    model.update_arguments(hpfitter=hpfitter)
     return model
 
 
@@ -493,7 +552,7 @@ def get_default_database(fp=None,use_derivatives=True,database_reduction=False,d
         use_fingerprint=True
     # Make the data base ready
     if isinstance(database_reduction,str):
-        data_kwargs=dict(reduce_dimensions=True,use_derivatives=use_derivatives,use_fingerprint=use_fingerprint,npoints=50,initial_indicies=[0,1],include_last=True)
+        data_kwargs=dict(reduce_dimensions=True,use_derivatives=use_derivatives,use_fingerprint=use_fingerprint,npoints=50,initial_indicies=[0,1],include_last=1)
         data_kwargs.update(database_reduction_kwargs)
         if database_reduction.lower()=='distance':
             from .database_reduction import DatabaseDistance
@@ -525,7 +584,7 @@ def get_default_database(fp=None,use_derivatives=True,database_reduction=False,d
     return database
 
 
-def get_default_mlmodel(model='tp',fp=None,baseline=None,prior='median',use_derivatives=True,parallel=False,use_pdis=True,database_reduction=False,database_reduction_kwargs={},verbose=False,**kwargs):
+def get_default_mlmodel(model='tp',fp=None,baseline=None,prior='median',use_derivatives=True,global_optimization=True,parallel=False,use_pdis=True,n_reduced=None,database_reduction=False,database_reduction_kwargs={},verbose=False,**kwargs):
     """
     Get the default ML model with a database for the ASE Atoms from the simple given arguments.
 
@@ -541,10 +600,16 @@ def get_default_mlmodel(model='tp',fp=None,baseline=None,prior='median',use_deri
             Specify what prior mean should be used.
         use_derivatives : bool
             Whether to use derivatives of the targets.
+        global_optimization : bool
+            Whether to perform a global optimization of the hyperparameters.
+            A local optimization is used if global_optimization=False, which can not be parallelized.
         parallel : bool
             Whether to optimize the hyperparameters in parallel.
         use_pdis : bool
             Whether to make prior distributions for the hyperparameters.
+        n_reduced : int or None
+            If n_reduced is an integer, the hyperparameters are only optimized when the data set size is equal to or below the integer.
+            If n_reduced is None, the hyperparameter is always optimized.
         database_reduction : bool
             Whether to used a reduced database after a number of training points.
         database_reduction_kwargs : dict
@@ -563,7 +628,7 @@ def get_default_mlmodel(model='tp',fp=None,baseline=None,prior='median',use_deri
         use_fingerprint=True
     # Make the model
     if isinstance(model,str):
-        model=get_default_model(model=model,prior=prior,use_derivatives=use_derivatives,use_fingerprint=use_fingerprint,parallel=parallel)
+        model=get_default_model(model=model,prior=prior,use_derivatives=use_derivatives,use_fingerprint=use_fingerprint,global_optimization=global_optimization,parallel=parallel,n_reduced=n_reduced)
     # Make the database
     database=get_default_database(fp=fp,use_derivatives=use_derivatives,database_reduction=database_reduction,database_reduction_kwargs=database_reduction_kwargs)
     # Make prior distributions for the hyperparameters if specified
