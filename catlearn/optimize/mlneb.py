@@ -155,7 +155,7 @@ class MLNEB:
         # Scale the fmax on the surrogate surface
         self.scale_fmax=scale_fmax
         # Save local optimizer
-        local_opt_kwargs_default=dict(trajectory='surrogate_neb.traj')
+        local_opt_kwargs_default=dict(logfile=None)
         if local_opt is None:
             from ase.optimize import FIRE
             local_opt=FIRE
