@@ -13,7 +13,7 @@ class MLNEB:
                  climb=True,neb_method=EWNEB,neb_kwargs=dict(),n_images=15,
                  prev_calculations=None,use_database_check=True,
                  use_restart_path=True,check_path_unc=True,check_path_fmax=True,
-                 use_low_unc_ci=True,save_memory=False,
+                 use_low_unc_ci=True,reuse_ci_path=False,save_memory=False,
                  apply_constraint=True,force_consistent=None,scale_fmax=0.8,
                  local_opt=None,local_opt_kwargs=dict(),
                  trainingset='evaluated_structures.traj',trajectory='MLNEB.traj',
@@ -73,6 +73,9 @@ class MLNEB:
             use_low_unc_ci : bool
                 Whether to only activative climbing image NEB when the uncertainties of all images are below unc_convergence.
                 If use_low_unc_ci=False, the climbing image is activated without checking the uncertainties.
+            reuse_ci_path : bool
+                Whether to reuse the path from the climbing image NEB.
+                It is only recommended to be used if use_low_unc_ci=True.
             save_memory : bool
                 Whether to only train the ML calculator and store all objects on one CPU. 
                 If save_memory==True then parallel optimization of the hyperparameters can not be achived.
@@ -118,6 +121,7 @@ class MLNEB:
         self.use_restart_path=use_restart_path
         self.check_path_unc=check_path_unc
         self.check_path_fmax=check_path_fmax
+        self.reuse_ci_path=reuse_ci_path
         self.use_low_unc_ci=use_low_unc_ci
         # Set initial parameters
         self.step=0
@@ -155,7 +159,9 @@ class MLNEB:
         # Scale the fmax on the surrogate surface
         self.scale_fmax=scale_fmax
         # Save local optimizer
-        local_opt_kwargs_default=dict(logfile=None)
+        local_opt_kwargs_default=dict()
+        if not self.full_output:
+            local_opt_kwargs_default['logfile']=None
         if local_opt is None:
             from ase.optimize import FIRE
             local_opt=FIRE
@@ -170,6 +176,10 @@ class MLNEB:
         self.tabletxt=tabletxt
         # Load previous calculations to the ML model
         self.use_prev_calculations(prev_calculations)
+        # Define the last images that can be used to restart the interpolation
+        self.last_images=self.make_interpolation(interpolation=self.interpolation)
+        # CI restart path activation
+        self.climb_active=False
               
 
     def run(self,fmax=0.05,unc_convergence=0.05,steps=200,ml_steps=1500,max_unc=0.25,**kwargs):
@@ -194,8 +204,7 @@ class MLNEB:
         # Active learning parameters
         candidate=None
         self.acq.update_arguments(unc_convergence=unc_convergence)
-        # Define the last images that can be used to restart the interpolation
-        self.last_images=self.make_interpolation(interpolation=self.interpolation)
+        # Define the temporary last images that can be used to restart the interpolation
         self.last_images_tmp=None
         # Calculate a extra data point if only start and end is given
         self.extra_initial_data()
@@ -257,7 +266,7 @@ class MLNEB:
         images=self.attach_mlcalc(images)
         return images
     
-    def make_reused_interpolation(self,unc_convergence,**kwargs):
+    def make_reused_interpolation(self,unc_convergence,climb=False,**kwargs):
         " Make the NEB interpolation path or use the previous path if it has low uncertainty. "
         # Whether to reuse the previous path
         reuse_path=True
@@ -267,7 +276,7 @@ class MLNEB:
             reuse_path=False
         elif self.check_path_unc or self.check_path_fmax:
             # Get uncertainty and max perpendicular force
-            uncmax_tmp,fmax_tmp=self.get_path_unc_fmax(interpolation=self.last_images_tmp)
+            uncmax_tmp,fmax_tmp=self.get_path_unc_fmax(interpolation=self.last_images_tmp,climb=climb)
             # Check uncertainty
             if self.check_path_unc:
                 # Check if the uncertainty is too large
@@ -277,7 +286,7 @@ class MLNEB:
                     self.message_system('The previous last path is used as the initial path due to uncertainty!')
             # Check if the perpendicular force are less for the new path
             if self.check_path_fmax and reuse_path:
-                fmax_last=self.get_path_unc_fmax(interpolation=self.last_images)[1]
+                fmax_last=self.get_path_unc_fmax(interpolation=self.last_images,climb=climb)[1]
                 if fmax_tmp>fmax_last:
                     reuse_path=False
                     self.last_images_tmp=None
@@ -392,10 +401,13 @@ class MLNEB:
         if self.rank!=0:
             return None,neb_converged
         # Make the interpolation from initial path or the previous path
-        images=self.make_reused_interpolation(unc_convergence)
+        images=self.make_reused_interpolation(unc_convergence,climb=self.climb_active)
         # Run the NEB on the surrogate surface
-        self.message_system('Starting NEB without climbing image on surrogate surface.')
-        images,neb_converged=self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc,unc_convergence=unc_convergence,climb=False)
+        if self.climb_active:
+            self.message_system('Starting NEB with climbing image on surrogate surface.')
+        else:
+            self.message_system('Starting NEB without climbing image on surrogate surface.')
+        images,neb_converged=self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc,unc_convergence=unc_convergence,climb=self.climb_active)
         self.save_mlneb(images)
         # Get the candidate
         candidate=self.choose_candidate(images)
@@ -414,7 +426,7 @@ class MLNEB:
             energies.append(image.get_potential_energy())
         return np.array(energies),np.array(uncertainties)
 
-    def get_path_unc_fmax(self,interpolation,**kwargs):
+    def get_path_unc_fmax(self,interpolation,climb=False,**kwargs):
         " Get the maximum uncertainty and fmax prediction from the NEB interpolation. "
         uncmax=None
         fmax=None
@@ -422,12 +434,12 @@ class MLNEB:
         if self.check_path_unc:
             uncmax=np.nanmax(self.get_predictions(images)[1])
         if self.check_path_fmax:
-            fmax=self.get_fmax_predictions(images)
+            fmax=self.get_fmax_predictions(images,climb=climb)
         return uncmax,fmax
 
-    def get_fmax_predictions(self,images,**kwargs):
+    def get_fmax_predictions(self,images,climb=False,**kwargs):
         " Calculate the maximum perpendicular force with the ML calculator "
-        neb=self.neb_method(images,climb=False,**self.neb_kwargs)
+        neb=self.neb_method(images,climb=climb,**self.neb_kwargs)
         forces=neb.get_forces()
         return np.nanmax(np.linalg.norm(forces,axis=1))
     
@@ -462,6 +474,10 @@ class MLNEB:
             if not climb and self.climb:
                 # Check that the uncertainty is low enough to do CI-NEB if requested
                 if not self.use_low_unc_ci or np.max(self.get_predictions(images)[1])<=unc_convergence:
+                    # Use CI from here if reuse_ci_path=True
+                    if self.reuse_ci_path:
+                        self.message_system('The restart of the climbing image path is actived.')
+                        self.climb_active=True
                     self.message_system('Starting NEB with climbing image on surrogate surface.')
                     return self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc,unc_convergence=unc_convergence,climb=True)
         return images,converged
@@ -472,7 +488,7 @@ class MLNEB:
         neb=self.neb_method(images,climb=climb,**self.neb_kwargs)
         with self.local_opt(neb,**self.local_opt_kwargs) as neb_opt:
             neb_opt.run(fmax=fmax,steps=ml_steps)
-            if not climb:
+            if self.reuse_ci_path or not climb:
                 self.last_images_tmp=[image.copy() for image in images]
             # Check if the MLNEB is converged
             converged=neb_opt.converged()
@@ -502,8 +518,9 @@ class MLNEB:
                     self.message_system('Stopped due to NaN value in prediction!')
                     break
                 # Make backup of images before the next NEB step, which can be used as a restart interpolation
-                if not climb and (not self.check_path_unc or max_unc_path<=unc_convergence):
-                    self.last_images_tmp=[image.copy() for image in images]
+                if self.reuse_ci_path or not climb:
+                    if not self.check_path_unc or max_unc_path<=unc_convergence:
+                        self.last_images_tmp=[image.copy() for image in images]
                 # Check if the NEB is converged on the predicted surface
                 if neb_opt.converged():
                     break
