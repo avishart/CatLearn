@@ -84,7 +84,8 @@ class MLGO:
         self.parallel_setup(save_memory)
         # Setup given parameters
         self.setup_slab_ads(slab,ads,ads2)
-        self.ase_calc=ase_calc
+        self.candidate=self.slab_ads.copy()
+        self.candidate.calc=ase_calc
         self.opt_kwargs=opt_kwargs
         self.norelax_points=norelax_points
         self.min_steps=min_steps
@@ -213,11 +214,11 @@ class MLGO:
         else:
             self.ads2=None
         # Number of atoms and the constraint used
-        slab_ads=self.slab.copy()
-        slab_ads.extend(self.ads.copy())
+        self.slab_ads=self.slab.copy()
+        self.slab_ads.extend(self.ads.copy())
         if self.ads2:
-            slab_ads.extend(self.ads2.copy())
-        self.number_atoms=len(slab_ads)
+            self.slab_ads.extend(self.ads2.copy())
+        self.number_atoms=len(self.slab_ads)
         return
     
     def parallel_setup(self,save_memory=False,**kwargs):
@@ -257,8 +258,6 @@ class MLGO:
     
     def evaluate(self,candidate):
         " Caculate energy and forces and add training system to ML-model "
-        # Reset calculator results
-        self.ase_calc.reset()
         # Ensure that the candidate is not already in the database
         if self.use_database_check:
             candidate=self.ensure_not_in_database(candidate)
@@ -268,18 +267,17 @@ class MLGO:
         candidate=broadcast(candidate,root=0)
         # Calculate the energies and forces
         self.message_system('Performing evaluation.',end='\r')
-        candidate.calc=self.ase_calc
-        candidate.calc.reset()
-        forces=candidate.get_forces(apply_constraint=self.apply_constraint)
-        self.energy_true=candidate.get_potential_energy(force_consistent=self.force_consistent)
+        self.candidate.set_positions(candidate.get_positions())
+        forces=self.candidate.get_forces(apply_constraint=self.apply_constraint)
+        self.energy_true=self.candidate.get_potential_energy(force_consistent=self.force_consistent)
         self.step+=1
         self.message_system('Single-point calculation finished.')
         # Store the data
         self.max_abs_forces=np.nanmax(np.linalg.norm(forces,axis=1))
-        self.add_training([candidate])
+        self.add_training([self.candidate])
         self.mlcalc.save_data(trajectory=self.trajectory)
         # Best new point
-        self.best_new_point(candidate,self.energy_true)
+        self.best_new_point(self.candidate,self.energy_true)
         return
 
     def add_training(self,atoms_list):
