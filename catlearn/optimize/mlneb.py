@@ -153,7 +153,8 @@ class MLNEB:
         # Save initial and final state
         self.set_up_endpoints(start,end)
         # Save the ASE calculator
-        self.ase_calc=ase_calc
+        self.candidate=self.start.copy()
+        self.candidate.calc=ase_calc
         self.apply_constraint=apply_constraint
         self.force_consistent=force_consistent
         # Scale the fmax on the surrogate surface
@@ -316,8 +317,6 @@ class MLNEB:
 
     def evaluate(self,candidate,**kwargs):
         " Evaluate the ASE atoms with the ASE calculator. "
-        # Reset calculator results
-        self.ase_calc.reset()
         # Ensure that the candidate is not already in the database
         if self.use_database_check:
             candidate=self.ensure_not_in_database(candidate)
@@ -327,15 +326,14 @@ class MLNEB:
         candidate=broadcast(candidate,root=0)
         # Calculate the energies and forces
         self.message_system('Performing evaluation.',end='\r')
-        candidate.calc=self.ase_calc
-        candidate.calc.reset()
-        forces=candidate.get_forces(apply_constraint=self.apply_constraint)
-        self.energy_true=candidate.get_potential_energy(force_consistent=self.force_consistent)
+        self.candidate.set_positions(candidate.get_positions())
+        forces=self.candidate.get_forces(apply_constraint=self.apply_constraint)
+        self.energy_true=self.candidate.get_potential_energy(force_consistent=self.force_consistent)
         self.step+=1
         self.message_system('Single-point calculation finished.')
         # Store the data
         self.max_abs_forces=np.nanmax(np.linalg.norm(forces,axis=1))
-        self.add_training([candidate])
+        self.add_training([self.candidate])
         self.save_data()
         return
 
