@@ -201,17 +201,19 @@ class MLGO:
         self.ads=ads.copy()
         self.ads.set_tags(1)
         # Center adsorbate structure
-        pos=self.ads.get_positions().copy()
-        self.ads.positions=pos-np.mean(pos,axis=0)
+        pos=self.ads.get_positions()
+        self.ads.set_positions(pos-np.mean(pos,axis=0))
         self.ads.cell=self.slab.cell.copy()
+        self.ads.pbc=self.slab.pbc.copy()
         # Setup second adsorbate
         if ads2:
             self.ads2=ads2.copy()
             self.ads2.set_tags(2)
             # Center adsorbate structure
-            pos=self.ads2.get_positions().copy()
+            pos=self.ads2.get_positions()
             self.ads2.set_positions(pos-np.mean(pos,axis=0))
             self.ads2.cell=self.slab.cell.copy()
+            self.ads2.pbc=self.slab.pbc.copy()
         else:
             self.ads2=None
         # Number of atoms and the constraint used
