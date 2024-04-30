@@ -85,16 +85,17 @@ class MLGO:
         self.parallel_setup(save_memory)
         # Setup given parameters
         self.setup_slab_ads(slab,ads,ads2)
-        self.candidate=self.slab_ads.copy()
-        self.candidate.calc=ase_calc
         self.opt_kwargs=opt_kwargs
         self.norelax_points=norelax_points
         self.min_steps=min_steps
         self.use_database_check=use_database_check
-        self.apply_constraint=apply_constraint
-        self.force_consistent=force_consistent
         self.initial_points=initial_points
         self.full_output=full_output
+        # Set candidate instance with ASE calculator
+        self.candidate=self.slab_ads.copy()
+        self.candidate.calc=ase_calc
+        self.apply_constraint=apply_constraint
+        self.force_consistent=force_consistent
         # Set initial parameters
         self.step=0
         self.error=0

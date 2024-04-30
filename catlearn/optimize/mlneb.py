@@ -152,7 +152,7 @@ class MLNEB:
             self.acq=acq.copy()
         # Save initial and final state
         self.set_up_endpoints(start,end)
-        # Save the ASE calculator
+        # Set candidate instance with ASE calculator
         self.candidate=self.start.copy()
         self.candidate.calc=ase_calc
         self.apply_constraint=apply_constraint
