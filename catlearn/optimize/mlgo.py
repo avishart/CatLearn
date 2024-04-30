@@ -3,6 +3,7 @@ from ase.io import read
 from scipy.optimize import dual_annealing
 import datetime
 from ase.parallel import world,broadcast
+from ..regression.gaussianprocess.calculator.copy_atoms import copy_atoms
 
 class MLGO:
     def __init__(self,slab,ads,ase_calc,ads2=None,mlcalc=None,acq=None,
@@ -290,7 +291,7 @@ class MLGO:
         if self.rank==0:
             if energy<=self.emin:
                 self.emin=energy
-                self.best_candidate=self.mlcalc.copy_atoms(candidate)
+                self.best_candidate=copy_atoms(candidate)
                 self.best_x=self.x.copy()
             # Save the energy
             self.energies.append(energy)
