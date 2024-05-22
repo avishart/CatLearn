@@ -3,7 +3,7 @@ from scipy.spatial.distance import cdist
 from .database import Database
 from ase.io import write
 
-class Database_Reduction(Database):
+class DatabaseReduction(Database):
     def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=1,**kwargs):
         """ 
         Database of ASE atoms objects that are converted into fingerprints and targets. 
@@ -33,7 +33,7 @@ class Database_Reduction(Database):
         # Use default fingerprint if it is not given
         if fingerprint is None:
             from ..fingerprint.cartesian import Cartesian
-            fingerprint=Cartesian(reduce_dimensions=reduce_dimensions,use_derivatives=use_derivatives,mic=True)
+            fingerprint=Cartesian(reduce_dimensions=reduce_dimensions,use_derivatives=use_derivatives)
         # Set the arguments
         self.update_arguments(fingerprint=fingerprint,
                               reduce_dimensions=reduce_dimensions,
@@ -258,7 +258,7 @@ class Database_Reduction(Database):
         return arg_kwargs,constant_kwargs,object_kwargs
 
 
-class DatabaseDistance(Database_Reduction):
+class DatabaseDistance(DatabaseReduction):
     def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=1,**kwargs):
         """ 
         Database of ASE atoms objects that are converted into fingerprints and targets. 
@@ -315,7 +315,7 @@ class DatabaseDistance(Database_Reduction):
         return np.array(indicies,dtype=int)
 
     
-class DatabaseRandom(Database_Reduction):
+class DatabaseRandom(DatabaseReduction):
     def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=1,**kwargs):
         """ 
         Database of ASE atoms objects that are converted into fingerprints and targets. 
@@ -362,7 +362,7 @@ class DatabaseRandom(Database_Reduction):
         return np.array(indicies,dtype=int)
     
     
-class DatabaseHybrid(Database_Reduction):
+class DatabaseHybrid(DatabaseReduction):
     def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=1,random_fraction=3,**kwargs):
         """ 
         Database of ASE atoms objects that are converted into fingerprints and targets. 
@@ -508,7 +508,7 @@ class DatabaseHybrid(Database_Reduction):
         return arg_kwargs,constant_kwargs,object_kwargs
     
     
-class DatabaseMin(Database_Reduction):
+class DatabaseMin(DatabaseReduction):
     def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=1,force_targets=False,**kwargs):
         """ 
         Database of ASE atoms objects that are converted into fingerprints and targets. 
@@ -646,7 +646,7 @@ class DatabaseMin(Database_Reduction):
         return arg_kwargs,constant_kwargs,object_kwargs
 
     
-class DatabaseLast(Database_Reduction):
+class DatabaseLast(DatabaseReduction):
     def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=1,**kwargs):
         """ 
         Database of ASE atoms objects that are converted into fingerprints and targets. 
@@ -690,7 +690,7 @@ class DatabaseLast(Database_Reduction):
         return np.array(indicies,dtype=int)
     
     
-class DatabaseRestart(Database_Reduction):
+class DatabaseRestart(DatabaseReduction):
     def __init__(self,fingerprint=None,reduce_dimensions=True,use_derivatives=True,use_fingerprint=True,npoints=25,initial_indicies=[0],include_last=1,**kwargs):
         """ 
         Database of ASE atoms objects that are converted into fingerprints and targets. 
