@@ -117,10 +117,10 @@ class MLGO:
         if mlcalc is None:
             from ..regression.gaussianprocess.calculator.mlmodel import get_default_mlmodel
             from ..regression.gaussianprocess.calculator.mlcalc import MLCalculator
-            from ..regression.gaussianprocess.fingerprint.invdistances import Inv_distances
             from ..regression.gaussianprocess.baseline.repulsive import Repulsion_calculator
-            fp=Inv_distances(reduce_dimensions=True,use_derivatives=True,mic=True,sorting=True)
-            mlmodel=get_default_mlmodel(model='gp',fp=fp,baseline=Repulsion_calculator(power=4),use_derivatives=True,parallel=(not save_memory),database_reduction=False)
+            from ..regression.gaussianprocess.fingerprint.sorteddistances import SortedDistances
+            fp=SortedDistances(reduce_dimensions=True,use_derivatives=True,periodic_softmax=True,wrap=True)
+            mlmodel=get_default_mlmodel(model='gp',fp=fp,baseline=Repulsion_calculator(power=10),use_derivatives=True,parallel=(not save_memory),database_reduction=False)
             self.mlcalc=MLCalculator(mlmodel=mlmodel)
         else:
             self.mlcalc=mlcalc
@@ -128,7 +128,7 @@ class MLGO:
         # Select an acquisition function 
         if acq is None:
             from .acquisition import AcqLCB
-            self.acq=AcqLCB(objective='min',kappa=3.0,kappamax=5.0)
+            self.acq=AcqLCB(objective='min',kappa=3.0)
         else:
             self.acq=acq.copy()
         # Scale the fmax on the surrogate surface

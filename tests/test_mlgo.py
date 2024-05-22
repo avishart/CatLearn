@@ -35,7 +35,7 @@ class TestMLGO(unittest.TestCase):
         # Check that MLGO converged
         self.assertTrue(mlgo.converged()==True) 
         # Check that MLGO used the right number of iterations
-        self.assertTrue(mlgo.step==18)
+        self.assertTrue(mlgo.step==13)
 
 if __name__ == '__main__':
     unittest.main()
