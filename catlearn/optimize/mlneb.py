@@ -130,10 +130,13 @@ class MLNEB:
         if mlcalc is None:
             from ..regression.gaussianprocess.calculator.mlmodel import get_default_mlmodel
             from ..regression.gaussianprocess.calculator.mlcalc import MLCalculator
-            from ..regression.gaussianprocess.fingerprint.invdistances import Inv_distances
             from ..regression.gaussianprocess.means.max import Prior_max
             if len(start)>1:
-                fp=Inv_distances(reduce_dimensions=True,use_derivatives=True,mic=False,sorting=False)
+                from ..regression.gaussianprocess.fingerprint.invdistances import InvDistances
+                if start.pbc.any():
+                    fp=InvDistances(reduce_dimensions=True,use_derivatives=True,periodic_softmax=True,wrap=True)
+                else:
+                    fp=InvDistances(reduce_dimensions=True,use_derivatives=True,periodic_softmax=False,wrap=False)
             else:
                 fp=None
             prior=Prior_max(add=1.0)

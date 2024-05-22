@@ -38,7 +38,7 @@ class TestGPBaseline(unittest.TestCase):
                                    kernel=SE(use_derivatives=use_derivatives,use_fingerprint=True),
                                    hpfitter=hpfitter)
                 # Make the fingerprint
-                fp=Cartesian(reduce_dimensions=True,use_derivatives=use_derivatives,mic=True)
+                fp=Cartesian(reduce_dimensions=True,use_derivatives=use_derivatives)
                 # Set up the database
                 database=Database(fingerprint=fp,
                                   reduce_dimensions=True,

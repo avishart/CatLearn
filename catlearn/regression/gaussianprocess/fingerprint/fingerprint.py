@@ -3,7 +3,7 @@ from ase.constraints import FixAtoms
 from .fingerprintobject import FingerprintObject
 
 class Fingerprint:
-    def __init__(self,reduce_dimensions=True,use_derivatives=True,mic=True,**kwargs):
+    def __init__(self,reduce_dimensions=True,use_derivatives=True,**kwargs):
         """ 
         Fingerprint constructer class that convert atoms object into a fingerprint object with vector and derivatives.
 
@@ -12,13 +12,10 @@ class Fingerprint:
                 Whether to reduce the fingerprint space if constrains are used.
             use_derivatives : bool
                 Calculate and store derivatives of the fingerprint wrt. the cartesian coordinates.
-            mic : bool
-                Minimum Image Convention (Shortest distances when periodic boundary is used).
         """
         # Set the arguments
         self.update_arguments(reduce_dimensions=reduce_dimensions,
                               use_derivatives=use_derivatives,
-                              mic=mic,
                               **kwargs)
         
     def __call__(self,atoms,**kwargs):
@@ -49,7 +46,7 @@ class Fingerprint:
         " Get whether the reduction of the fingerprint space is used if constrains are used. "
         return self.reduce_dimensions
     
-    def update_arguments(self,reduce_dimensions=None,use_derivatives=None,mic=None,**kwargs):
+    def update_arguments(self,reduce_dimensions=None,use_derivatives=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
 
@@ -58,8 +55,6 @@ class Fingerprint:
                 Whether to reduce the fingerprint space if constrains are used.
             use_derivatives : bool
                 Calculate and store derivatives of the fingerprint wrt. the cartesian coordinates.
-            mic : bool
-                Minimum Image Convention (Shortest distances when periodic boundary is used).
 
         Returns:
             self: The updated instance itself.
@@ -68,8 +63,6 @@ class Fingerprint:
             self.reduce_dimensions=reduce_dimensions
         if use_derivatives is not None:
             self.use_derivatives=use_derivatives
-        if mic is not None:
-            self.mic=mic
         return self
     
     def make_fingerprint(self,atoms,not_masked,**kwargs):
@@ -101,8 +94,7 @@ class Fingerprint:
         " Get the arguments of the class itself. "
         # Get the arguments given to the class in the initialization
         arg_kwargs=dict(reduce_dimensions=self.reduce_dimensions,
-                        use_derivatives=self.use_derivatives,
-                        mic=self.mic)
+                        use_derivatives=self.use_derivatives)
         # Get the constants made within the class
         constant_kwargs=dict()
         # Get the objects made within the class

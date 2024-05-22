@@ -24,7 +24,7 @@ class Database:
         # Use default fingerprint if it is not given
         if fingerprint is None:
             from ..fingerprint.cartesian import Cartesian
-            fingerprint=Cartesian(reduce_dimensions=reduce_dimensions,use_derivatives=use_derivatives,mic=True)
+            fingerprint=Cartesian(reduce_dimensions=reduce_dimensions,use_derivatives=use_derivatives)
         # Set the arguments
         self.update_arguments(fingerprint=fingerprint,
                               reduce_dimensions=reduce_dimensions,

@@ -1,25 +1,32 @@
 import numpy as np
-from .fingerprint import Fingerprint
+from .invdistances import InvDistances
 from .geometry import get_all_distances
 
-class Coulomb(Fingerprint):
-    def __init__(self,reduce_dimensions=True,use_derivatives=True,mic=True,**kwargs):
+class Coulomb(InvDistances):
+    def __init__(self,reduce_dimensions=True,use_derivatives=True,mic=False,wrap=True,eps=1e-16,**kwargs):
         """ 
         Fingerprint constructer class that convert atoms object into a fingerprint object with vector and derivatives.
         The Coulomb matrix fingerprint is generated.
-        
+
         Parameters:
             reduce_dimensions : bool
                 Whether to reduce the fingerprint space if constrains are used.
             use_derivatives : bool
                 Calculate and store derivatives of the fingerprint wrt. the cartesian coordinates.
             mic : bool
-                Minimum Image Convention (Shortest distances when periodic boundary is used).
+                Minimum Image Convention (Shortest distances when periodic boundary conditions are used).
+                Either use mic or periodic_softmax, not both. mic is faster than periodic_softmax, but the derivatives are discontinuous.
+            wrap: bool
+                Whether to wrap the atoms to the unit cell or not.
+            eps : float
+                Small number to avoid division by zero.
         """
         # Set the arguments
         super().__init__(reduce_dimensions=reduce_dimensions,
                          use_derivatives=use_derivatives,
                          mic=mic,
+                         wrap=wrap,
+                         eps=eps,
                          **kwargs)
     
     def make_fingerprint(self,atoms,not_masked,**kwargs):
@@ -45,11 +52,11 @@ class Coulomb(Fingerprint):
         fp=np.array([cmatrix[i,j] for i,j in i_triu])
         return fp,g
     
-    def get_coulomb(self,atoms,use_derivatives=False,mic=True):
+    def get_coulomb(self,atoms,use_derivatives=False,mic=True,wrap=True):
         " Get distances and charges to calculate coulomb potential "
         from scipy.spatial.distance import squareform
         range_atoms=np.arange(len(atoms))
-        distances,vec_distances=get_all_distances(atoms,range_atoms,mic=mic,vector=use_derivatives)
+        distances,vec_distances=get_all_distances(atoms,range_atoms,mic=mic,vector=use_derivatives,wrap=wrap)
         atom_numb=np.array([float(an) for an in atoms.get_atomic_numbers()])
         atom_numb=atom_numb.reshape(-1,1)*atom_numb
         atom_numb[range_atoms,range_atoms]=0.0

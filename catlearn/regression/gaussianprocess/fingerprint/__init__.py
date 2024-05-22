@@ -1,14 +1,17 @@
 from .fingerprint import Fingerprint
+from .fingerprintobject import FingerprintObject
 from .geometry import get_all_distances
 from .cartesian import Cartesian
 from .coulomb import Coulomb
-from .invdistances import Inv_distances
-from .sumdistances import Sum_distances
-from .sumdistancespower import Sum_distances_power
-from .meandistances import Mean_distances
-from .meandistancespower import Mean_distances_power
-from .fingerprintobject import FingerprintObject
+from .invdistances import InvDistances
+from .sorteddistances import SortedDistances
+from .sumdistances import SumDistances
+from .sumdistancespower import SumDistancesPower
+from .meandistances import MeanDistances
+from .meandistancespower import MeanDistancesPower
 
-__all__ = ["Fingerprint","get_all_distances","Cartesian","Coulomb",\
-           "Inv_distances","Sum_distances","Sum_distances_power",\
-           "Mean_distances","Mean_distances_power","FingerprintObject"]
+
+__all__ = ["Fingerprint","FingerprintObject","get_all_distances",\
+           "Cartesian","Coulomb","InvDistances","SortedDistances",\
+           "SumDistances","SumDistancesPower",\
+           "MeanDistances","MeanDistancesPower"]
