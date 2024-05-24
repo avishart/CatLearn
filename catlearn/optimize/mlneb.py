@@ -575,7 +575,7 @@ class MLNEB:
     
     def save_last_path(self,trajname,**kwargs):
         " Save the final MLNEB path in the trajectory file. "
-        if isinstance(trajname,str) and len(trajname):
+        if self.rank==0 and isinstance(trajname,str) and len(trajname):
             with TrajectoryWriter(trajname,mode='w',properties=['energy','forces','uncertainty']) as trajectory_last:
                 for image in self.images:
                     trajectory_last.write(image)
