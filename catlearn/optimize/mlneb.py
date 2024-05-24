@@ -251,10 +251,11 @@ class MLNEB:
                 # Check convergence
                 self.converging=self.check_convergence(fmax,unc_convergence,neb_converged)
                 if self.converging:
+                    self.save_last_path(self.final_path)
+                    self.message_system("MLNEB is converged.") 
+                    self.print_cite()
                     break
-        if self.converging:
-            self.save_last_path(self.final_path)
-        else:
+        if not self.converging:
             self.message_system('MLNEB did not converge!')
         return self
 
@@ -609,8 +610,6 @@ class MLNEB:
                     if self.umax_ml<=unc_convergence:
                         # Check the true energy deviation match the uncertainty prediction
                         if np.abs(self.energy_pred-self.energy_true)<=2.0*unc_convergence:
-                            self.message_system("MLNEB is converged.") 
-                            self.print_cite()
                             converged=True
         # Broadcast convergence statement
         converged=broadcast(converged,root=0)
