@@ -5,8 +5,8 @@ class MeanDistances(InvDistances):
     def __init__(self,reduce_dimensions=True,use_derivatives=True,periodic_softmax=True,mic=False,wrap=True,eps=1e-16,**kwargs):
         """ 
         Fingerprint constructer class that convert atoms object into a fingerprint object with vector and derivatives.
-        The mean of inverse squared distance fingerprint constructer class. 
-        The inverse squared distances are scaled with covalent radii.
+        The mean of inverse distance fingerprint constructer class. 
+        The inverse distances are scaled with covalent radii.
 
         Parameters:
             reduce_dimensions : bool

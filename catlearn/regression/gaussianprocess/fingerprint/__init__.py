@@ -4,6 +4,7 @@ from .geometry import get_all_distances
 from .cartesian import Cartesian
 from .coulomb import Coulomb
 from .invdistances import InvDistances
+from .invdistances2 import InvDistances2
 from .sorteddistances import SortedDistances
 from .sumdistances import SumDistances
 from .sumdistancespower import SumDistancesPower
@@ -12,6 +13,6 @@ from .meandistancespower import MeanDistancesPower
 
 
 __all__ = ["Fingerprint","FingerprintObject","get_all_distances",\
-           "Cartesian","Coulomb","InvDistances","SortedDistances",\
+           "Cartesian","Coulomb","InvDistances","InvDistances2","SortedDistances",\
            "SumDistances","SumDistancesPower",\
            "MeanDistances","MeanDistancesPower"]

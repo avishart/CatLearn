@@ -4,12 +4,12 @@ from ase.data import covalent_radii
 from .fingerprint import Fingerprint
 from .geometry import get_all_distances,get_periodicities
 
-class InvDistances(Fingerprint):
+class InvDistances2(Fingerprint):
     def __init__(self,reduce_dimensions=True,use_derivatives=True,periodic_softmax=True,mic=False,wrap=True,eps=1e-16,**kwargs):
         """ 
         Fingerprint constructer class that convert atoms object into a fingerprint object with vector and derivatives.
-        The inverse distance fingerprint constructer class. 
-        The inverse distances are scaled with covalent radii.
+        The inverse squared distance fingerprint constructer class. 
+        The inverse squared distances are scaled with covalent radii.
 
         Parameters:
             reduce_dimensions : bool
@@ -128,42 +128,45 @@ class InvDistances(Fingerprint):
         " Calculate all the fingerprints and their derivatives. "
         # Calculate the covariance radii, distances, and distance vectors 
         if atoms.pbc.any():
-            cov_dis,distances,vec_distances=self.get_cov_dis(atoms,not_masked,self.mic,self.use_derivatives,self.wrap,i_nm)
+            cov_dis2,distances,vec_distances=self.get_cov_dis(atoms,not_masked,self.mic,self.use_derivatives,self.wrap,i_nm)
         else:
-            cov_dis,distances,vec_distances=self.get_cov_dis(atoms,not_masked,False,self.use_derivatives,False,i_nm)
-        # Add small number to avoid division by zero
-        distances=distances+self.eps
+            cov_dis2,distances,vec_distances=self.get_cov_dis(atoms,not_masked,False,self.use_derivatives,False,i_nm)
+        # Use the squared distances and add small number to avoid division by zero
+        distances2=(distances**2)+self.eps
+        cov_dis2=cov_dis2**2
         # Make the arrays of fingerprints and their derivatives
         fij=np.zeros(n_total)
         gij=np.zeros((n_total,int(n_nmasked*3)))
         # Calculate the fingerprints of not fixed (not masked) and fixed atoms
         if n_nm_m:
             i_nm_re=i_nm.reshape(-1,1)
-            fij[:n_nm_m]=(cov_dis[i_nm_re,masked]/distances[i_nm_re,masked]).reshape(-1)
+            fij[:n_nm_m]=(cov_dis2[i_nm_re,masked]/distances2[i_nm_re,masked]).reshape(-1)
             # Calculate the derivatives of not fixed (not masked) and fixed atoms
             if self.use_derivatives:
                 i_g=np.repeat(np.arange(n_nm_m),3)
                 j_g=np.tile(3*i_nm_re+np.array([0,1,2]),(1,n_masked)).reshape(-1)
-                gij[i_g,j_g]=(vec_distances[i_nm_re,masked]*(cov_dis[i_nm_re,masked]/(distances[i_nm_re,masked]**3)).reshape(n_nmasked,n_masked,1)).reshape(-1)
+                gij[i_g,j_g]=(vec_distances[i_nm_re,masked]*(2.0*cov_dis2[i_nm_re,masked]/(distances2[i_nm_re,masked]**2)).reshape(n_nmasked,n_masked,1)).reshape(-1)
         # Get the indicies for not fixed and not fixed atoms interactions
         nmi,nmj=np.triu_indices(n_nmasked,k=1,m=None)
         if n_total-n_nm_m:
             nmj_ind=not_masked[nmj]
             # Calculate the fingerprints of not fixed and not fixed atoms
-            fij[n_nm_m:]=cov_dis[nmi,nmj_ind]/distances[nmi,nmj_ind]
+            fij[n_nm_m:]=cov_dis2[nmi,nmj_ind]/distances2[nmi,nmj_ind]
             if self.use_derivatives:
                 # Calculate the derivatives of not fixed and not fixed atoms
                 i_g=np.repeat(np.arange(n_nm_m,n_total),3)
                 j_gi=(3*nmi.reshape(-1,1)+np.array([0,1,2])).reshape(-1)
                 j_gj=(3*nmj.reshape(-1,1)+np.array([0,1,2])).reshape(-1)
-                gij[i_g,j_gi]=(vec_distances[nmi,nmj_ind]*(cov_dis[nmi,nmj_ind]/(distances[nmi,nmj_ind]**3)).reshape(-1,1)).reshape(-1)
+                gij[i_g,j_gi]=(vec_distances[nmi,nmj_ind]*(2.0*cov_dis2[nmi,nmj_ind]/(distances2[nmi,nmj_ind]**2)).reshape(-1,1)).reshape(-1)
                 gij[i_g,j_gj]=-gij[i_g,j_gi]
         return fij,gij,nmi,nmj
     
     def get_contributions_periodic(self,atoms,not_masked,masked,i_nm,n_total,n_nmasked,n_masked,n_nm_m,**kwargs):
         " Calculate all the fingerprints and their derivatives. "
         # Calculate the covariance radii, distances, and distance vectors 
-        cov_dis,distances,vec_distances=self.get_cov_dis(atoms,not_masked,False,True,self.wrap,i_nm)
+        cov_dis2,distances,vec_distances=self.get_cov_dis(atoms,not_masked,False,True,self.wrap,i_nm)
+        # Use the squared covalent radii distances
+        cov_dis2=cov_dis2**2
         # Get all the vector displacements
         cells_p=get_periodicities(atoms.pbc,atoms.get_cell(),remove0=False)
         c_dim=len(cells_p)
@@ -174,33 +177,33 @@ class InvDistances(Fingerprint):
         if n_nm_m:
             i_nm_re=i_nm.reshape(-1,1)
             # Calculate the reusable variables
-            cov=cov_dis[i_nm_re,masked].reshape(1,-1)
+            cov2=cov_dis2[i_nm_re,masked].reshape(1,-1)
             d=vec_distances[i_nm_re,masked]+cells_p.reshape(c_dim,1,1,3)
-            dnorm=np.linalg.norm(d,axis=-1).reshape(c_dim,-1)+self.eps
-            dcov=dnorm/cov
-            w=np.exp(-(dcov**2))
+            d2=np.sum(d**2,axis=-1).reshape(c_dim,-1)+self.eps
+            dcov2=d2/cov2
+            w=np.exp(-dcov2)
             w=w/np.sum(w,axis=0)
-            f=w/dcov
+            f=w/dcov2
             # Calculate fingerprint
             fij[:n_nm_m]=np.sum(f,axis=0)
             # Calculate the derivatives of not fixed (not masked) and fixed atoms
             if self.use_derivatives:
                 i_g=np.repeat(np.arange(n_nm_m),3)
                 j_g=np.tile(3*i_nm_re+np.array([0,1,2]),(1,n_masked)).reshape(-1)
-                inner=((2.0*(1.0-dcov*fij[:n_nm_m].reshape(1,-1)))/(cov**2))+(1.0/(dnorm**2))
+                inner=((2.0*(1.0-dcov2*fij[:n_nm_m].reshape(1,-1)))/(cov2))+(2.0/d2)
                 gij[i_g,j_g]=np.sum(d*(f*inner).reshape(c_dim,n_nmasked,n_masked,1),axis=0).reshape(-1)
         # Get the indicies for not fixed and not fixed atoms interactions
         nmi,nmj=np.triu_indices(n_nmasked,k=1,m=None)
         if n_total-n_nm_m:
             # Calculate the reusable variables
             nmj_ind=not_masked[nmj]
-            cov=cov_dis[nmi,nmj_ind].reshape(1,-1)
+            cov2=cov_dis2[nmi,nmj_ind].reshape(1,-1)
             d=vec_distances[nmi,nmj_ind]+cells_p.reshape(c_dim,1,3)
-            dnorm=np.linalg.norm(d,axis=-1).reshape(c_dim,-1)+self.eps
-            dcov=dnorm/cov
-            w=np.exp(-(dcov**2))
+            d2=np.sum(d**2,axis=-1).reshape(c_dim,-1)+self.eps
+            dcov2=d2/cov2
+            w=np.exp(-dcov2)
             w=w/np.sum(w,axis=0)
-            f=w/dcov
+            f=w/dcov2
             # Calculate fingerprint
             fij[n_nm_m:]=np.sum(f,axis=0)
             # Calculate the derivatives of not fixed (not masked) and fixed atoms
@@ -208,7 +211,7 @@ class InvDistances(Fingerprint):
                 i_g=np.repeat(np.arange(n_nm_m,n_total),3)
                 j_gi=(3*nmi.reshape(-1,1)+np.array([0,1,2])).reshape(-1)
                 j_gj=(3*nmj.reshape(-1,1)+np.array([0,1,2])).reshape(-1)
-                inner=((2.0*(1.0-dcov*fij[n_nm_m:].reshape(1,-1)))/(cov**2))+(1.0/(dnorm**2))
+                inner=((2.0*(1.0-dcov2*fij[n_nm_m:].reshape(1,-1)))/(cov2))+(2.0/d2)
                 gij[i_g,j_gi]=np.sum(d*(f*inner).reshape(c_dim,-1,1),axis=0).reshape(-1)
                 gij[i_g,j_gj]=-gij[i_g,j_gi]
         return fij,gij,nmi,nmj

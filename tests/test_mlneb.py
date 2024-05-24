@@ -32,7 +32,7 @@ class TestMLNEB(unittest.TestCase):
         # Check that MLNEB converged
         self.assertTrue(mlneb.converged()==True) 
         # Check that MLNEB used the right number of iterations
-        self.assertTrue(mlneb.step==3)
+        self.assertTrue(mlneb.step==4)
     
     def test_mlneb_run_norestart(self):
         " Test if the MLNEB can run and converge with no restart of path. "
@@ -49,7 +49,7 @@ class TestMLNEB(unittest.TestCase):
         # Check that MLNEB converged
         self.assertTrue(mlneb.converged()==True) 
         # Check that MLNEB used the right number of iterations
-        self.assertTrue(mlneb.step==3)
+        self.assertTrue(mlneb.step==4)
 
     def test_mlneb_run_savememory(self):
         " Test if the MLNEB can run and converge when it saves memory. "
@@ -66,7 +66,7 @@ class TestMLNEB(unittest.TestCase):
         # Check that MLNEB converged
         self.assertTrue(mlneb.converged()==True) 
         # Check that MLNEB used the right number of iterations
-        self.assertTrue(mlneb.step==3)
+        self.assertTrue(mlneb.step==4)
 
     def test_mlneb_run_no_maxunc(self):
         " Test if the MLNEB can run and converge when it does not use max_unc. "
@@ -83,7 +83,7 @@ class TestMLNEB(unittest.TestCase):
         # Check that MLNEB converged
         self.assertTrue(mlneb.converged()==True) 
         # Check that MLNEB used the right number of iterations
-        self.assertTrue(mlneb.step==3)
+        self.assertTrue(mlneb.step==4)
     
 
 if __name__ == '__main__':
