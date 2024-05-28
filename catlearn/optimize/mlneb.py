@@ -238,6 +238,8 @@ class MLNEB:
         self.extra_initial_data()
         # Save MLNEB path trajectory
         with TrajectoryWriter(self.trajectory,mode='w',properties=['energy','forces','uncertainty']) as self.trajectory_neb:
+            # Save the initial interpolation
+            self.save_last_path(self.last_path,self.last_images,properties=None)
             # Run the active learning
             for step in range(1,steps+1):
                 # Train and optimize ML model
@@ -251,7 +253,7 @@ class MLNEB:
                 # Check convergence
                 self.converging=self.check_convergence(fmax,unc_convergence,neb_converged)
                 if self.converging:
-                    self.save_last_path(self.final_path)
+                    self.save_last_path(self.final_path,self.images)
                     self.message_system("MLNEB is converged.") 
                     self.print_cite()
                     break
@@ -440,7 +442,7 @@ class MLNEB:
             self.message_system('Starting NEB without climbing image on surrogate surface.')
         images,neb_converged=self.mlneb_opt(images,fmax=fmax,ml_steps=ml_steps,max_unc=max_unc,unc_convergence=unc_convergence,climb=self.climb_active)
         self.save_mlneb(images)
-        self.save_last_path(self.last_path)
+        self.save_last_path(self.last_path,self.images)
         # Get the candidate
         candidate=self.choose_candidate(images)
         return candidate,neb_converged
@@ -574,12 +576,12 @@ class MLNEB:
         self.mlcalc.save_data(trajectory=self.trainingset)
         return 
     
-    def save_last_path(self,trajname,**kwargs):
+    def save_last_path(self,trajname,images,properties=['energy','forces','uncertainty'],**kwargs):
         " Save the final MLNEB path in the trajectory file. "
         if self.rank==0 and isinstance(trajname,str) and len(trajname):
-            with TrajectoryWriter(trajname,mode='w',properties=['energy','forces','uncertainty']) as trajectory_last:
-                for image in self.images:
-                    trajectory_last.write(image)
+            with TrajectoryWriter(trajname,mode='w',properties=properties) as trajectory_last:
+                for image in images:
+                    trajectory_last.write(copy_atoms(image))
         return
     
     def get_barrier(self,forward=True,**kwargs):
