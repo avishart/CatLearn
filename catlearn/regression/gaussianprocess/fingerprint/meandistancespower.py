@@ -92,8 +92,8 @@ class MeanDistancesPower(MeanDistances):
         n_nm_nm=int(0.5*n_nmasked*(n_nmasked-1))
         n_total=n_nm_m+n_nm_nm
         # Make indicies arrays
-        not_masked=np.array(not_masked)
-        masked=np.array(masked)
+        not_masked=np.array(not_masked,dtype=int)
+        masked=np.array(masked,dtype=int)
         indicies=np.arange(n_atoms)
         i_nm=np.arange(n_nmasked)
         i_m=np.arange(n_masked)

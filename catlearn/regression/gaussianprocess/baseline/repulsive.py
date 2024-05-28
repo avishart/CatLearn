@@ -86,8 +86,8 @@ class RepulsionCalculator(BaselineCalculator):
         " Get the energy and forces. "
         # Get the not fixed (not masked) atom indicies
         not_masked,masked=self.get_constraints(atoms)
-        not_masked=np.array(not_masked)
-        masked=np.array(masked)
+        not_masked=np.array(not_masked,dtype=int)
+        masked=np.array(masked,dtype=int)
         # Get the inverse distances
         f,g=self.get_inv_distances(atoms,not_masked,masked,get_derivatives,**kwargs)
         # Calculate energy

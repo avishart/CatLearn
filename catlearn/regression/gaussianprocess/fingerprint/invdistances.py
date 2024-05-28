@@ -80,8 +80,8 @@ class InvDistances(Fingerprint):
         n_nm_nm=int(0.5*n_nmasked*(n_nmasked-1))
         n_total=n_nm_m+n_nm_nm
         # Make indicies arrays
-        not_masked=np.array(not_masked)
-        masked=np.array(masked)
+        not_masked=np.array(not_masked,dtype=int)
+        masked=np.array(masked,dtype=int)
         i_nm=np.arange(n_nmasked)
         # Calculate all the fingerprints and their derivatives
         fij,gij,nmi,nmj=self.get_contributions(atoms,not_masked,masked,i_nm,n_total,n_nmasked,n_masked,n_nm_m)
