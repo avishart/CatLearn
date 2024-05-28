@@ -43,7 +43,7 @@ class FingerprintWrapperGPAtom(Fingerprint):
             self.use_derivatives=use_derivatives
         return self
 
-    def make_fingerprint(self,atoms,not_masked,**kwargs):
+    def make_fingerprint(self,atoms,not_masked,masked,**kwargs):
         " The calculation of the gp-atom fingerprint "
         fp=self.fingerprint(atoms,calc_gradients=self.use_derivatives,**kwargs)
         vector=fp.vector.copy()
@@ -117,7 +117,7 @@ class FingerprintWrapperDScribe(Fingerprint):
             self.fingerprint_kwargs=fingerprint_kwargs.copy()
         return self
 
-    def make_fingerprint(self,atoms,not_masked,**kwargs):
+    def make_fingerprint(self,atoms,not_masked,masked,**kwargs):
         " The calculation of the dscribe fingerprint "
         if self.use_derivatives:
             derivative,vector=self.fingerprint.derivatives(atoms,include=not_masked,return_descriptor=True,**self.fingerprint_kwargs)

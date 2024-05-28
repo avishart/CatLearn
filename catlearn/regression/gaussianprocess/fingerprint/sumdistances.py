@@ -32,7 +32,7 @@ class SumDistances(InvDistances):
                          eps=eps,
                          **kwargs)
     
-    def make_fingerprint(self,atoms,not_masked,**kwargs):
+    def make_fingerprint(self,atoms,not_masked,masked,**kwargs):
         " Calculate the fingerprint and its derivative. "
         # Set parameters of array sizes
         n_atoms=len(atoms)
@@ -43,8 +43,8 @@ class SumDistances(InvDistances):
         n_total=n_nm_m+n_nm_nm
         # Make indicies arrays
         not_masked=np.array(not_masked)
+        masked=np.array(masked)
         indicies=np.arange(n_atoms)
-        masked=np.setdiff1d(indicies,not_masked)
         i_nm=np.arange(n_nmasked)
         i_m=np.arange(n_masked)
         # Calculate all the fingerprints and their derivatives

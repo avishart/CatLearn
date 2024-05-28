@@ -30,9 +30,9 @@ class Fingerprint:
             FingerprintObject: Object with the fingerprint array and its derivatives if requested.
         """
         # Get the constraints from ASE Atoms
-        not_masked=self.get_constraints(atoms)
+        not_masked,masked=self.get_constraints(atoms)
         # Calculate the fingerprint and its derivatives if requested 
-        vector,derivative=self.make_fingerprint(atoms,not_masked=not_masked,**kwargs)
+        vector,derivative=self.make_fingerprint(atoms,not_masked=not_masked,masked=masked,**kwargs)
         # Make the fingerprint object and store the arrays within
         if self.use_derivatives:  
             return FingerprintObject(vector=vector,derivative=derivative)
@@ -65,7 +65,7 @@ class Fingerprint:
             self.use_derivatives=use_derivatives
         return self
     
-    def make_fingerprint(self,atoms,not_masked,**kwargs):
+    def make_fingerprint(self,atoms,not_masked,masked,**kwargs):
         " The calculation of the fingerprint "
         raise NotImplementedError()
         
@@ -78,17 +78,21 @@ class Fingerprint:
                 The ASE Atoms object with a calculator.
 
         Returns:
-            list: A list of indicies for the moving atoms if constraints are used. 
+            not_masked : list
+                A list of indicies for the moving atoms if constraints are used. 
+            masked : list
+                A list of indicies for the fixed atoms if constraints are used. 
+
         """
         not_masked=list(range(len(atoms)))
         if not self.reduce_dimensions:
-            return not_masked
+            return not_masked,[]
         constraints=atoms.constraints
         if len(constraints)>0:
-            index_mask=np.concatenate([c.get_indices() for c in constraints if isinstance(c,FixAtoms)])
-            index_mask=set(index_mask)
-            return list(set(not_masked).difference(index_mask))
-        return not_masked
+            masked=np.concatenate([c.get_indices() for c in constraints if isinstance(c,FixAtoms)])
+            masked=set(masked)
+            return list(set(not_masked).difference(masked)),list(masked)
+        return not_masked,[]
     
     def get_arguments(self):
         " Get the arguments of the class itself. "

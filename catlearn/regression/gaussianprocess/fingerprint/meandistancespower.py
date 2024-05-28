@@ -75,14 +75,14 @@ class MeanDistancesPower(MeanDistances):
         if wrap is not None:
             self.wrap=wrap
         if eps is not None:
-            self.eps=float(eps)
+            self.eps=abs(float(eps))
         if power is not None:
             self.power=int(power)
         if use_roots is not None:
             self.use_roots=use_roots
         return self
     
-    def make_fingerprint(self,atoms,not_masked,**kwargs):
+    def make_fingerprint(self,atoms,not_masked,masked,**kwargs):
         " Calculate the fingerprint and its derivative. "
         # Set parameters of array sizes
         n_atoms=len(atoms)
@@ -93,8 +93,8 @@ class MeanDistancesPower(MeanDistances):
         n_total=n_nm_m+n_nm_nm
         # Make indicies arrays
         not_masked=np.array(not_masked)
+        masked=np.array(masked)
         indicies=np.arange(n_atoms)
-        masked=np.setdiff1d(indicies,not_masked)
         i_nm=np.arange(n_nmasked)
         i_m=np.arange(n_masked)
         # Calculate all the fingerprints and their derivatives

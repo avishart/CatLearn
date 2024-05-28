@@ -29,7 +29,7 @@ class Coulomb(InvDistances):
                          eps=eps,
                          **kwargs)
     
-    def make_fingerprint(self,atoms,not_masked,**kwargs):
+    def make_fingerprint(self,atoms,not_masked,masked,**kwargs):
         " The calculation of the coulomb matrix fingerprint "
         vector,derivative=self.calculate_coulomb(atoms,not_masked,use_derivatives=self.use_derivatives,mic=self.mic)
         return vector,derivative
