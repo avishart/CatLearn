@@ -42,14 +42,19 @@ def get_all_distances(atoms,not_masked=None,masked=None,nmi=None,nmi_ind=None,nm
     pos=atoms.get_positions(wrap=wrap)
     # Get distance vectors
     if vector or mic:
-        dist_vec=np.concatenate([(pos[masked]-pos[not_masked,None]).reshape(-1,3),pos[nmj_ind]-pos[nmi_ind]],axis=0)
+        if len(masked):
+            dist_vec=np.concatenate([(pos[masked]-pos[not_masked,None]).reshape(-1,3),pos[nmj_ind]-pos[nmi_ind]],axis=0)
+        else:
+            dist_vec=pos[nmj_ind]-pos[nmi_ind]
     # Get the periodic boundary conditions
     pbc=atoms.pbc.copy()
     # Check if the minimum image convention is used and if there is any pbc
     if not mic or sum(pbc)==0:
         if not vector:
             d=cdist(pos[not_masked],pos)
-            return np.concatenate([d[:,masked].reshape(-1),d[nmi,nmj_ind]],axis=0),None
+            if len(masked):
+                return np.concatenate([d[:,masked].reshape(-1),d[nmi,nmj_ind]],axis=0),None
+            return d[nmi,nmj_ind],None
         return np.linalg.norm(dist_vec,axis=-1),dist_vec    
     # Get the cell vectors
     cell=np.array(atoms.cell)
@@ -169,7 +174,10 @@ def get_inverse_distances(atoms,not_masked=None,masked=None,nmi=None,nmj=None,nm
     # Get the covalent radii
     if use_covrad:
         covrad=covalent_radii[atoms.get_atomic_numbers()]
-        covrad=np.concatenate([(covrad[masked]+covrad[not_masked,None]).reshape(-1),covrad[nmj_ind]+covrad[nmi_ind]],axis=0)
+        if len(masked):
+            covrad=np.concatenate([(covrad[masked]+covrad[not_masked,None]).reshape(-1),covrad[nmj_ind]+covrad[nmi_ind]],axis=0)
+        else:
+            covrad=covrad[nmj_ind]+covrad[nmi_ind]
     else:
         covrad=1.0
     # Get inverse distances
