@@ -117,10 +117,11 @@ class MLGO:
         if mlcalc is None:
             from ..regression.gaussianprocess.calculator.mlmodel import get_default_mlmodel
             from ..regression.gaussianprocess.calculator.mlcalc import MLCalculator
-            from ..regression.gaussianprocess.baseline.repulsive import Repulsion_calculator
+            from ..regression.gaussianprocess.baseline.repulsive import RepulsionCalculator
             from ..regression.gaussianprocess.fingerprint.sorteddistances import SortedDistances
             fp=SortedDistances(reduce_dimensions=True,use_derivatives=True,periodic_softmax=True,wrap=True)
-            mlmodel=get_default_mlmodel(model='gp',fp=fp,baseline=Repulsion_calculator(power=10),use_derivatives=True,parallel=(not save_memory),database_reduction=False)
+            baseline=RepulsionCalculator(reduce_dimensions=True,power=10,periodic_softmax=True,wrap=True)
+            mlmodel=get_default_mlmodel(model='gp',fp=fp,baseline=baseline,use_derivatives=True,parallel=(not save_memory),database_reduction=False)
             self.mlcalc=MLCalculator(mlmodel=mlmodel)
         else:
             self.mlcalc=mlcalc
