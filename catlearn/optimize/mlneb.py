@@ -195,7 +195,7 @@ class MLNEB:
         self.tabletxt=tabletxt
         # Restart the MLNEB
         if restart:
-            if len(prev_calculations):
+            if prev_calculations is not None:
                 self.message_system('Warning: Given previous calculations does not work with restarting MLNEB!')
             try:
                 self.interpolation=read(self.trajectory,'-{}:'.format(self.n_images))
