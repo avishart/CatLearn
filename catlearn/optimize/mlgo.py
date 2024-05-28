@@ -4,6 +4,7 @@ from scipy.optimize import dual_annealing
 import datetime
 from ase.parallel import world,broadcast
 from ..regression.gaussianprocess.calculator.copy_atoms import copy_atoms
+from ..regression.gaussianprocess.baseline.repulsive import RepulsionCalculator
 
 class MLGO:
     def __init__(self,slab,ads,ase_calc,ads2=None,mlcalc=None,acq=None,
@@ -117,7 +118,6 @@ class MLGO:
         if mlcalc is None:
             from ..regression.gaussianprocess.calculator.mlmodel import get_default_mlmodel
             from ..regression.gaussianprocess.calculator.mlcalc import MLCalculator
-            from ..regression.gaussianprocess.baseline.repulsive import RepulsionCalculator
             from ..regression.gaussianprocess.fingerprint.sorteddistances import SortedDistances
             fp=SortedDistances(reduce_dimensions=True,use_derivatives=True,periodic_softmax=True,wrap=True)
             baseline=RepulsionCalculator(reduce_dimensions=True,power=10,periodic_softmax=True,wrap=True)
@@ -312,9 +312,8 @@ class MLGO:
 
     def dual_func_random(self,pos_angles):
         " Dual annealing object function for random structure "
-        from ..regression.gaussianprocess.baseline import Repulsion_calculator
         slab_ads=self.place_ads(pos_angles)
-        slab_ads.calc=Repulsion_calculator(r_scale=0.7)
+        slab_ads.calc=RepulsionCalculator(r_scale=0.7,reduce_dimensions=True,power=10,periodic_softmax=True,wrap=True)
         energy=slab_ads.get_potential_energy()
         return energy
     
