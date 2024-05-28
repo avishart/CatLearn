@@ -14,9 +14,9 @@ class TestGPBaseline(unittest.TestCase):
         from catlearn.regression.gaussianprocess.hpfitter import HyperparameterFitter
         from catlearn.regression.gaussianprocess.fingerprint import Cartesian
         from catlearn.regression.gaussianprocess.calculator import Database,MLModel,MLCalculator
-        from catlearn.regression.gaussianprocess.baseline.baseline import Baseline_calculator
-        from catlearn.regression.gaussianprocess.baseline.repulsive import Repulsion_calculator
-        from catlearn.regression.gaussianprocess.baseline.mie import Mie_calculator
+        from catlearn.regression.gaussianprocess.baseline.baseline import BaselineCalculator
+        from catlearn.regression.gaussianprocess.baseline.repulsive import RepulsionCalculator
+        from catlearn.regression.gaussianprocess.baseline.mie import MieCalculator
         # Create the data set
         x,f,g=create_h2_atoms(gridsize=50,seed=1)
         ## Whether to learn from the derivatives
@@ -26,7 +26,7 @@ class TestGPBaseline(unittest.TestCase):
         optimizer=ScipyOptimizer(maxiter=500,jac=True,method='l-bfgs-b',use_bounds=False,tol=1e-8)
         hpfitter=HyperparameterFitter(func=LogLikelihood(),optimizer=optimizer)
         # Define the list of baseline objects that are tested
-        baseline_list=[Baseline_calculator(),Repulsion_calculator(r_scale=0.7),Mie_calculator()]
+        baseline_list=[BaselineCalculator(),RepulsionCalculator(r_scale=0.7),MieCalculator()]
         # Make a list of the error values that the test compares to
         error_list=[0.00165,1.93820,3.33650]
         # Test the baseline objects
