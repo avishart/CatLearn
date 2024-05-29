@@ -232,6 +232,8 @@ class MLNEB:
         # Active learning parameters
         candidate=None
         self.acq.update_arguments(unc_convergence=unc_convergence)
+        # Define the images
+        self.images=[copy_atoms(image) for image in self.last_images]
         # Define the temporary last images that can be used to restart the interpolation
         self.last_images_tmp=None
         # Calculate a extra data point if only start and end is given
@@ -239,7 +241,7 @@ class MLNEB:
         # Save MLNEB path trajectory
         with TrajectoryWriter(self.trajectory,mode='w',properties=['energy','forces','uncertainty']) as self.trajectory_neb:
             # Save the initial interpolation
-            self.save_last_path(self.last_path,self.last_images,properties=None)
+            self.save_last_path(self.last_path,self.images,properties=None)
             # Run the active learning
             for step in range(1,steps+1):
                 # Train and optimize ML model
@@ -248,6 +250,8 @@ class MLNEB:
                 candidate,neb_converged=self.run_mlneb(fmax=fmax*self.scale_fmax,ml_steps=ml_steps,max_unc=max_unc,unc_convergence=unc_convergence)
                 # Evaluate candidate
                 self.evaluate(candidate)
+                # Share the images between all CPUs
+                self.share_images() 
                 # Print the results for this iteration
                 self.print_statement(step)
                 # Check convergence
@@ -431,7 +435,7 @@ class MLNEB:
         # Convergence of the NEB
         neb_converged=False
         # If memeory is saved NEB is only performed on one CPU
-        if self.rank!=0:
+        if self.rank!=0:            
             return None,neb_converged
         # Make the interpolation from initial path or the previous path
         images=self.make_reused_interpolation(unc_convergence,climb=self.climb_active)
@@ -570,6 +574,11 @@ class MLNEB:
             self.images.append(image)
             self.trajectory_neb.write(image)
         return self.images
+    
+    def share_images(self,**kwargs):
+        " Share the images between all CPUs. "
+        self.images=broadcast(self.images,root=0)
+        return 
     
     def save_data(self,**kwargs):
         " Save the training data to trajectory file. "
