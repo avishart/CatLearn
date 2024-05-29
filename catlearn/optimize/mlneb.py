@@ -435,7 +435,7 @@ class MLNEB:
         # Convergence of the NEB
         neb_converged=False
         # If memeory is saved NEB is only performed on one CPU
-        if self.rank!=0:            
+        if self.rank!=0:
             return None,neb_converged
         # Make the interpolation from initial path or the previous path
         images=self.make_reused_interpolation(unc_convergence,climb=self.climb_active)
