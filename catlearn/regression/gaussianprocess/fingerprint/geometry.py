@@ -108,19 +108,31 @@ def mic_cubic_distance(dist_vec,v2min,vmin,d_c,cell,vector=False,**kwargs):
         dv2_new=dv_new**2
         ## Save the new distances if they are shorter
         i=np.where(dv2_new<v2min[...,d])
-        #ix,iy=np.where(dv2_new-v2min[...,d]<-1e-8)
-        v2min[*i,d]=dv2_new[*i]
-        if vector:
-            vmin[*i,d]=dv_new[*i]
+        if len(i)==2:
+            i,j=i
+            v2min[i,j,d]=dv2_new[i,j]
+            if vector:
+                vmin[i,j,d]=dv_new[i,j]
+        else:
+            i=i[0]
+            v2min[i,d]=dv2_new[i]
+            if vector:
+                vmin[i,d]=dv_new[i]
         # Calculate the distances to the atoms in the previous unit cell
         dv_new=dist_vec[...,d]-cell[d,d]
         dv2_new=dv_new**2
         ## Save the new distances if they are shorter
         i=np.where(dv2_new<v2min[...,d])
-        #ix,iy=np.where(dv2_new-v2min[...,d]<-1e-8)
-        v2min[*i,d]=dv2_new[*i]
-        if vector:
-            vmin[*i,d]=dv_new[*i]
+        if len(i)==2:
+            i,j=i
+            v2min[i,j,d]=dv2_new[i,j]
+            if vector:
+                vmin[i,j,d]=dv_new[i,j]
+        else:
+            i=i[0]
+            v2min[i,d]=dv2_new[i]
+            if vector:
+                vmin[i,d]=dv_new[i]
     # Calculate the distances
     if vector:
         return np.sum(v2min,axis=-1),vmin
@@ -136,11 +148,17 @@ def mic_general_distance(dist_vec,Dmin,vmin,pbc_nc,cell,vector=False,**kwargs):
         dv_new=dist_vec+p_array
         D_new=np.sum(dv_new**2,axis=-1)
         ## Save the new distances if they are shorter
-        ix,iy=np.where(D_new<Dmin) 
-        #ix,iy=np.where(Dmin-D_new<-1e-8)# if small changes lead to change
-        Dmin[ix,iy]=D_new[ix,iy]
-        if vector:
-            vmin[ix,iy]=dv_new[ix,iy]
+        i=np.where(D_new<Dmin)
+        if len(i)==2:
+            i,j=i
+            Dmin[i,j]=D_new[i,j]
+            if vector:
+                vmin[i,j]=dv_new[i,j]
+        else:
+            i=i[0]
+            Dmin[i]=D_new[i]
+            if vector:
+                vmin[i]=dv_new[i]
     # Calculate the distances
     if vector:
         return Dmin,vmin
