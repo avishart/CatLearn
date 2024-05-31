@@ -258,7 +258,7 @@ class MLGO:
         R=np.matmul(Ry,Rz)
         Rz=np.array([[np.cos(theta3),-np.sin(theta3),0.0],[np.sin(theta3),np.cos(theta3),0.0],[0.0,0.0,1.0]])
         R=np.matmul(Rz,R).T
-        ads.positions=np.matmul(ads.get_positions(),R)
+        ads.set_positions(np.matmul(ads.get_positions(),R))
         return ads
     
     def evaluate(self,candidate):
