@@ -275,9 +275,11 @@ class MLNEB:
         # Add initial and final states to ML model
         self.add_training([start,end])
         # Store the initial and final energy
+        start.get_forces()
         self.start_energy=start.get_potential_energy()
-        self.end_energy=end.get_potential_energy()
         self.start=copy_atoms(start)
+        end.get_forces()
+        self.end_energy=end.get_potential_energy()
         self.end=copy_atoms(end)
         return 
 
