@@ -24,7 +24,7 @@ def get_full_distance_matrix(atoms,not_masked=None,mic=False,vector=False,wrap=F
     # Get the cell vectors
     cell=np.array(atoms.cell)
     # Get the minimum image convention distances and distance vectors
-    return mic_distance(dist_vec,not_masked,pbc,cell,vector=vector,**kwargs)
+    return mic_distance(dist_vec,pbc,cell,vector=vector,**kwargs)
 
 def get_all_distances(atoms,not_masked=None,masked=None,nmi=None,nmi_ind=None,nmj_ind=None,mic=False,vector=False,wrap=False,**kwargs):
     " Get the unique cartesian distances between the atomes and including the vectors if vector=True. "
@@ -59,9 +59,9 @@ def get_all_distances(atoms,not_masked=None,masked=None,nmi=None,nmi_ind=None,nm
     # Get the cell vectors
     cell=np.array(atoms.cell)
     # Get the minimum image convention distances and distance vectors
-    return mic_distance(dist_vec,not_masked,pbc,cell,vector=vector,**kwargs)
+    return mic_distance(dist_vec,pbc,cell,vector=vector,**kwargs)
     
-def mic_distance(dist_vec,not_masked,pbc,cell,vector=False,**kwargs):
+def mic_distance(dist_vec,pbc,cell,vector=False,**kwargs):
     " Get the minimum image convention of the distances. "
     # Get the squared cell vectors
     cell2=cell**2
