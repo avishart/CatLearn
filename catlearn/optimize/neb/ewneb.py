@@ -2,8 +2,8 @@ import numpy as np
 from .improvedneb import ImprovedTangentNEB
 
 class EWNEB(ImprovedTangentNEB):
-    def __init__(self,images,k=0.1,kl_scale=0.1,use_minimum=False,climb=False,remove_rotation_and_translation=False,**kwargs):
-        super().__init__(images,k=k,climb=climb,remove_rotation_and_translation=remove_rotation_and_translation,**kwargs)
+    def __init__(self,images,k=0.1,kl_scale=0.1,use_minimum=False,climb=False,remove_rotation_and_translation=False,mic=True,**kwargs):
+        super().__init__(images,k=k,climb=climb,remove_rotation_and_translation=remove_rotation_and_translation,mic=mic,**kwargs)
         self.kl_scale=kl_scale
         self.use_minimum=use_minimum
     

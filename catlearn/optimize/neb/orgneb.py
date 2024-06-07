@@ -1,9 +1,10 @@
 import numpy as np
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.build import minimize_rotation_and_translation
+from ...regression.gaussianprocess.fingerprint.geometry import mic_distance
 
 class OriginalNEB:
-    def __init__(self,images,k=0.1,climb=False,remove_rotation_and_translation=False,**kwargs):
+    def __init__(self,images,k=0.1,climb=False,remove_rotation_and_translation=False,mic=True,**kwargs):
         """
         The orginal Nudged Elastic Band method implementation for the tangent and parallel force. 
 
@@ -16,6 +17,9 @@ class OriginalNEB:
                 Whether to use climbing image in the NEB. 
             remove_rotation_and_translation : bool
                 Whether to remove rotation and translation in interpolation and when predicting forces.
+            mic : bool
+                Minimum Image Convention (Shortest distances when periodic boundary conditions are used).
+
         """
         self.images=images
         self.nimages=len(images)
@@ -26,6 +30,7 @@ class OriginalNEB:
             self.k=k.copy()
         self.climb=climb
         self.remove_rotation_and_translation=remove_rotation_and_translation
+        self.mic=mic
         self.reset()
 
     def interpolate(self,method='linear',mic=True,**kwargs):
@@ -154,9 +159,12 @@ class OriginalNEB:
     def get_position_diff(self):
         " Get the change in the coordinates relative to the previous and later image. "
         positions=self.get_image_positions()
-        position_plus=positions[2:]-positions[1:-1]
-        position_minus=positions[1:-1]-positions[:-2]
-        return position_plus,position_minus
+        position_diff=positions[1:]-positions[:-1]
+        pbc=np.array(self.images[0].get_pbc())
+        if self.mic and pbc.any():
+            cell=np.array(self.images[0].get_cell())
+            position_diff=mic_distance(position_diff,pbc,cell,vector=True)[1]
+        return position_diff[1:],position_diff[:-1]
     
     def get_tangent(self,pos_p,pos_m,**kwargs):
         " Calculate the tangent to the moving images. "
