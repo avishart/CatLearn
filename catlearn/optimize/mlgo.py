@@ -3,11 +3,13 @@ from ase.io import read
 from scipy.optimize import dual_annealing
 import datetime
 from ase.parallel import world,broadcast
+from ..regression.gaussianprocess.calculator.copy_atoms import copy_atoms
+from ..regression.gaussianprocess.baseline.repulsive import RepulsionCalculator
 
 class MLGO:
     def __init__(self,slab,ads,ase_calc,ads2=None,mlcalc=None,acq=None,
                  prev_calculations=None,use_database_check=True,
-                 apply_constraint=True,force_consistent=None,scale_fmax=0.5,save_memory=False,
+                 apply_constraint=True,force_consistent=None,scale_fmax=0.8,save_memory=False,
                  local_opt=None,local_opt_kwargs={},opt_kwargs={},
                  bounds=None,initial_points=2,norelax_points=10,min_steps=8,
                  trajectory='evaluated.traj',tabletxt='mlgo_summary.txt',full_output=False,**kwargs):
@@ -84,15 +86,17 @@ class MLGO:
         self.parallel_setup(save_memory)
         # Setup given parameters
         self.setup_slab_ads(slab,ads,ads2)
-        self.ase_calc=ase_calc
         self.opt_kwargs=opt_kwargs
         self.norelax_points=norelax_points
         self.min_steps=min_steps
         self.use_database_check=use_database_check
-        self.apply_constraint=apply_constraint
-        self.force_consistent=force_consistent
         self.initial_points=initial_points
         self.full_output=full_output
+        # Set candidate instance with ASE calculator
+        self.candidate=self.slab_ads.copy()
+        self.candidate.calc=ase_calc
+        self.apply_constraint=apply_constraint
+        self.force_consistent=force_consistent
         # Set initial parameters
         self.step=0
         self.error=0
@@ -114,18 +118,18 @@ class MLGO:
         if mlcalc is None:
             from ..regression.gaussianprocess.calculator.mlmodel import get_default_mlmodel
             from ..regression.gaussianprocess.calculator.mlcalc import MLCalculator
-            from ..regression.gaussianprocess.fingerprint.invdistances import Inv_distances
-            from ..regression.gaussianprocess.baseline.repulsive import Repulsion_calculator
-            fp=Inv_distances(reduce_dimensions=True,use_derivatives=True,mic=True,sorting=True)
-            mlmodel=get_default_mlmodel(model='gp',fp=fp,baseline=Repulsion_calculator(power=4),use_derivatives=True,parallel=(not save_memory),database_reduction=False)
+            from ..regression.gaussianprocess.fingerprint.sorteddistances import SortedDistances
+            fp=SortedDistances(reduce_dimensions=True,use_derivatives=True,periodic_softmax=True,wrap=True)
+            baseline=RepulsionCalculator(reduce_dimensions=True,power=10,periodic_softmax=True,wrap=True)
+            mlmodel=get_default_mlmodel(model='gp',fp=fp,baseline=baseline,use_derivatives=True,parallel=(not save_memory),database_reduction=False)
             self.mlcalc=MLCalculator(mlmodel=mlmodel)
         else:
-            self.mlcalc=mlcalc.copy()
+            self.mlcalc=mlcalc
         self.set_verbose(verbose=full_output)
         # Select an acquisition function 
         if acq is None:
             from .acquisition import AcqLCB
-            self.acq=AcqLCB(objective='min',kappa=3.0,kappamax=5.0)
+            self.acq=AcqLCB(objective='min',kappa=3.0)
         else:
             self.acq=acq.copy()
         # Scale the fmax on the surrogate surface
@@ -137,7 +141,7 @@ class MLGO:
         if local_opt is None:
             from ase.optimize import FIRE
             local_opt=FIRE
-            local_opt_kwargs_default.update(dict(dt=0.05,maxstep=0.2,a=1.0,astart=1.0,fa=0.999))
+            local_opt_kwargs_default.update(dict(dt=0.05,maxstep=0.2,a=1.0,astart=1.0,fa=0.999,downhill_check=True))
         self.local_opt=local_opt
         local_opt_kwargs_default.update(local_opt_kwargs)
         self.local_opt_kwargs=local_opt_kwargs_default.copy()
@@ -199,25 +203,27 @@ class MLGO:
         self.ads=ads.copy()
         self.ads.set_tags(1)
         # Center adsorbate structure
-        pos=self.ads.get_positions().copy()
-        self.ads.positions=pos-np.mean(pos,axis=0)
+        pos=self.ads.get_positions()
+        self.ads.set_positions(pos-np.mean(pos,axis=0))
         self.ads.cell=self.slab.cell.copy()
+        self.ads.pbc=self.slab.pbc.copy()
         # Setup second adsorbate
         if ads2:
             self.ads2=ads2.copy()
             self.ads2.set_tags(2)
             # Center adsorbate structure
-            pos=self.ads2.get_positions().copy()
+            pos=self.ads2.get_positions()
             self.ads2.set_positions(pos-np.mean(pos,axis=0))
             self.ads2.cell=self.slab.cell.copy()
+            self.ads2.pbc=self.slab.pbc.copy()
         else:
             self.ads2=None
         # Number of atoms and the constraint used
-        slab_ads=self.slab.copy()
-        slab_ads.extend(self.ads.copy())
+        self.slab_ads=self.slab.copy()
+        self.slab_ads.extend(self.ads.copy())
         if self.ads2:
-            slab_ads.extend(self.ads2.copy())
-        self.number_atoms=len(slab_ads)
+            self.slab_ads.extend(self.ads2.copy())
+        self.number_atoms=len(self.slab_ads)
         return
     
     def parallel_setup(self,save_memory=False,**kwargs):
@@ -252,13 +258,11 @@ class MLGO:
         R=np.matmul(Ry,Rz)
         Rz=np.array([[np.cos(theta3),-np.sin(theta3),0.0],[np.sin(theta3),np.cos(theta3),0.0],[0.0,0.0,1.0]])
         R=np.matmul(Rz,R).T
-        ads.positions=np.matmul(ads.get_positions(),R)
+        ads.set_positions(np.matmul(ads.get_positions(),R))
         return ads
     
     def evaluate(self,candidate):
         " Caculate energy and forces and add training system to ML-model "
-        # Reset calculator results
-        self.ase_calc.reset()
         # Ensure that the candidate is not already in the database
         if self.use_database_check:
             candidate=self.ensure_not_in_database(candidate)
@@ -268,18 +272,17 @@ class MLGO:
         candidate=broadcast(candidate,root=0)
         # Calculate the energies and forces
         self.message_system('Performing evaluation.',end='\r')
-        candidate.calc=self.ase_calc
-        candidate.calc.reset()
-        forces=candidate.get_forces(apply_constraint=self.apply_constraint)
-        self.energy_true=candidate.get_potential_energy(force_consistent=self.force_consistent)
+        self.candidate.set_positions(candidate.get_positions())
+        forces=self.candidate.get_forces(apply_constraint=self.apply_constraint)
+        self.energy_true=self.candidate.get_potential_energy(force_consistent=self.force_consistent)
         self.step+=1
         self.message_system('Single-point calculation finished.')
         # Store the data
         self.max_abs_forces=np.nanmax(np.linalg.norm(forces,axis=1))
-        self.add_training([candidate])
+        self.add_training([self.candidate])
         self.mlcalc.save_data(trajectory=self.trajectory)
         # Best new point
-        self.best_new_point(candidate,self.energy_true)
+        self.best_new_point(self.candidate,self.energy_true)
         return
 
     def add_training(self,atoms_list):
@@ -292,7 +295,7 @@ class MLGO:
         if self.rank==0:
             if energy<=self.emin:
                 self.emin=energy
-                self.best_candidate=self.mlcalc.copy_atoms(candidate)
+                self.best_candidate=copy_atoms(candidate)
                 self.best_x=self.x.copy()
             # Save the energy
             self.energies.append(energy)
@@ -309,9 +312,8 @@ class MLGO:
 
     def dual_func_random(self,pos_angles):
         " Dual annealing object function for random structure "
-        from ..regression.gaussianprocess.baseline import Repulsion_calculator
         slab_ads=self.place_ads(pos_angles)
-        slab_ads.calc=Repulsion_calculator(r_scale=0.7)
+        slab_ads.calc=RepulsionCalculator(r_scale=0.7,reduce_dimensions=True,power=10,periodic_softmax=True,wrap=True)
         energy=slab_ads.get_potential_energy()
         return energy
     

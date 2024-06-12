@@ -546,7 +546,7 @@ def get_default_database(fp=None,use_derivatives=True,database_reduction=False,d
     if fp is None:
         from ..fingerprint.cartesian import Cartesian
         # Use cartesian coordinates as the fingerprint
-        fp=Cartesian(reduce_dimensions=True,use_derivatives=use_derivatives,mic=True)
+        fp=Cartesian(reduce_dimensions=True,use_derivatives=use_derivatives)
         use_fingerprint=False
     else:
         use_fingerprint=True
@@ -584,7 +584,7 @@ def get_default_database(fp=None,use_derivatives=True,database_reduction=False,d
     return database
 
 
-def get_default_mlmodel(model='tp',fp=None,baseline=None,prior='median',use_derivatives=True,global_optimization=True,parallel=False,use_pdis=True,n_reduced=None,database_reduction=False,database_reduction_kwargs={},verbose=False,**kwargs):
+def get_default_mlmodel(model='tp',fp=None,baseline=None,prior='median',use_derivatives=True,optimize_hp=True,global_optimization=True,parallel=False,use_pdis=True,n_reduced=None,database_reduction=False,database_reduction_kwargs={},verbose=False,**kwargs):
     """
     Get the default ML model with a database for the ASE Atoms from the simple given arguments.
 
@@ -600,6 +600,8 @@ def get_default_mlmodel(model='tp',fp=None,baseline=None,prior='median',use_deri
             Specify what prior mean should be used.
         use_derivatives : bool
             Whether to use derivatives of the targets.
+        optimize_hp : bool
+            Whether to optimize the hyperparameters when the model is trained.
         global_optimization : bool
             Whether to perform a global optimization of the hyperparameters.
             A local optimization is used if global_optimization=False, which can not be parallelized.
@@ -638,4 +640,4 @@ def get_default_mlmodel(model='tp',fp=None,baseline=None,prior='median',use_deri
     else:
         pdis=None
     # Make the ML model with database
-    return MLModel(model=model,database=database,baseline=baseline,optimize=True,pdis=pdis,verbose=verbose)
+    return MLModel(model=model,database=database,baseline=baseline,optimize=optimize_hp,pdis=pdis,verbose=verbose)

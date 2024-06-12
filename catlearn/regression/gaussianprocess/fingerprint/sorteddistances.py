@@ -1,11 +1,11 @@
 import numpy as np
 from .invdistances import InvDistances
 
-class MeanDistances(InvDistances):
+class SortedDistances(InvDistances):
     def __init__(self,reduce_dimensions=True,use_derivatives=True,periodic_softmax=True,mic=False,wrap=True,eps=1e-16,**kwargs):
         """ 
         Fingerprint constructer class that convert atoms object into a fingerprint object with vector and derivatives.
-        The mean of inverse distance fingerprint constructer class. 
+        The sorted inverse distance fingerprint constructer class. 
         The inverse distances are scaled with covalent radii.
 
         Parameters:
@@ -31,7 +31,7 @@ class MeanDistances(InvDistances):
                          wrap=wrap,
                          eps=eps,
                          **kwargs)
-
+                         
     def make_fingerprint(self,atoms,not_masked,masked,**kwargs):
         " Calculate the fingerprint and its derivative. "
         # Set parameters of array sizes
@@ -52,24 +52,29 @@ class MeanDistances(InvDistances):
         # Get all the indicies of the interactions
         indicies_nm_m,indicies_nm_nm=self.get_indicies(n_nmasked,n_masked,n_total,n_nm_m,nmi,nmj)
         # Make the arrays of fingerprints and their derivatives
-        f=[]
-        g=[]
+        f=np.zeros(n_total)
+        g=np.zeros((n_total,int(n_nmasked*3)))
         # Get all informations of the atoms and split them into types
         nmasked_indicies,masked_indicies,n_unique=self.element_setup(atoms,indicies,not_masked,masked,i_nm,i_m,nm_bool=True)
         # Get all combinations of the atom types
         combinations=zip(*np.triu_indices(n_unique,k=0,m=None))
+        temp_len=0
         # Run over all combinations
         for ci,cj in combinations:
             # Find the indicies in the fingerprints for the combinations
             indicies_comb,len_i_comb=self.get_indicies_combination(ci,cj,nmasked_indicies,masked_indicies,indicies_nm_m,indicies_nm_nm)
             if len_i_comb:
-                # Mean the fingerprints for the combinations
-                f,g=self.mean_fp(f,g,fij,gij,indicies_comb)
-        return np.array(f),np.array(g)
+                # Sort the fingerprints for the combinations
+                len_new=temp_len+len_i_comb
+                f,g=self.sort_fp(f,g,fij,gij,indicies_comb,temp_len,len_new)
+                temp_len=len_new
+        return f,g
     
-    def mean_fp(self,f,g,fij,gij,indicies_comb,**kwargs):
-        " Mean of the fingerprints. "
-        f.append(np.mean(fij[indicies_comb]))
+    def sort_fp(self,f,g,fij,gij,indicies_comb,temp_len,len_new,**kwargs):
+        " Sort the fingerprints after inverse distance magnitude. "
+        i_sort=np.argsort(fij[indicies_comb])[::-1]
+        i_sort=np.array(indicies_comb)[i_sort]
+        f[temp_len:len_new]=fij[i_sort]
         if self.use_derivatives:
-            g.append(np.mean(gij[indicies_comb],axis=0))
+            g[temp_len:len_new]=gij[i_sort]
         return f,g

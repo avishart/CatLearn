@@ -1,20 +1,17 @@
 import numpy as np
-from ase.data import covalent_radii
-from .repulsive import Repulsion_calculator
+from .repulsive import RepulsionCalculator
         
-class Mie_calculator(Repulsion_calculator):
+class MieCalculator(RepulsionCalculator):
     implemented_properties=['energy', 'forces']
     nolabel=True
     
-    def __init__(self,mic=True,reduce_dimensions=True,r_scale=1.0,denergy=0.1,power_r=8,power_a=6,**kwargs):
+    def __init__(self,reduce_dimensions=True,r_scale=1.0,denergy=0.1,power_r=8,power_a=6,periodic_softmax=True,mic=False,wrap=True,eps=1e-16,**kwargs):
         """ 
         A baseline calculator for ASE atoms object. 
         It uses the Mie potential baseline.  
         The power and the scaling of the Mie potential can be selected.
 
         Parameters: 
-            mic : bool
-                Minimum Image Convention (Shortest distances when periodic boundary is used).
             reduce_dimensions: bool
                 Whether to reduce the dimensions to only moving atoms if constrains are used.
             r_scale : float
@@ -26,36 +23,56 @@ class Mie_calculator(Repulsion_calculator):
                 The power of the potential part.
             power_a : int
                 The power of the attraction part.
+            periodic_softmax : bool
+                Use a softmax weighting of the squared distances when periodic boundary conditions are used.
+            mic : bool
+                Minimum Image Convention (Shortest distances when periodic boundary conditions are used).
+                Either use mic or periodic_softmax, not both. mic is faster than periodic_softmax, but the derivatives are discontinuous.
+            wrap: bool
+                Whether to wrap the atoms to the unit cell or not.
+            eps : float
+                Small number to avoid division by zero.
         """
-        super().__init__(mic=mic,
-                         reduce_dimensions=reduce_dimensions,
+        super().__init__(reduce_dimensions=reduce_dimensions,
                          r_scale=r_scale,
                          denergy=denergy,
                          power_a=power_a,
                          power_r=power_r,
+                         periodic_softmax=periodic_softmax,
+                         mic=mic,
+                         wrap=wrap,
+                         eps=eps,
                          **kwargs)
 
-    def update_arguments(self,mic=None,reduce_dimensions=None,r_scale=None,denergy=None,power_r=None,power_a=None,**kwargs):
+    def update_arguments(self,reduce_dimensions=None,r_scale=None,denergy=None,power_r=None,power_a=None,periodic_softmax=None,mic=None,wrap=None,eps=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
 
         Parameters: 
-            mic : bool
-                Minimum Image Convention (Shortest distances when periodic boundary is used).
             reduce_dimensions: bool
                 Whether to reduce the dimensions to only moving atoms if constrains are used.
+            r_scale : float
+                The scaling of the covalent radii. 
+                A smaller value will move the potential to a lower distances. 
             denergy : float 
                 The dispersion energy of the potential.
             power_r : int
                 The power of the potential part.
             power_a : int
                 The power of the attraction part.
+            periodic_softmax : bool
+                Use a softmax weighting of the squared distances when periodic boundary conditions are used.
+            mic : bool
+                Minimum Image Convention (Shortest distances when periodic boundary conditions are used).
+                Either use mic or periodic_softmax, not both. mic is faster than periodic_softmax, but the derivatives are discontinuous.
+            wrap: bool
+                Whether to wrap the atoms to the unit cell or not.
+            eps : float
+                Small number to avoid division by zero.
                 
         Returns:
             self: The updated object itself.
         """
-        if mic is not None:
-            self.mic=mic
         if reduce_dimensions is not None:
             self.reduce_dimensions=reduce_dimensions
         if r_scale is not None:
@@ -66,82 +83,52 @@ class Mie_calculator(Repulsion_calculator):
             self.power_r=int(power_r)
         if power_a is not None:
             self.power_a=int(power_a)
-        # Calculate the r_scale powers
-        self.r_scale_r=self.r_scale**self.power_r
-        self.r_scale_a=self.r_scale**self.power_a
+        if periodic_softmax is not None:
+            self.periodic_softmax=periodic_softmax
+        if mic is not None:
+            self.mic=mic
+        if wrap is not None:
+            self.wrap=wrap
+        if eps is not None:
+            self.eps=abs(float(eps))
         # Calculate the normalization
         c=(self.power_r/(self.power_r-self.power_a))*((self.power_r/self.power_a)**(self.power_a/(self.power_r-self.power_a)))
-        self.c0=self.denergy*c
+        c0=self.denergy*c
+        # Calculate the r_scale powers
+        self.r_scale_r=c0*(self.r_scale**self.power_r)
+        self.r_scale_a=c0*(self.r_scale**self.power_a)
         return self
-    
-    def get_energy(self,atoms,**kwargs):
-        " Get the energy. "
-        # Get the not fixed (not masked) atom indicies
-        not_masked=np.array(self.get_constraints(atoms))
-        # Get the number of atoms and the number of the fixed atoms
-        n_atoms=len(atoms)
-        n_nm=len(not_masked)
-        i_nm=np.arange(n_nm).reshape(-1,1)
-        # Get the covariance distance and the distances between atoms
-        cov_dis,distances,vec_distances=self.get_cov_dis(atoms,not_masked,mic=self.mic,use_derivatives=False,i_nm=i_nm.flatten())
-        # Get the potential between not masked atoms and fixed atoms
-        pot1,potential_deriv=self.energy_rest(None,i_nm,not_masked,False,cov_dis,distances,vec_distances,n_atoms,n_nm)
-        # Get the potential between not masked atoms and not masked atoms
-        pot2,potential_deriv=self.energy_nm_nm(None,i_nm,not_masked,False,cov_dis,distances,vec_distances,n_atoms,n_nm)
-        return self.c0*(pot1+pot2)
-        
-    def get_energy_forces(self,atoms,**kwargs):
+
+    def get_energy_forces(self,atoms,get_derivatives=True,**kwargs):
         " Get the energy and forces. "
         # Get the not fixed (not masked) atom indicies
-        not_masked=np.array(self.get_constraints(atoms))
-        # Get the number of atoms and the number of the fixed atoms
-        n_atoms=len(atoms)
-        n_nm=len(not_masked)
-        i_nm=np.arange(n_nm).reshape(-1,1)
-        potential_deriv=np.zeros((n_nm,3))
-        # Get the covariance distance and the distances between atoms
-        cov_dis,distances,vec_distances=self.get_cov_dis(atoms,not_masked,mic=self.mic,use_derivatives=True,i_nm=i_nm.flatten())
-        # Get the potential between not masked atoms and fixed atoms
-        pot1,potential_deriv=self.energy_rest(potential_deriv,i_nm,not_masked,True,cov_dis,distances,vec_distances,n_atoms,n_nm)
-        # Get the potential between not masked atoms and not masked atoms
-        pot2,potential_deriv=self.energy_nm_nm(potential_deriv,i_nm,not_masked,True,cov_dis,distances,vec_distances,n_atoms,n_nm)
-        # Make the derivatives into forces
-        deriv=np.zeros((n_atoms,3))
-        deriv[not_masked]=self.c0*potential_deriv
-        return self.c0*(pot1+pot2),deriv.reshape(n_atoms,3)
-    
-    def energy_rest(self,potential_deriv,i_nm,not_masked,use_derivatives,cov_dis,distances,vec_distances,n_atoms,n_nm):
-        " Get the energy contribution and their derivatives of non-fixed and fixed atoms. "
-        if n_atoms!=n_nm:
-            i_rest=np.setdiff1d(np.arange(n_atoms),not_masked)
-            r=cov_dis[i_nm,i_rest]/distances[i_nm,i_rest]
-            pot1_r=self.r_scale_r*(r**self.power_r)
-            pot1_a=self.r_scale_a*(r**self.power_a)
-            if use_derivatives:
-                pot1_d=(-self.power_r*pot1_r)+(self.power_a*pot1_a)
-                potential_deriv+=np.sum(vec_distances[i_nm,i_rest]*((pot1_d/(distances[i_nm,i_rest]**2)).reshape(n_nm,n_atoms-n_nm,1)),axis=1)
-            return np.sum(pot1_r-pot1_a),potential_deriv
-        return 0.0,potential_deriv
-    
-    def energy_nm_nm(self,potential_deriv,i_nm,not_masked,use_derivatives,cov_dis,distances,vec_distances,n_atoms,n_nm):
-        " Get the fingerprints and their derivatives of non-fixed and non-fixed atoms. "
-        r=cov_dis[i_nm,not_masked]/distances[i_nm,not_masked]
-        pot2_r=self.r_scale_r*(r**self.power_r)
-        pot2_a=self.r_scale_a*(r**self.power_a)
-        if use_derivatives:
-            pot2_d=(-self.power_r*pot2_r)+(self.power_a*pot2_a)
-            potential_deriv+=np.sum(vec_distances[i_nm,not_masked]*((pot2_d/(distances[i_nm,not_masked]**2)).reshape(n_nm,n_nm,1)),axis=1)
-        return 0.5*np.sum(pot2_r-pot2_a),potential_deriv
+        not_masked,masked=self.get_constraints(atoms)
+        not_masked=np.array(not_masked,dtype=int)
+        masked=np.array(masked,dtype=int)
+        # Get the inverse distances
+        f,g=self.get_inv_distances(atoms,not_masked,masked,get_derivatives,**kwargs)
+        # Calculate energy
+        energy=(self.r_scale_r*np.sum(f**self.power_r))-(self.r_scale_a*np.sum(f**self.power_a))
+        if get_derivatives:
+            forces=np.zeros((len(atoms),3))
+            inner=(self.power_a*self.r_scale_a)*(f**(self.power_a-1))-((self.power_r*self.r_scale_r)*(f**(self.power_r-1)))
+            derivs=np.sum(inner.reshape(-1,1)*g,axis=0)
+            forces[not_masked]=derivs.reshape(-1,3)
+            return energy,forces
+        return energy
     
     def get_arguments(self):
         " Get the arguments of the class itself. "
         # Get the arguments given to the class in the initialization
-        arg_kwargs=dict(mic=self.mic,
-                        reduce_dimensions=self.reduce_dimensions,
+        arg_kwargs=dict(reduce_dimensions=self.reduce_dimensions,
                         r_scale=self.r_scale,
                         denergy=self.denergy,
                         power_a=self.power_a,
-                        power_r=self.power_r,)
+                        power_r=self.power_r,
+                        periodic_softmax=self.periodic_softmax,
+                        mic=self.mic,
+                        wrap=self.wrap,
+                        eps=self.eps)
         # Get the constants made within the class
         constant_kwargs=dict()
         # Get the objects made within the class

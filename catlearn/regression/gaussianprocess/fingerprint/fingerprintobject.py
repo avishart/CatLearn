@@ -3,11 +3,13 @@ import numpy as np
 class FingerprintObject:
     def __init__(self,vector,derivative=None,**kwargs):
         """ 
-        Fingerprint object class that has the fingerprint vector for anatoms object.
+        Fingerprint object class that has the fingerprint vector for an atoms object.
+        The derivatives wrt. to the cartesian coordinates can also be saved.
+
         Parameters:
             vector: (N) array
                 Fingerprint vector generated from a Fingerprint constructer.
-            derivative: (D,N) array (optional)
+            derivative: (N,D) array (optional)
                 Fingerprint derivative wrt. atoms cartesian coordinates.
         """
         self.vector=vector.copy()

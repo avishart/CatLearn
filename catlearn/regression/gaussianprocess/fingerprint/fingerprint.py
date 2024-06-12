@@ -3,36 +3,36 @@ from ase.constraints import FixAtoms
 from .fingerprintobject import FingerprintObject
 
 class Fingerprint:
-    def __init__(self,reduce_dimensions=True,use_derivatives=True,mic=True,**kwargs):
+    def __init__(self,reduce_dimensions=True,use_derivatives=True,**kwargs):
         """ 
         Fingerprint constructer class that convert atoms object into a fingerprint object with vector and derivatives.
+
         Parameters:
             reduce_dimensions : bool
                 Whether to reduce the fingerprint space if constrains are used.
             use_derivatives : bool
                 Calculate and store derivatives of the fingerprint wrt. the cartesian coordinates.
-            mic : bool
-                Minimum Image Convention (Shortest distances when periodic boundary is used).
         """
         # Set the arguments
         self.update_arguments(reduce_dimensions=reduce_dimensions,
                               use_derivatives=use_derivatives,
-                              mic=mic,
                               **kwargs)
         
     def __call__(self,atoms,**kwargs):
         """ 
-        Convert atoms to fingerprint and return the fingerprint object 
+        Convert atoms to fingerprint and return the fingerprint object.
+
         Parameters:
             atoms : ASE Atoms
                 The ASE Atoms object that are converted to a fingerprint.
+
         Returns:
             FingerprintObject: Object with the fingerprint array and its derivatives if requested.
         """
         # Get the constraints from ASE Atoms
-        not_masked=self.get_constraints(atoms)
+        not_masked,masked=self.get_constraints(atoms)
         # Calculate the fingerprint and its derivatives if requested 
-        vector,derivative=self.make_fingerprint(atoms,not_masked=not_masked,**kwargs)
+        vector,derivative=self.make_fingerprint(atoms,not_masked=not_masked,masked=masked,**kwargs)
         # Make the fingerprint object and store the arrays within
         if self.use_derivatives:  
             return FingerprintObject(vector=vector,derivative=derivative)
@@ -46,28 +46,26 @@ class Fingerprint:
         " Get whether the reduction of the fingerprint space is used if constrains are used. "
         return self.reduce_dimensions
     
-    def update_arguments(self,reduce_dimensions=None,use_derivatives=None,mic=None,**kwargs):
+    def update_arguments(self,reduce_dimensions=None,use_derivatives=None,**kwargs):
         """
         Update the class with its arguments. The existing arguments are used if they are not given.
+
         Parameters:
             reduce_dimensions : bool
                 Whether to reduce the fingerprint space if constrains are used.
             use_derivatives : bool
                 Calculate and store derivatives of the fingerprint wrt. the cartesian coordinates.
-            mic : bool
-                Minimum Image Convention (Shortest distances when periodic boundary is used).
+
         Returns:
-            self: The updated object itself.
+            self: The updated instance itself.
         """
         if reduce_dimensions is not None:
             self.reduce_dimensions=reduce_dimensions
         if use_derivatives is not None:
             self.use_derivatives=use_derivatives
-        if mic is not None:
-            self.mic=mic
         return self
     
-    def make_fingerprint(self,atoms,not_masked,**kwargs):
+    def make_fingerprint(self,atoms,not_masked,masked,**kwargs):
         " The calculation of the fingerprint "
         raise NotImplementedError()
         
@@ -80,24 +78,27 @@ class Fingerprint:
                 The ASE Atoms object with a calculator.
 
         Returns:
-            list: A list of indicies for the moving atoms if constraints are used. 
+            not_masked : list
+                A list of indicies for the moving atoms if constraints are used. 
+            masked : list
+                A list of indicies for the fixed atoms if constraints are used. 
+
         """
         not_masked=list(range(len(atoms)))
         if not self.reduce_dimensions:
-            return not_masked
+            return not_masked,[]
         constraints=atoms.constraints
         if len(constraints)>0:
-            index_mask=np.concatenate([c.get_indices() for c in constraints if isinstance(c,FixAtoms)])
-            index_mask=set(index_mask)
-            return list(set(not_masked).difference(index_mask))
-        return not_masked
+            masked=np.concatenate([c.get_indices() for c in constraints if isinstance(c,FixAtoms)])
+            masked=set(masked)
+            return list(set(not_masked).difference(masked)),list(masked)
+        return not_masked,[]
     
     def get_arguments(self):
         " Get the arguments of the class itself. "
         # Get the arguments given to the class in the initialization
         arg_kwargs=dict(reduce_dimensions=self.reduce_dimensions,
-                        use_derivatives=self.use_derivatives,
-                        mic=self.mic)
+                        use_derivatives=self.use_derivatives)
         # Get the constants made within the class
         constant_kwargs=dict()
         # Get the objects made within the class

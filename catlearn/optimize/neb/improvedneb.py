@@ -2,8 +2,8 @@ import numpy as np
 from .orgneb import OriginalNEB
 
 class ImprovedTangentNEB(OriginalNEB):
-    def __init__(self,images,k=0.1,climb=False,remove_rotation_and_translation=False,**kwargs):
-        super().__init__(images,k=k,climb=climb,remove_rotation_and_translation=remove_rotation_and_translation,**kwargs)
+    def __init__(self,images,k=0.1,climb=False,remove_rotation_and_translation=False,mic=True,**kwargs):
+        super().__init__(images,k=k,climb=climb,remove_rotation_and_translation=remove_rotation_and_translation,mic=mic,**kwargs)
     
     def get_parallel_forces(self,tangent,pos_p,pos_m,**kwargs):
         forces_parallel=(self.k[1:]*np.linalg.norm(pos_p,axis=(1,2)))-(self.k[:-1]*np.linalg.norm(pos_m,axis=(1,2)))
