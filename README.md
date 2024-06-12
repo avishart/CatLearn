@@ -7,12 +7,12 @@ CalLearn uses ASE for handling the atomic systems and the calculator interface f
 
 You can simply install CatLearn by dowloading it from github as:
 ```shell
-$ git clone https://github.com/avishart/CatLearn/tree/uncertainty_driven
+$ git clone https://github.com/avishart/CatLearn
 $ pip install -e CatLearn/.
 ```
 or
 ```shell
-$ pip install git@github.com:avishart/CatLearn.git@uncertainty_driven
+$ pip install git@github.com:avishart/CatLearn.git
 ```
 
 ## Usage
