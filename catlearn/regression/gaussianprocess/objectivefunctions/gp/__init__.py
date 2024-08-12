@@ -8,4 +8,14 @@ from .factorized_gpp import FactorizedGPP
 from .loo import LOO
 from .gpe import GPE
 
-__all__ = ["ObjectiveFuction","LogLikelihood","FactorizedLogLikelihood","FactorizedLogLikelihoodSVD","MaximumLogLikelihood","GPP","FactorizedGPP","LOO","GPE"]
+__all__ = [
+    "ObjectiveFuction",
+    "LogLikelihood",
+    "FactorizedLogLikelihood",
+    "FactorizedLogLikelihoodSVD",
+    "MaximumLogLikelihood",
+    "GPP",
+    "FactorizedGPP",
+    "LOO",
+    "GPE",
+]

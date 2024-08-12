@@ -6,4 +6,12 @@ from .fixed import FixedClustering
 from .random import RandomClustering
 from .random_number import RandomClustering_number
 
-__all__ = ["Clustering","K_means","K_means_auto","K_means_number","FixedClustering","RandomClustering","RandomClustering_number"]
+__all__ = [
+    "Clustering",
+    "K_means",
+    "K_means_auto",
+    "K_means_number",
+    "FixedClustering",
+    "RandomClustering",
+    "RandomClustering_number",
+]
