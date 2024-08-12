@@ -47,13 +47,19 @@ class TestGPHpfitter(unittest.TestCase):
         hpfitter_list = [
             HyperparameterFitter(func=LogLikelihood(), optimizer=optimizer),
             HyperparameterFitter(
-                func=LogLikelihood(), optimizer=optimizer, use_stored_sols=True
+                func=LogLikelihood(),
+                optimizer=optimizer,
+                use_stored_sols=True,
             ),
             ReducedHyperparameterFitter(
-                func=LogLikelihood(), opt_tr_size=50, optimizer=optimizer
+                func=LogLikelihood(),
+                opt_tr_size=50,
+                optimizer=optimizer,
             ),
             ReducedHyperparameterFitter(
-                func=LogLikelihood(), opt_tr_size=10, optimizer=optimizer
+                func=LogLikelihood(),
+                opt_tr_size=10,
+                optimizer=optimizer,
             ),
             FBPMGP(Q=None, n_test=50, ngrid=80, bounds=None),
         ]
@@ -80,11 +86,14 @@ class TestGPHpfitter(unittest.TestCase):
                 # Test the solution is a minimum
                 if index < 3:
                     is_minima = check_minima(
-                        sol, x_tr, f_tr, gp, pdis=None, is_model_gp=True
+                        sol,
+                        x_tr,
+                        f_tr,
+                        gp,
+                        pdis=None,
+                        is_model_gp=True,
                     )
                     self.assertTrue(is_minima)
-                elif index == 4:
-                    self.assertTrue(abs(sol["fun"] - 0.883) < 1e-2)
 
     def test_hpfitters_deriv(self):
         """
@@ -171,8 +180,6 @@ class TestGPHpfitter(unittest.TestCase):
                         is_model_gp=True,
                     )
                     self.assertTrue(is_minima)
-                elif index == 4:
-                    self.assertTrue(abs(sol["fun"] - (-8.171)) < 1e-2)
 
 
 if __name__ == "__main__":

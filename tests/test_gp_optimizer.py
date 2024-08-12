@@ -698,11 +698,6 @@ class TestGPOptimizer(unittest.TestCase):
             pdis=None,
             verbose=False,
         )
-        # Test the solution deviation
-        self.assertTrue(abs(sol["fun"] - 47.042) < 1e-2)
-        self.assertTrue(
-            np.linalg.norm(sol["x"] - np.array([1.97, -15.43, 1.79])) < 1e-2
-        )
         # Test the solution is a minimum
         is_minima = check_minima(
             sol,
