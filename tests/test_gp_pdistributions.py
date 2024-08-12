@@ -11,18 +11,18 @@ class TestGPPdis(unittest.TestCase):
 
     def test_local_prior(self):
         "Test if the GP can be local optimized with prior distributions."
-        from gaussianprocess.models import GaussianProcess
-        from gaussianprocess.optimizers import ScipyOptimizer
-        from gaussianprocess.objectivefunctions.gp import LogLikelihood
-        from gaussianprocess.hpfitter import HyperparameterFitter
-        from gaussianprocess.pdistributions import (
+        from catlearn.regression.gp.models import GaussianProcess
+        from catlearn.regression.gp.optimizers import ScipyOptimizer
+        from catlearn.regression.gp.objectivefunctions.gp import LogLikelihood
+        from catlearn.regression.gp.hpfitter import HyperparameterFitter
+        from catlearn.regression.gp.pdistributions import (
             Uniform_prior,
             Normal_prior,
             Gen_normal_prior,
             Gamma_prior,
             Invgamma_prior,
         )
-        from gaussianprocess.hpboundary import StrictBoundaries
+        from catlearn.regression.gp.hpboundary import StrictBoundaries
 
         # Create the data set
         x, f, g = create_func()
@@ -99,23 +99,23 @@ class TestGPPdis(unittest.TestCase):
 
     def test_global_prior(self):
         "Test if the GP can be global optimized with prior distributions."
-        from gaussianprocess.models import GaussianProcess
-        from gaussianprocess.optimizers import (
+        from catlearn.regression.gp.models import GaussianProcess
+        from catlearn.regression.gp.optimizers import (
             FactorizedOptimizer,
             FineGridSearch,
         )
-        from gaussianprocess.objectivefunctions.gp import (
+        from catlearn.regression.gp.objectivefunctions.gp import (
             FactorizedLogLikelihood,
         )
-        from gaussianprocess.hpfitter import HyperparameterFitter
-        from gaussianprocess.pdistributions import (
+        from catlearn.regression.gp.hpfitter import HyperparameterFitter
+        from catlearn.regression.gp.pdistributions import (
             Uniform_prior,
             Normal_prior,
             Gen_normal_prior,
             Gamma_prior,
             Invgamma_prior,
         )
-        from gaussianprocess.hpboundary import VariableTransformation
+        from catlearn.regression.gp.hpboundary import VariableTransformation
 
         # Create the data set
         x, f, g = create_func()

@@ -14,13 +14,13 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         """
         Test if the GP can be local optimized from random sampling in parallel.
         """
-        from gaussianprocess.models import GaussianProcess
-        from gaussianprocess.optimizers import (
+        from catlearn.regression.gp.models import GaussianProcess
+        from catlearn.regression.gp.optimizers import (
             ScipyOptimizer,
             RandomSamplingOptimizer,
         )
-        from gaussianprocess.objectivefunctions.gp import LogLikelihood
-        from gaussianprocess.hpfitter import HyperparameterFitter
+        from catlearn.regression.gp.objectivefunctions.gp import LogLikelihood
+        from catlearn.regression.gp.hpfitter import HyperparameterFitter
 
         # Create the data set
         x, f, g = create_func()
@@ -84,11 +84,16 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
 
     def test_grid(self):
         "Test if the GP can be brute-force grid optimized in parallel."
-        from gaussianprocess.models import GaussianProcess
-        from gaussianprocess.optimizers import ScipyOptimizer, GridOptimizer
-        from gaussianprocess.objectivefunctions.gp import LogLikelihood
-        from gaussianprocess.hpfitter import HyperparameterFitter
-        from gaussianprocess.hpboundary.hptrans import VariableTransformation
+        from catlearn.regression.gp.models import GaussianProcess
+        from catlearn.regression.gp.optimizers import (
+            ScipyOptimizer,
+            GridOptimizer,
+        )
+        from catlearn.regression.gp.objectivefunctions.gp import LogLikelihood
+        from catlearn.regression.gp.hpfitter import HyperparameterFitter
+        from catlearn.regression.gp.hpboundary.hptrans import (
+            VariableTransformation,
+        )
 
         # Create the data set
         x, f, g = create_func()
@@ -156,14 +161,14 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
 
     def test_line(self):
         "Test if the GP can be iteratively line search optimized in parallel."
-        from gaussianprocess.models import GaussianProcess
-        from gaussianprocess.optimizers import (
+        from catlearn.regression.gp.models import GaussianProcess
+        from catlearn.regression.gp.optimizers import (
             ScipyOptimizer,
             IterativeLineOptimizer,
         )
-        from gaussianprocess.objectivefunctions.gp import LogLikelihood
-        from gaussianprocess.hpfitter import HyperparameterFitter
-        from gaussianprocess.hpboundary import VariableTransformation
+        from catlearn.regression.gp.objectivefunctions.gp import LogLikelihood
+        from catlearn.regression.gp.hpfitter import HyperparameterFitter
+        from catlearn.regression.gp.hpboundary import VariableTransformation
 
         # Create the data set
         x, f, g = create_func()
@@ -235,16 +240,16 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         Test if the GP can be optimized from line search in
         the length-scale hyperparameter in parallel.
         """
-        from gaussianprocess.models import GaussianProcess
-        from gaussianprocess.optimizers import (
+        from catlearn.regression.gp.models import GaussianProcess
+        from catlearn.regression.gp.optimizers import (
             FineGridSearch,
             FactorizedOptimizer,
         )
-        from gaussianprocess.objectivefunctions.gp import (
+        from catlearn.regression.gp.objectivefunctions.gp import (
             FactorizedLogLikelihood,
         )
-        from gaussianprocess.hpfitter import HyperparameterFitter
-        from gaussianprocess.hpboundary import VariableTransformation
+        from catlearn.regression.gp.hpfitter import HyperparameterFitter
+        from catlearn.regression.gp.hpboundary import VariableTransformation
 
         # Create the data set
         x, f, g = create_func()
