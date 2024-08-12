@@ -500,7 +500,7 @@ class MLModel:
             != self.database.get_use_fingerprint()
         ):
             raise Exception(
-                "Model and Database do not agree"
+                "Model and Database do not agree "
                 "whether to use fingerprints!"
             )
         if (
@@ -508,7 +508,7 @@ class MLModel:
             != self.database.get_use_derivatives()
         ):
             raise Exception(
-                "Model and Database do not agree"
+                "Model and Database do not agree "
                 "whether to use derivatives/forces!"
             )
         return True

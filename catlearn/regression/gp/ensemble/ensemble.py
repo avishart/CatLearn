@@ -170,7 +170,7 @@ class EnsembleModel:
         # Check if the variance was needed for prediction mean
         if self.use_variance_ensemble:
             raise Exception(
-                "The predict_mean function is not defined"
+                "The predict_mean function is not defined "
                 "with use_variance_ensemble=True!"
             )
         # Calculate the predicted values for one model

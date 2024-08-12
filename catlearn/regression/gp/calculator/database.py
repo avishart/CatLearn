@@ -333,7 +333,7 @@ class Database:
         "Check if all attributes agree between the class and subclasses."
         if self.reduce_dimensions != self.fingerprint.get_reduce_dimensions():
             raise Exception(
-                "Database and Fingerprint do not agree"
+                "Database and Fingerprint do not agree "
                 "whether to reduce dimensions!"
             )
         return True

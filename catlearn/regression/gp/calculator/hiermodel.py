@@ -96,7 +96,7 @@ class HierarchicalMLModel(MLModel):
             super().add_training(atoms_list)
         else:
             raise Exception(
-                "New baseline model can not be made without training."
+                "New baseline model can not be made without training. "
                 "Include one point at the time!"
             )
         return self

@@ -511,7 +511,7 @@ class VariableTransformation(HPBoundaries):
         # Make sure log-scale of the hyperparameters are used
         if self.bounds.log is False:
             raise Exception(
-                "The Variable Transformation need to"
+                "The Variable Transformation need to "
                 "use boundary conditions in the log-scale!"
             )
         return self

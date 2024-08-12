@@ -173,7 +173,7 @@ class UpdatingBoundaries(HPBoundaries):
         # Make sure log-scale of the hyperparameters are used
         if self.bounds.log is False:
             raise Exception(
-                "The Updating Boundaries need to"
+                "The Updating Boundaries need to "
                 "use boundary conditions in the log-scale!"
             )
         return self
