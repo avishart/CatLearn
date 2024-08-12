@@ -297,12 +297,13 @@ class FBPMGP(HyperparameterFitter):
         i_list, j_list = i_list[i_sort], j_list[i_sort]
         r = np.random.uniform(low=0.01, high=0.99, size=(2, len(i_list)))
         r = r / np.sum(r, axis=0)
-        return np.array(
+        Q = np.array(
             [
                 X_tr[i] * r[0, k] + X_tr[j] * r[1, k]
                 for k, (i, j) in enumerate(zip(i_list, j_list))
             ]
         )
+        return Q
 
     def get_test_KQ(self, model, Q, X_tr, use_derivatives=False, **kwargs):
         """
@@ -328,10 +329,11 @@ class FBPMGP(HyperparameterFitter):
         Make a grid of prefactor and noise at the same time
         and a grid of length-scale.
         """
-        return {
+        grids = {
             "length": the_grids["length"],
             "np": the_grids["prefactor"].reshape(-1, 1) + the_grids["noise"],
         }
+        return grids
 
     def get_all_eig_matrices(
         self,
@@ -538,7 +540,7 @@ class FBPMGP(HyperparameterFitter):
             prefactor=np.array([0.5 * np.log(prefactor[i_min])]),
         )
         theta = [hp_best[para] for para in hp_best.keys()]
-        theta = np.array(theta, copy=False).reshape(-1)
+        theta = np.array(theta).reshape(-1)
         sol = {
             "fun": kl_min,
             "hp": hp_best,
