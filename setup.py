@@ -1,13 +1,13 @@
 from setuptools import setup, find_packages
+from catlearn import __version__
 
-VERSION = "5.6.0"
 DESCRIPTION = "Machine Learning using atomic-scale calculations"
 LONG_DESCRIPTION = "Machine Learning using atomic-scale calculations"
 
 # Setting up
 setup(
     name="catlearn",
-    version=VERSION,
+    version=__version__,
     author="Andreas Vishart",
     author_email="<alyvi@dtu.dk>",
     url="https://github.com/avishart/CatLearn/tree/restructuring",
