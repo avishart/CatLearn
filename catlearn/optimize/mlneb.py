@@ -399,7 +399,7 @@ class MLNEB:
 
     def make_interpolation(self, interpolation="idpp", **kwargs):
         "Make the NEB interpolation path"
-        from .interpolate_band import make_interpolation
+        from .neb.interpolate_band import make_interpolation
 
         # Make the interpolation path
         images = make_interpolation(
