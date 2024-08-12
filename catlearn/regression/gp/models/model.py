@@ -572,6 +572,40 @@ class ModelProcess:
         "Get whether a fingerprint is used as the features."
         return self.kernel.get_use_fingerprint()
 
+    def save_model(self, filename="model.pkl", **kwargs):
+        """
+        Save the model object to a file.
+
+        Parameters:
+            filename : str
+                The name of the file where the object is saved.
+
+        Returns:
+            self: The object itself.
+        """
+        import pickle
+
+        with open(filename, "wb") as file:
+            pickle.dump(self, file)
+        return self
+
+    def load_model(self, filename="model.pkl", **kwargs):
+        """
+        Load the model object from a file.
+
+        Parameters:
+            filename : str
+                The name of the file where the object is saved.
+
+        Returns:
+            model: The loaded model object.
+        """
+        import pickle
+
+        with open(filename, "rb") as file:
+            model = pickle.load(file)
+        return model
+
     def update_arguments(
         self,
         prior=None,

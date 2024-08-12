@@ -53,7 +53,10 @@ class MLCalculator(Calculator):
             from .mlmodel import MLModel
 
             mlmodel = MLModel(
-                model=None, database=None, baseline=None, optimize=True
+                model=None,
+                database=None,
+                baseline=None,
+                optimize=True,
             )
         # Set all the arguments
         self.update_arguments(
@@ -260,6 +263,40 @@ class MLCalculator(Calculator):
             if key in self.implemented_properties:
                 self.results[key] = value
         return self.results
+
+    def save_mlcalc(self, filename="mlcalc.pkl", **kwargs):
+        """
+        Save the ML calculator object to a file.
+
+        Parameters:
+            filename : str
+                The name of the file where the object is saved.
+
+        Returns:
+            self: The object itself.
+        """
+        import pickle
+
+        with open(filename, "wb") as file:
+            pickle.dump(self, file)
+        return self
+
+    def load_mlcalc(self, filename="mlcalc.pkl", **kwargs):
+        """
+        Load the ML calculator object from a file.
+
+        Parameters:
+            filename : str
+                The name of the file where the object is saved.
+
+        Returns:
+            mlcalc: The loaded ML calculator object.
+        """
+        import pickle
+
+        with open(filename, "rb") as file:
+            mlcalc = pickle.load(file)
+        return mlcalc
 
     def update_arguments(
         self,
