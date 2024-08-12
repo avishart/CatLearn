@@ -23,15 +23,29 @@ from catlearn.optimize.mlneb import MLNEB
 from ase.io import read
 
 # Load endpoints
-initial = read('initial.traj')
-final = read('final.traj')
+initial = read("initial.traj")
+final = read("final.traj")
 
 # Make the ASE calculator
 calc = ...
 
 # Initialize MLNEB
-mlneb = MLNEB(start=initial, end=final, ase_calc=calc, interpolation='linear', n_images=15, full_output=True)
-mlneb.run(fmax=0.05, unc_convergence=0.05, max_unc=0.30, steps=100, ml_steps=1000)
+mlneb = MLNEB(
+    start=initial,
+    end=final,
+    ase_calc=calc,
+    interpolation="linear",
+    n_images=15,
+    full_output=True,
+)
+mlneb.run(
+    fmax=0.05,
+    unc_convergence=0.05,
+    max_unc=0.30,
+    steps=100,
+    ml_steps=1000,
+)
+
 ```
 
 The following code shows how to use MLGO:
@@ -40,17 +54,36 @@ from catlearn.optimize.mlneb import MLGO
 from ase.io import read
 
 # Load the slab and the adsorbate
-slab = read('slab.traj')
-ads = read('adsorbate.traj')
+slab = read("slab.traj")
+ads = read("adsorbate.traj")
 
 # Make the ASE calculator
 calc = ...
 
 # Make the boundary conditions for the adsorbate
-bounds=np.array([[0.0,1.0],[0.0,1.0],[0.5,1.0],[0.0,2*np.pi],[0.0,2*np.pi],[0.0,2*np.pi]])
+bounds = np.array(
+    [
+        [0.0, 1.0],
+        [0.0, 1.0],
+        [0.5, 1.0],
+        [0.0, 2 * np.pi],
+        [0.0, 2 * np.pi],
+        [0.0, 2 * np.pi],
+    ]
+)
 
 # Initialize MLGO
 mlgo = MLGO(slab, ads, ase_calc=calc, bounds=bounds, full_output=True)
-mlgo.run(fmax=0.05, unc_convergence=0.02, max_unc=0.30, steps=100, ml_steps=1000, ml_chains=8, relax=True, local_steps=500)
+mlgo.run(
+    fmax=0.05,
+    unc_convergence=0.02,
+    max_unc=0.30,
+    steps=100,
+    ml_steps=1000,
+    ml_chains=8,
+    relax=True,
+    local_steps=500,
+)
+
 ```
 
