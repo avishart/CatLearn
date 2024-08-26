@@ -173,18 +173,6 @@ class MLNEB:
         self.n_images = n_images
         self.climb = climb
         self.set_neb_method(neb_method)
-        if isinstance(neb_method, str):
-            if neb_method.lower() == "improvedtangentneb":
-                neb_method = ImprovedTangentNEB
-            elif neb_method.lower() == "ewneb":
-                from .neb.ewneb import EWNEB
-
-                neb_method = EWNEB
-            else:
-                raise Exception(
-                    "The NEB method {} is not implemented.".format(neb_method)
-                )
-        self.neb_method = neb_method
         self.neb_kwargs = dict(k=3.0, remove_rotation_and_translation=False)
         self.neb_kwargs.update(neb_kwargs)
         # General parameter settings
