@@ -186,49 +186,7 @@ class MLNEB:
         self.step = 0
         self.converging = False
         # Setup the ML calculator
-        if mlcalc is None:
-            from ..regression.gp.calculator.mlmodel import (
-                get_default_mlmodel,
-            )
-            from ..regression.gp.calculator.mlcalc import (
-                MLCalculator,
-            )
-            from ..regression.gp.means.max import Prior_max
-
-            if len(start) > 1:
-                from ..regression.gp.fingerprint.invdistances import (
-                    InvDistances,
-                )
-
-                if start.pbc.any():
-                    fp = InvDistances(
-                        reduce_dimensions=True,
-                        use_derivatives=True,
-                        periodic_softmax=True,
-                        wrap=True,
-                    )
-                else:
-                    fp = InvDistances(
-                        reduce_dimensions=True,
-                        use_derivatives=True,
-                        periodic_softmax=False,
-                        wrap=False,
-                    )
-            else:
-                fp = None
-            prior = Prior_max(add=1.0)
-            mlmodel = get_default_mlmodel(
-                model="tp",
-                prior=prior,
-                fp=fp,
-                baseline=None,
-                use_derivatives=True,
-                parallel=(not save_memory),
-                database_reduction=False,
-            )
-            self.mlcalc = MLCalculator(mlmodel=mlmodel)
-        else:
-            self.mlcalc = mlcalc
+        self.set_mlcalc(mlcalc, start=start, save_memory=save_memory)
         # Whether to have the full output
         self.full_output = full_output
         self.set_verbose(verbose=full_output)
@@ -916,6 +874,59 @@ class MLNEB:
                     "The NEB method {} is not implemented.".format(neb_method)
                 )
         self.neb_method = neb_method
+        return self
+
+    def set_mlcalc(self, mlcalc, start=None, save_memory=None, **kwargs):
+        "Set the ML calculator."
+        if mlcalc is None:
+            from ..regression.gp.calculator.mlmodel import get_default_mlmodel
+            from ..regression.gp.calculator.mlcalc import MLCalculator
+            from ..regression.gp.means.max import Prior_max
+            from ..regression.gp.fingerprint.invdistances import InvDistances
+
+            # Check if the start Atoms object is given
+            if start is None:
+                try:
+                    start = self.start.copy()
+                except Exception:
+                    raise Exception("The start Atoms object is not given.")
+            # Check if the save_memory is given
+            if save_memory is None:
+                try:
+                    save_memory = self.save_memory
+                except Exception:
+                    raise Exception("The save_memory is not given.")
+
+            if len(start) > 1:
+                if start.pbc.any():
+                    fp = InvDistances(
+                        reduce_dimensions=True,
+                        use_derivatives=True,
+                        periodic_softmax=True,
+                        wrap=True,
+                    )
+                else:
+                    fp = InvDistances(
+                        reduce_dimensions=True,
+                        use_derivatives=True,
+                        periodic_softmax=False,
+                        wrap=False,
+                    )
+            else:
+                fp = None
+            prior = Prior_max(add=1.0)
+            mlmodel = get_default_mlmodel(
+                model="tp",
+                prior=prior,
+                fp=fp,
+                baseline=None,
+                use_derivatives=True,
+                parallel=(not save_memory),
+                database_reduction=False,
+            )
+            self.mlcalc = MLCalculator(mlmodel=mlmodel)
+        else:
+            self.mlcalc = mlcalc
         return self
 
     def print_cite(self):
