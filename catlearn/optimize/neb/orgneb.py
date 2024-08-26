@@ -245,6 +245,47 @@ class OriginalNEB:
         self.real_forces = None
         return self
 
+    def get_residual(self, **kwargs):
+        "Get the residual of the NEB."
+        forces = self.get_forces()
+        return np.max(np.linalg.norm(forces, axis=-1))
+
+    def set_calculator(self, calculators):
+        """
+        Set the calculators for all the images.
+
+        Parameters:
+            calculators : List of ASE Calculators or ASE Calculator
+                The calculator used for all the images if a list is given.
+                If a single calculator is given, it is used for all images.
+        """
+        if isinstance(calculators, (list, tuple)):
+            if len(calculators) != self.nimages - 2:
+                raise Exception(
+                    "The number of calculators must be "
+                    "equal to the number of moving images."
+                )
+            for i, image in enumerate(self.images[1:-1]):
+                image.calc = calculators[i]
+        else:
+            for image in self.images[1:-1]:
+                image.calc = calculators
+        return self
+
+    @property
+    def natoms(self):
+        return len(self.images[0])
+
+    @property
+    def nimages(self):
+        return len(self.images)
+
+    def is_neb(self):
+        return True
+
+    def __ase_optimizable__(self):
+        return self
+
     def __len__(self):
         return int(self.nimages - 2) * self.natoms
 
@@ -260,6 +301,8 @@ class OriginalNEB:
             else:
                 atoms = atoms.copy()
                 atoms = self.freeze_results_on_image(
-                    atoms, energy=self.energies[i], forces=self.real_forces[i]
+                    atoms,
+                    energy=self.energies[i],
+                    forces=self.real_forces[i],
                 )
                 yield atoms
