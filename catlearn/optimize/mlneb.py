@@ -3,7 +3,7 @@ from ase.io import read
 from ase.io.trajectory import TrajectoryWriter
 from ase.parallel import world, broadcast
 import datetime
-from .neb.ewneb import EWNEB
+from .neb.improvedneb import ImprovedTangentNEB
 from .neb.nebimage import NEBImage
 from ..regression.gp.calculator.copy_atoms import copy_atoms
 
@@ -19,7 +19,7 @@ class MLNEB:
         interpolation="idpp",
         interpolation_kwargs=dict(),
         climb=True,
-        neb_method=EWNEB,
+        neb_method=ImprovedTangentNEB,
         neb_kwargs=dict(),
         n_images=15,
         prev_calculations=None,
@@ -76,8 +76,11 @@ class MLNEB:
                 It is strongly recommended to have climb=True.
                 It is only activated when the uncertainty is low and
                 a NEB without climbing image can converge.
-            neb_method : class object.
+            neb_method : class object or str
                 The NEB implemented class object used for the ML-NEB.
+                A string can be used to select:
+                - 'improvedtangentneb' (default)
+                - 'ewneb'
             neb_kwargs : dict.
                 A dictionary with the arguments used in the NEB object
                 to create the instance.
@@ -169,6 +172,18 @@ class MLNEB:
         self.interpolation_kwargs.update(interpolation_kwargs)
         self.n_images = n_images
         self.climb = climb
+        self.set_neb_method(neb_method)
+        if isinstance(neb_method, str):
+            if neb_method.lower() == "improvedtangentneb":
+                neb_method = ImprovedTangentNEB
+            elif neb_method.lower() == "ewneb":
+                from .neb.ewneb import EWNEB
+
+                neb_method = EWNEB
+            else:
+                raise Exception(
+                    "The NEB method {} is not implemented.".format(neb_method)
+                )
         self.neb_method = neb_method
         self.neb_kwargs = dict(k=3.0, remove_rotation_and_translation=False)
         self.neb_kwargs.update(neb_kwargs)
@@ -898,6 +913,22 @@ class MLNEB:
     def converged(self):
         "Whether MLNEB is converged."
         return self.converging
+
+    def set_neb_method(self, neb_method, **kwargs):
+        "Set the NEB method."
+        if isinstance(neb_method, str):
+            if neb_method.lower() == "improvedtangentneb":
+                neb_method = ImprovedTangentNEB
+            elif neb_method.lower() == "ewneb":
+                from .neb.ewneb import EWNEB
+
+                neb_method = EWNEB
+            else:
+                raise Exception(
+                    "The NEB method {} is not implemented.".format(neb_method)
+                )
+        self.neb_method = neb_method
+        return self
 
     def print_cite(self):
         msg = "\n" + "-" * 79 + "\n"
