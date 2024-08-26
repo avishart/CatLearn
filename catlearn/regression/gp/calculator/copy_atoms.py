@@ -9,6 +9,7 @@ def copy_atoms(atoms, **kwargs):
     Parameters:
         atoms : ASE Atoms
             The ASE Atoms object with a calculator that is copied.
+
     Returns:
         atoms0 : ASE Atoms
             The copy of the Atoms object with saved data in the calculator.

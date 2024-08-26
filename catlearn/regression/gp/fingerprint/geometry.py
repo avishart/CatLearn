@@ -35,7 +35,7 @@ def get_full_distance_matrix(
     # Get the cell vectors
     cell = np.array(atoms.cell)
     # Get the minimum image convention distances and distance vectors
-    return mic_distance(dist_vec, pbc, cell, vector=vector, **kwargs)
+    return mic_distance(dist_vec, cell, pbc, vector=vector, **kwargs)
 
 
 def get_all_distances(
@@ -89,7 +89,8 @@ def get_all_distances(
             if len(masked):
                 return (
                     np.concatenate(
-                        [d[:, masked].reshape(-1), d[nmi, nmj_ind]], axis=0
+                        [d[:, masked].reshape(-1), d[nmi, nmj_ind]],
+                        axis=0,
                     ),
                     None,
                 )
@@ -98,10 +99,10 @@ def get_all_distances(
     # Get the cell vectors
     cell = np.array(atoms.cell)
     # Get the minimum image convention distances and distance vectors
-    return mic_distance(dist_vec, pbc, cell, vector=vector, **kwargs)
+    return mic_distance(dist_vec, cell, pbc, vector=vector, **kwargs)
 
 
-def mic_distance(dist_vec, pbc, cell, vector=False, **kwargs):
+def mic_distance(dist_vec, cell, pbc, vector=False, **kwargs):
     "Get the minimum image convention of the distances."
     # Get the squared cell vectors
     cell2 = cell**2
@@ -132,14 +133,26 @@ def mic_distance(dist_vec, pbc, cell, vector=False, **kwargs):
     # Check if the cell is cubic to do a simpler mic
     if len(d_c):
         v2min, vmin = mic_cubic_distance(
-            dist_vec, v2min, vmin, d_c, cell, vector=vector, **kwargs
+            dist_vec,
+            v2min,
+            vmin,
+            d_c,
+            cell,
+            vector=vector,
+            **kwargs,
         )
     else:
         v2min = np.sum(v2min, axis=-1)
     if sum(pbc_nc):
         # Do an extensive mic for the dimension that is not cubic
         v2min, vmin = mic_general_distance(
-            dist_vec, v2min, vmin, pbc_nc, cell, vector=vector, **kwargs
+            dist_vec,
+            v2min,
+            vmin,
+            cell,
+            pbc_nc,
+            vector=vector,
+            **kwargs,
         )
     return np.sqrt(v2min), vmin
 
@@ -185,8 +198,8 @@ def mic_general_distance(
     dist_vec,
     Dmin,
     vmin,
-    pbc_nc,
     cell,
+    pbc_nc,
     vector=False,
     **kwargs,
 ):
@@ -195,7 +208,7 @@ def mic_general_distance(
     an extensive mic search.
     """
     # Calculate all displacement vectors from the cell vectors
-    cells_p = get_periodicities(pbc_nc, cell)
+    cells_p = get_periodicities(cell, pbc_nc)
     # Iterate over all combinations
     for p_array in cells_p:
         # Calculate the distances to the atoms in the next unit cell
@@ -212,7 +225,7 @@ def mic_general_distance(
     return Dmin, None
 
 
-def get_periodicities(pbc, cell, remove0=True, **kwargs):
+def get_periodicities(cell, pbc, remove0=True, **kwargs):
     "Get all displacement vectors from the periodicity and cell vectors."
     # Make all periodic combinations
     b = [[-1, 0, 1] if p else [0] for p in pbc]
@@ -288,7 +301,7 @@ def get_inverse_distances(
             **kwargs,
         )
         # Calculate all displacement vectors from the cell vectors
-        cells_p = get_periodicities(atoms.pbc, atoms.get_cell(), remove0=False)
+        cells_p = get_periodicities(atoms.get_cell(), atoms.pbc, remove0=False)
         c_dim = len(cells_p)
         # Calculate the distances to the atoms in all unit cell
         d = vec_distances + cells_p.reshape(c_dim, 1, 3)
@@ -303,9 +316,8 @@ def get_inverse_distances(
         f = np.sum(finner, axis=0)
         # Calculate derivatives of inverse distances
         if use_derivatives:
-            inner = ((2.0 * (1.0 - (dcov * f))) / (covrad**2)) + (
-                1.0 / (dnorm**2)
-            )
+            inner = (2.0 * (1.0 - (dcov * f))) / (covrad**2)
+            inner = inner + (1.0 / (dnorm**2))
             gij = np.sum(d * (finner * inner).reshape(c_dim, -1, 1), axis=0)
     else:
         distances, vec_distances = get_all_distances(
@@ -334,11 +346,9 @@ def get_inverse_distances(
         n_nm_m = len(not_masked) * len(masked)
         if n_nm_m:
             i_g = np.repeat(np.arange(n_nm_m), 3)
-            j_g = np.tile(
-                3 * np.arange(len(not_masked)).reshape(-1, 1)
-                + np.array([0, 1, 2]),
-                (1, len(masked)),
-            ).reshape(-1)
+            j_g = 3 * np.arange(len(not_masked)).reshape(-1, 1)
+            j_g = j_g + np.array([0, 1, 2])
+            j_g = np.tile(j_g, (1, len(masked))).reshape(-1)
             g[i_g, j_g] = gij[:n_nm_m].reshape(-1)
         # The derivative of not fixed (not masked) and not fixed atoms
         if len(nmi):
