@@ -405,7 +405,8 @@ class MLNEB:
         elif self.check_path_unc or self.check_path_fmax:
             # Get uncertainty and max perpendicular force
             uncmax_tmp, fmax_tmp = self.get_path_unc_fmax(
-                interpolation=self.last_images_tmp, climb=climb
+                interpolation=self.last_images_tmp,
+                climb=climb,
             )
             # Check uncertainty
             if self.check_path_unc:
@@ -420,7 +421,8 @@ class MLNEB:
             # Check if the perpendicular force are less for the new path
             if self.check_path_fmax and reuse_path:
                 fmax_last = self.get_path_unc_fmax(
-                    interpolation=self.last_images, climb=climb
+                    interpolation=self.last_images,
+                    climb=climb,
                 )[1]
                 if fmax_tmp > fmax_last:
                     reuse_path = False
@@ -768,8 +770,12 @@ class MLNEB:
                         self.last_images_tmp = [
                             image.copy() for image in images
                         ]
+
                 # Check if the NEB is converged on the predicted surface
                 if neb_opt.converged():
+                    break
+                # Check the number of steps
+                if neb_opt.get_number_of_steps() >= ml_steps:
                     break
             # Check if the MLNEB is converged
             converged = neb_opt.converged()
