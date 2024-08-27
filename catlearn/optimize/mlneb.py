@@ -853,10 +853,8 @@ class MLNEB:
                     if self.umax_ml <= unc_convergence:
                         # Check the true energy deviation match
                         # the uncertainty prediction
-                        if (
-                            np.abs(self.energy_pred - self.energy_true)
-                            <= 2.0 * unc_convergence
-                        ):
+                        e_dif = np.abs(self.energy_pred - self.energy_true)
+                        if e_dif <= 2.0 * unc_convergence:
                             converged = True
         # Broadcast convergence statement
         converged = broadcast(converged, root=0)
