@@ -816,7 +816,23 @@ class MLGO:
         return self.converging
 
     def set_mlcalc(self, mlcalc, save_memory=None, **kwargs):
-        "Setup the ML calculator."
+        """
+        Setup the ML calculator.
+
+        Parameters:
+            mlcalc : ML-calculator instance.
+                The ML-calculator instance used as surrogate surface.
+                A default ML-model is used if mlcalc is None.
+            save_memory : bool
+                Whether to only train the ML calculator and store
+                all objects on one CPU.
+                If save_memory==True then parallel optimization of
+                the hyperparameters can not be achived.
+                If save_memory==False no MPI object is used.
+
+        Returns:
+            self: The object itself.
+        """
         if mlcalc is None:
             from ..regression.gp.calculator import (
                 get_default_mlmodel,
@@ -858,8 +874,19 @@ class MLGO:
             self.mlcalc = mlcalc
         return self
 
-    def set_acq(self, acq, **kwargs):
-        "Set the acquisition function."
+    def set_acq(self, acq=None, **kwargs):
+        """
+        Set the acquisition function.
+
+        Parameters:
+            acq : Acquisition class instance.
+                The Acquisition instance used for calculating
+                the acq. function and choose a candidate to calculate next.
+                If None is given then LCB is used.
+
+        Returns:
+            self: The object itself.
+        """
         if acq is None:
             from .acquisition import AcqLCB
 
@@ -869,7 +896,19 @@ class MLGO:
         return self
 
     def set_local_opt(self, local_opt=None, local_opt_kwargs={}, **kwargs):
-        "Set local optimizer."
+        """
+        Save local optimizer.
+
+        Parameters:
+            local_opt : ASE local optimizer Object.
+                A local optimizer object from ASE.
+                If None is given then FIRE is used.
+            local_opt_kwargs : dict
+                Arguments used for the ASE local optimizer.
+
+        Returns:
+            self: The object itself.
+        """
         local_opt_kwargs_default = dict()
         if not self.full_output:
             local_opt_kwargs_default["logfile"] = None

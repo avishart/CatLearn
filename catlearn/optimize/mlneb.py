@@ -850,9 +850,20 @@ class MLNEB:
         "Whether MLNEB is converged."
         return self.converging
 
-    def set_neb_method(self, neb_method, **kwargs):
-        "Set the NEB method."
-        if isinstance(neb_method, str):
+    def set_neb_method(self, neb_method=None, **kwargs):
+        """
+        Set the NEB method.
+
+        Parameters:
+            neb_method : class object or str
+                The NEB implemented class object used for the ML-NEB.
+                A string can be used to select:
+                - 'improvedtangentneb' (default)
+                - 'ewneb'
+        """
+        if neb_method is None:
+            neb_method = ImprovedTangentNEB
+        elif isinstance(neb_method, str):
             if neb_method.lower() == "improvedtangentneb":
                 neb_method = ImprovedTangentNEB
             elif neb_method.lower() == "ewneb":
@@ -867,7 +878,25 @@ class MLNEB:
         return self
 
     def set_mlcalc(self, mlcalc, start=None, save_memory=None, **kwargs):
-        "Set the ML calculator."
+        """
+        Setup the ML calculator.
+
+        Parameters:
+            mlcalc : ML-calculator instance.
+                The ML-calculator instance used as surrogate surface.
+                A default ML-model is used if mlcalc is None.
+            start : Atoms object
+                Initial end-point of the NEB path.
+            save_memory : bool
+                Whether to only train the ML calculator and store
+                all objects on one CPU.
+                If save_memory==True then parallel optimization of
+                the hyperparameters can not be achived.
+                If save_memory==False no MPI object is used.
+
+        Returns:
+            self: The object itself.
+        """
         if mlcalc is None:
             from ..regression.gp.calculator.mlmodel import get_default_mlmodel
             from ..regression.gp.calculator.mlcalc import MLCalculator
@@ -919,8 +948,18 @@ class MLNEB:
             self.mlcalc = mlcalc
         return self
 
-    def set_acq(self, acq, **kwargs):
-        "Select an acquisition function."
+    def set_acq(self, acq=None, **kwargs):
+        """
+        Select an acquisition function.
+
+        Parameters:
+            acq : Acquisition class instance
+                The acquisition function object.
+                If None is given then UME is used.
+
+        Returns:
+            self: The object itself.
+        """
         if acq is None:
             from .acquisition import AcqUME
 
@@ -930,7 +969,19 @@ class MLNEB:
         return self
 
     def set_local_opt(self, local_opt=None, local_opt_kwargs={}, **kwargs):
-        "Save local optimizer."
+        """
+        Save local optimizer.
+
+        Parameters:
+            local_opt : ASE local optimizer Object.
+                A local optimizer object from ASE.
+                If None is given then FIRE is used.
+            local_opt_kwargs : dict
+                Arguments used for the ASE local optimizer.
+
+        Returns:
+            self: The object itself.
+        """
         local_opt_kwargs_default = dict()
         if not self.full_output:
             local_opt_kwargs_default["logfile"] = None
