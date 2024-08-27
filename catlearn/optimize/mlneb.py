@@ -5,6 +5,7 @@ from ase.parallel import world, broadcast
 import datetime
 from .neb.improvedneb import ImprovedTangentNEB
 from .neb.nebimage import NEBImage
+from .neb.interpolate_band import make_interpolation
 from ..regression.gp.calculator.copy_atoms import copy_atoms
 
 
@@ -346,8 +347,6 @@ class MLNEB:
 
     def make_interpolation(self, interpolation="idpp", **kwargs):
         "Make the NEB interpolation path"
-        from .neb.interpolate_band import make_interpolation
-
         # Make the interpolation path
         images = make_interpolation(
             self.start.copy(),
