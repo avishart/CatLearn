@@ -892,6 +892,20 @@ class MLGO:
         self.local_opt_kwargs = local_opt_kwargs_default.copy()
         return self
 
+    def save_mlcalc(self, filename="mlcalc.pkl", **kwargs):
+        """
+        Save the ML calculator object to a file.
+
+        Parameters:
+            filename : str
+                The name of the file where the object is saved.
+
+        Returns:
+            self: The object itself.
+        """
+        self.mlcalc.save_mlcalc(filename, **kwargs)
+        return self
+
     def make_summary_table(self, step, **kwargs):
         "Make the summary of the Global optimization process as table."
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
