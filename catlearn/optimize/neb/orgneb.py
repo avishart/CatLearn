@@ -216,8 +216,8 @@ class OriginalNEB:
             cell = np.array(self.images[0].get_cell())
             position_diff = mic_distance(
                 position_diff,
-                pbc,
                 cell,
+                pbc,
                 vector=True,
             )[1]
         return position_diff[1:], position_diff[:-1]
@@ -271,14 +271,6 @@ class OriginalNEB:
             for image in self.images[1:-1]:
                 image.calc = calculators
         return self
-
-    @property
-    def natoms(self):
-        return len(self.images[0])
-
-    @property
-    def nimages(self):
-        return len(self.images)
 
     def is_neb(self):
         return True
