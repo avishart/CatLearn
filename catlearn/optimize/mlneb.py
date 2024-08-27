@@ -190,13 +190,8 @@ class MLNEB:
         # Whether to have the full output
         self.full_output = full_output
         self.set_verbose(verbose=full_output)
-        # Select an acquisition function
-        if acq is None:
-            from .acquisition import AcqUME
-
-            self.acq = AcqUME(objective="max", unc_convergence=0.05)
-        else:
-            self.acq = acq.copy()
+        # Set an acquisition function
+        self.set_acq(acq)
         # Save initial and final state
         self.set_up_endpoints(start, end)
         # Set candidate instance with ASE calculator
@@ -206,20 +201,11 @@ class MLNEB:
         self.force_consistent = force_consistent
         # Scale the fmax on the surrogate surface
         self.scale_fmax = scale_fmax
-        # Save local optimizer
-        local_opt_kwargs_default = dict()
-        if not self.full_output:
-            local_opt_kwargs_default["logfile"] = None
-        if local_opt is None:
-            from ase.optimize import FIRE
-
-            local_opt = FIRE
-            local_opt_kwargs_default.update(
-                dict(dt=0.05, maxstep=0.2, a=1.0, astart=1.0, fa=0.999)
-            )
-        self.local_opt = local_opt
-        local_opt_kwargs_default.update(local_opt_kwargs)
-        self.local_opt_kwargs = local_opt_kwargs_default.copy()
+        # Set local optimizer
+        self.set_local_opt(
+            local_opt=local_opt,
+            local_opt_kwargs=local_opt_kwargs,
+        )
         # Trajectories
         self.trainingset = trainingset
         self.trajectory = trajectory
@@ -931,6 +917,33 @@ class MLNEB:
             self.mlcalc = MLCalculator(mlmodel=mlmodel)
         else:
             self.mlcalc = mlcalc
+        return self
+
+    def set_acq(self, acq, **kwargs):
+        "Select an acquisition function."
+        if acq is None:
+            from .acquisition import AcqUME
+
+            self.acq = AcqUME(objective="max", unc_convergence=0.05)
+        else:
+            self.acq = acq.copy()
+        return self
+
+    def set_local_opt(self, local_opt=None, local_opt_kwargs={}, **kwargs):
+        "Save local optimizer."
+        local_opt_kwargs_default = dict()
+        if not self.full_output:
+            local_opt_kwargs_default["logfile"] = None
+        if local_opt is None:
+            from ase.optimize import FIRE
+
+            local_opt = FIRE
+            local_opt_kwargs_default.update(
+                dict(dt=0.05, maxstep=0.2, a=1.0, astart=1.0, fa=0.999)
+            )
+        self.local_opt = local_opt
+        local_opt_kwargs_default.update(local_opt_kwargs)
+        self.local_opt_kwargs = local_opt_kwargs_default.copy()
         return self
 
     def print_cite(self):
