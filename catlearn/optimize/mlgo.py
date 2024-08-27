@@ -160,71 +160,19 @@ class MLGO:
         # Summary table file name
         self.tabletxt = tabletxt
         # Setup the ML calculator
-        if mlcalc is None:
-            from ..regression.gp.calculator.mlmodel import (
-                get_default_mlmodel,
-            )
-            from ..regression.gp.calculator.mlcalc import (
-                MLCalculator,
-            )
-            from ..regression.gp.fingerprint.sorteddistances import (
-                SortedDistances,
-            )
-
-            fp = SortedDistances(
-                reduce_dimensions=True,
-                use_derivatives=True,
-                periodic_softmax=True,
-                wrap=True,
-            )
-            baseline = RepulsionCalculator(
-                reduce_dimensions=True,
-                power=10,
-                periodic_softmax=True,
-                wrap=True,
-            )
-            mlmodel = get_default_mlmodel(
-                model="gp",
-                fp=fp,
-                baseline=baseline,
-                use_derivatives=True,
-                parallel=(not save_memory),
-                database_reduction=False,
-            )
-            self.mlcalc = MLCalculator(mlmodel=mlmodel)
-        else:
-            self.mlcalc = mlcalc
+        self.set_mlcalc(mlcalc, save_memory=save_memory)
         self.set_verbose(verbose=full_output)
         # Select an acquisition function
-        if acq is None:
-            from .acquisition import AcqLCB
-
-            self.acq = AcqLCB(objective="min", kappa=3.0)
-        else:
-            self.acq = acq.copy()
+        self.set_acq(acq)
         # Scale the fmax on the surrogate surface
         self.scale_fmax = scale_fmax
         # Use restart structures or make one initial point
         self.use_prev_calculations(prev_calculations)
-        # Define local optimizer
-        local_opt_kwargs_default = dict(trajectory="local_opt.traj")
-        if local_opt is None:
-            from ase.optimize import FIRE
-
-            local_opt = FIRE
-            local_opt_kwargs_default.update(
-                dict(
-                    dt=0.05,
-                    maxstep=0.2,
-                    a=1.0,
-                    astart=1.0,
-                    fa=0.999,
-                    downhill_check=True,
-                )
-            )
-        self.local_opt = local_opt
-        local_opt_kwargs_default.update(local_opt_kwargs)
-        self.local_opt_kwargs = local_opt_kwargs_default.copy()
+        # Set local optimizer
+        self.set_local_opt(
+            local_opt=local_opt,
+            local_opt_kwargs=local_opt_kwargs,
+        )
 
     def run(
         self,
@@ -356,9 +304,8 @@ class MLGO:
         else:
             x, y, z, theta1, theta2, theta3 = pos_angles
         ads = self.rotation_matrix(self.ads.copy(), [theta1, theta2, theta3])
-        ads.set_scaled_positions(
-            ads.get_scaled_positions() + np.array([x, y, z])
-        )
+        spos = ads.get_scaled_positions()
+        ads.set_scaled_positions(spos + np.array([x, y, z]))
         slab_ads = self.slab.copy()
         slab_ads.extend(ads)
         if self.ads2:
@@ -366,9 +313,8 @@ class MLGO:
                 self.ads2.copy(),
                 [theta12, theta22, theta32],
             )
-            ads2.set_scaled_positions(
-                ads2.get_scaled_positions() + np.array([x2, y2, z2])
-            )
+            spos = ads2.get_scaled_positions()
+            ads2.set_scaled_positions(spos + np.array([x2, y2, z2]))
             slab_ads.extend(ads2)
         slab_ads.wrap()
         return slab_ads
@@ -648,16 +594,12 @@ class MLGO:
                 if self.max_abs_forces <= fmax and self.unc < unc_convergence:
                     # Check the true energy deviation match
                     # the uncertainty prediction
-                    if (
-                        np.abs(self.energy_true - self.energy)
-                        <= 2.0 * unc_convergence
-                    ):
+                    e_dif = np.abs(self.energy_true - self.energy)
+                    if e_dif <= 2.0 * unc_convergence:
                         # Check the predicted structure has
                         # the lowest observed energy
-                        if (
-                            np.abs(self.energy_true - self.emin)
-                            <= 2.0 * unc_convergence
-                        ):
+                        em_dif = np.abs(self.energy - self.emin)
+                        if em_dif <= 2.0 * unc_convergence:
                             self.message_system("Optimization is converged.")
                         converged = True
         # Broadcast convergence statement if MPI is used
@@ -784,6 +726,9 @@ class MLGO:
                     "Relaxation on surrogate surface converged!", rank=rank
                 )
                 break
+            # Check the number of steps
+            if dyn.get_number_of_steps() >= local_steps:
+                break
         return dyn.converged(), candidate
 
     def get_predictions(self, candidate):
@@ -869,6 +814,83 @@ class MLGO:
     def converged(self):
         "Whether MLGO is converged."
         return self.converging
+
+    def set_mlcalc(self, mlcalc, save_memory=None, **kwargs):
+        "Setup the ML calculator."
+        if mlcalc is None:
+            from ..regression.gp.calculator import (
+                get_default_mlmodel,
+                MLCalculator,
+            )
+            from ..regression.gp.fingerprint import (
+                SortedDistances,
+            )
+
+            # Check if the save_memory is given
+            if save_memory is None:
+                try:
+                    save_memory = self.save_memory
+                except Exception:
+                    raise Exception("The save_memory is not given.")
+
+            fp = SortedDistances(
+                reduce_dimensions=True,
+                use_derivatives=True,
+                periodic_softmax=True,
+                wrap=True,
+            )
+            baseline = RepulsionCalculator(
+                reduce_dimensions=True,
+                power=10,
+                periodic_softmax=True,
+                wrap=True,
+            )
+            mlmodel = get_default_mlmodel(
+                model="gp",
+                fp=fp,
+                baseline=baseline,
+                use_derivatives=True,
+                parallel=(not save_memory),
+                database_reduction=False,
+            )
+            self.mlcalc = MLCalculator(mlmodel=mlmodel)
+        else:
+            self.mlcalc = mlcalc
+        return self
+
+    def set_acq(self, acq, **kwargs):
+        "Set the acquisition function."
+        if acq is None:
+            from .acquisition import AcqLCB
+
+            self.acq = AcqLCB(objective="min", kappa=3.0)
+        else:
+            self.acq = acq.copy()
+        return self
+
+    def set_local_opt(self, local_opt=None, local_opt_kwargs={}, **kwargs):
+        "Set local optimizer."
+        local_opt_kwargs_default = dict()
+        if not self.full_output:
+            local_opt_kwargs_default["logfile"] = None
+        if local_opt is None:
+            from ase.optimize import FIRE
+
+            local_opt = FIRE
+            local_opt_kwargs_default.update(
+                dict(
+                    dt=0.05,
+                    maxstep=0.2,
+                    a=1.0,
+                    astart=1.0,
+                    fa=0.999,
+                    downhill_check=True,
+                )
+            )
+        self.local_opt = local_opt
+        local_opt_kwargs_default.update(local_opt_kwargs)
+        self.local_opt_kwargs = local_opt_kwargs_default.copy()
+        return self
 
     def make_summary_table(self, step, **kwargs):
         "Make the summary of the Global optimization process as table."
