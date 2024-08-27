@@ -10,9 +10,15 @@ You can simply install CatLearn by dowloading it from github as:
 $ git clone https://github.com/avishart/CatLearn/tree/uncertainty_driven
 $ pip install -e CatLearn/.
 ```
-or
+
+You can also install CatLearn directly from github:
 ```shell
 $ pip install git@github.com:avishart/CatLearn.git@uncertainty_driven
+```
+
+However, it is recommended to install a specific tag to ensure it is a stable version:
+```shell
+$ pip install git+https://github.com/avishart/CatLearn.git@v.x.x.x
 ```
 
 ## Usage
