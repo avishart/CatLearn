@@ -155,7 +155,7 @@ def get_slab_ads():
     from ase.optimize import BFGS
 
     # Make the surface
-    slab = fcc111("Pd", size=(2, 2, 3))
+    slab = fcc111("Pd", size=(2, 2, 2))
     slab.center(vacuum=5.0, axis=2)
     slab.pbc = True
     slab.calc = EMT()

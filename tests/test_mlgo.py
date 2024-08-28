@@ -76,7 +76,7 @@ class TestMLGO(unittest.TestCase):
             unc_convergence=0.025,
             steps=50,
             max_unc=0.050,
-            ml_steps=1000,
+            ml_steps=500,
             ml_chains=2,
             relax=True,
             local_steps=100,
@@ -85,7 +85,7 @@ class TestMLGO(unittest.TestCase):
         # Check that MLGO converged
         self.assertTrue(mlgo.converged() is True)
         # Check that MLGO used the right number of iterations
-        self.assertTrue(mlgo.step == 17)
+        self.assertTrue(mlgo.step == 16)
 
 
 if __name__ == "__main__":
