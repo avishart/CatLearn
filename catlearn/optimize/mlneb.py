@@ -317,7 +317,7 @@ class MLNEB:
         if not self.converging:
             self.message_system("MLNEB did not converge!")
         return self
-    
+
     def get_images(self):
         "Get the images."
         return self.images
