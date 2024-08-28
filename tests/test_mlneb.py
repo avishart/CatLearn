@@ -62,6 +62,86 @@ class TestMLNEB(unittest.TestCase):
         # Check that MLNEB used the right number of iterations
         self.assertTrue(mlneb.step == 4)
 
+    def test_mlneb_run_idpp(self):
+        """
+        Test if the MLNEB can run and converge with
+        restart of path from IDPP.
+        """
+        from catlearn.optimize.mlneb import MLNEB
+        from ase.calculators.emt import EMT
+
+        # Get the initial and final states
+        initial, final = get_endstructures()
+        # Set random seed
+        np.random.seed(1)
+        # Initialize MLNEB
+        mlneb = MLNEB(
+            start=initial,
+            end=final,
+            ase_calc=EMT(),
+            interpolation="idpp",
+            n_images=11,
+            use_restart_path=True,
+            check_path_unc=True,
+            full_output=False,
+            local_opt_kwargs=dict(logfile=None),
+            tabletxt=None,
+        )
+        # Test if the MLNEB can be run
+        mlneb.run(
+            fmax=0.05,
+            unc_convergence=0.05,
+            steps=50,
+            ml_steps=250,
+            max_unc=0.05,
+        )
+        # Check that MLNEB converged
+        self.assertTrue(mlneb.converged() is True)
+        # Check that MLNEB used the right number of iterations
+        self.assertTrue(mlneb.step == 4)
+
+    def test_mlneb_run_path(self):
+        """
+        Test if the MLNEB can run and converge with
+        restart of path from different initial paths.
+        """
+        from catlearn.optimize.mlneb import MLNEB
+        from ase.calculators.emt import EMT
+
+        # Get the initial and final states
+        initial, final = get_endstructures()
+        interpolations = ["idpp", "rep"]
+        for interpolation in interpolations:
+            with self.subTest(interpolation=interpolation):
+                # Set random seed
+                np.random.seed(1)
+                # Initialize MLNEB
+                mlneb = MLNEB(
+                    start=initial,
+                    end=final,
+                    ase_calc=EMT(),
+                    interpolation=interpolation,
+                    n_images=11,
+                    use_restart_path=True,
+                    check_path_unc=True,
+                    full_output=False,
+                    local_opt_kwargs=dict(logfile=None),
+                    tabletxt=None,
+                )
+                # Test if the MLNEB can be run
+                mlneb.run(
+                    fmax=0.05,
+                    unc_convergence=0.05,
+                    steps=50,
+                    ml_steps=250,
+                    max_unc=0.05,
+                )
+                print(mlneb.step, mlneb.converged())
+                # Check that MLNEB converged
+                self.assertTrue(mlneb.converged() is True)
+                # Check that MLNEB used the right number of iterations
+                self.assertTrue(mlneb.step == 4)
+
     def test_mlneb_run_norestart(self):
         "Test if the MLNEB can run and converge with no restart of path."
         from catlearn.optimize.mlneb import MLNEB
