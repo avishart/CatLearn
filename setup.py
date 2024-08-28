@@ -15,7 +15,7 @@ setup(
     long_description=LONG_DESCRIPTION,
     packages=find_packages(),
     python_requires=">=3.8",
-    install_requires=["numpy>=1.20.3", "scipy>=1.8.0", "ase==3.22.1"],
+    install_requires=["numpy>=1.20.3", "scipy>=1.8.0", "ase>=3.22.1"],
     extras_require={"optional": ["mpi4py>=3.0.3", "dscribe>=2.1"]},
     test_suite="tests",
     tests_require=["unittest"],
