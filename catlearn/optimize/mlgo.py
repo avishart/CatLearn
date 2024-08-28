@@ -1,4 +1,5 @@
 import numpy as np
+import ase
 from ase.io import read
 from scipy.optimize import dual_annealing
 import datetime
@@ -702,7 +703,10 @@ class MLGO:
         for i in range(1, local_steps + 1):
             candidate_backup = candidate.copy()
             # Take a step in local relaxation on surrogate surface
-            dyn.run(fmax=fmax, steps=i)
+            if ase.__version__ >= "3.23":
+                dyn.run(fmax=fmax, steps=1)
+            else:
+                dyn.run(fmax=fmax, steps=i)
             energy, unc = self.get_predictions(candidate)
             # Check if the uncertainty is too large
             if unc >= max_unc:

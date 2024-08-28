@@ -1,4 +1,5 @@
 import numpy as np
+import ase
 from ase.io import read
 from ase.io.trajectory import TrajectoryWriter
 from ase.parallel import world, broadcast
@@ -723,7 +724,10 @@ class MLNEB:
         with self.local_opt(neb, **self.local_opt_kwargs) as neb_opt:
             for i in range(1, ml_steps + 1):
                 # Run the NEB on the surrogate surface
-                neb_opt.run(fmax=fmax, steps=i)
+                if ase.__version__ >= "3.23":
+                    neb_opt.run(fmax=fmax, steps=1)
+                else:
+                    neb_opt.run(fmax=fmax, steps=i)
                 # Calculate energy and uncertainty
                 energy_path, unc_path = self.get_predictions(images)
                 # Get the maximum uncertainty of the path
