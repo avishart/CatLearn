@@ -136,7 +136,6 @@ class TestMLNEB(unittest.TestCase):
                     ml_steps=250,
                     max_unc=0.05,
                 )
-                print(mlneb.step, mlneb.converged())
                 # Check that MLNEB converged
                 self.assertTrue(mlneb.converged() is True)
                 # Check that MLNEB used the right number of iterations
