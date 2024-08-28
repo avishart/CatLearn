@@ -1,5 +1,11 @@
 from .baseline import BaselineCalculator
-from .repulsive import RepulsionCalculator
+from .idpp import IDPP
 from .mie import MieCalculator
+from .repulsive import RepulsionCalculator
 
-__all__ = ["BaselineCalculator", "RepulsionCalculator", "MieCalculator"]
+__all__ = [
+    "BaselineCalculator",
+    "IDPP",
+    "MieCalculator",
+    "RepulsionCalculator",
+]
