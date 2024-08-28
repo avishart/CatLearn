@@ -6,6 +6,8 @@ from .functions import (
     check_minima,
     get_endstructures,
     get_slab_ads,
+    check_fmax,
+    check_image_fmax,
 )
 
 __all__ = [
@@ -16,4 +18,6 @@ __all__ = [
     "check_minima",
     "get_endstructures",
     "get_slab_ads",
+    "check_fmax",
+    "check_image_fmax",
 ]

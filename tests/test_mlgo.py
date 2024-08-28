@@ -1,5 +1,5 @@
 import unittest
-from .functions import get_slab_ads
+from .functions import get_slab_ads, check_fmax
 
 
 class TestMLGO(unittest.TestCase):
@@ -84,8 +84,9 @@ class TestMLGO(unittest.TestCase):
         )
         # Check that MLGO converged
         self.assertTrue(mlgo.converged() is True)
-        # Check that MLGO used the right number of iterations
-        self.assertTrue(mlgo.step == 16)
+        # Check that MLGO give a minimum
+        atoms = mlgo.get_atoms()
+        self.assertTrue(check_fmax(atoms, EMT(), fmax=0.05))
 
 
 if __name__ == "__main__":

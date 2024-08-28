@@ -168,3 +168,18 @@ def get_slab_ads():
     ads = Atoms("O", cell=slab.cell.copy(), pbc=slab.pbc)
     ads.center()
     return slab, ads
+
+
+def check_fmax(atoms, calc, fmax=0.05):
+    "Check the structure is an optimum."
+    atoms_c = atoms.copy()
+    atoms_c.calc = calc
+    forces = atoms_c.get_forces()
+    return np.linalg.norm(forces, axis=1).max() < fmax
+
+
+def check_image_fmax(images, calc, fmax=0.05):
+    "Check images from NEB has a saddle point."
+    energies = [image.get_potential_energy() for image in images]
+    i_max = np.argmax(energies)
+    return check_fmax(images[i_max], calc, fmax=fmax)

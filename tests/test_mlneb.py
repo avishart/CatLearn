@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from .functions import get_endstructures
+from .functions import get_endstructures, check_image_fmax
 
 
 class TestMLNEB(unittest.TestCase):
@@ -59,8 +59,9 @@ class TestMLNEB(unittest.TestCase):
         )
         # Check that MLNEB converged
         self.assertTrue(mlneb.converged() is True)
-        # Check that MLNEB used the right number of iterations
-        self.assertTrue(mlneb.step == 4)
+        # Check that MLNEB gives a saddle point
+        images = mlneb.get_images()
+        self.assertTrue(check_image_fmax(images, EMT(), fmax=0.05))
 
     def test_mlneb_run_idpp(self):
         """
@@ -97,8 +98,9 @@ class TestMLNEB(unittest.TestCase):
         )
         # Check that MLNEB converged
         self.assertTrue(mlneb.converged() is True)
-        # Check that MLNEB used the right number of iterations
-        self.assertTrue(mlneb.step == 4)
+        # Check that MLNEB gives a saddle point
+        images = mlneb.get_images()
+        self.assertTrue(check_image_fmax(images, EMT(), fmax=0.05))
 
     def test_mlneb_run_path(self):
         """
@@ -110,7 +112,7 @@ class TestMLNEB(unittest.TestCase):
 
         # Get the initial and final states
         initial, final = get_endstructures()
-        interpolations = ["idpp", "rep"]
+        interpolations = ["idpp", "rep", "ends"]
         for interpolation in interpolations:
             with self.subTest(interpolation=interpolation):
                 # Set random seed
@@ -138,8 +140,9 @@ class TestMLNEB(unittest.TestCase):
                 )
                 # Check that MLNEB converged
                 self.assertTrue(mlneb.converged() is True)
-                # Check that MLNEB used the right number of iterations
-                self.assertTrue(mlneb.step == 4)
+                # Check that MLNEB gives a saddle point
+                images = mlneb.get_images()
+                self.assertTrue(check_image_fmax(images, EMT(), fmax=0.05))
 
     def test_mlneb_run_norestart(self):
         "Test if the MLNEB can run and converge with no restart of path."
@@ -172,8 +175,9 @@ class TestMLNEB(unittest.TestCase):
         )
         # Check that MLNEB converged
         self.assertTrue(mlneb.converged() is True)
-        # Check that MLNEB used the right number of iterations
-        self.assertTrue(mlneb.step == 4)
+        # Check that MLNEB gives a saddle point
+        images = mlneb.get_images()
+        self.assertTrue(check_image_fmax(images, EMT(), fmax=0.05))
 
     def test_mlneb_run_savememory(self):
         "Test if the MLNEB can run and converge when it saves memory."
@@ -208,8 +212,9 @@ class TestMLNEB(unittest.TestCase):
         )
         # Check that MLNEB converged
         self.assertTrue(mlneb.converged() is True)
-        # Check that MLNEB used the right number of iterations
-        self.assertTrue(mlneb.step == 4)
+        # Check that MLNEB gives a saddle point
+        images = mlneb.get_images()
+        self.assertTrue(check_image_fmax(images, EMT(), fmax=0.05))
 
     def test_mlneb_run_no_maxunc(self):
         "Test if the MLNEB can run and converge when it does not use max_unc."
@@ -243,8 +248,9 @@ class TestMLNEB(unittest.TestCase):
         )
         # Check that MLNEB converged
         self.assertTrue(mlneb.converged() is True)
-        # Check that MLNEB used the right number of iterations
-        self.assertTrue(mlneb.step == 4)
+        # Check that MLNEB gives a saddle point
+        images = mlneb.get_images()
+        self.assertTrue(check_image_fmax(images, EMT(), fmax=0.05))
 
 
 if __name__ == "__main__":
