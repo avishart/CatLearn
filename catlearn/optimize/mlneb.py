@@ -317,6 +317,10 @@ class MLNEB:
         if not self.converging:
             self.message_system("MLNEB did not converge!")
         return self
+    
+    def get_images(self):
+        "Get the images."
+        return self.images
 
     def set_up_endpoints(self, start, end, **kwargs):
         "Load and calculate the intial and final states"

@@ -246,6 +246,10 @@ class MLGO:
             self.message_system("MLGO did not converge!")
         return self.best_candidate
 
+    def get_atoms(self):
+        "Return the best candidate structure."
+        return self.best_candidate
+
     def setup_slab_ads(self, slab, ads, ads2=None):
         "Setup slab and adsorbate with their constrains"
         # Setup slab
