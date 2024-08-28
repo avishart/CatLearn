@@ -272,6 +272,9 @@ class OriginalNEB:
                 image.calc = calculators
         return self
 
+    def converged(self, forces, fmax):
+        return np.linalg.norm(forces, axis=1).max() < fmax
+
     def is_neb(self):
         return True
 
