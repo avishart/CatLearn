@@ -1037,9 +1037,11 @@ class MLNEB:
         try:
             len(self.print_neb_list)
         except Exception:
-            msg = "| Step |        Time         | Pred. barrier (-->) | "
-            "Pred. barrier (<--) | Max. uncert. | Avg. uncert. |   fmax   |"
-            self.print_neb_list = [msg]
+            self.print_neb_list = [
+                "| Step |        Time         | Pred. barrier (-->) | "
+                "Pred. barrier (<--) | Max. uncert. | "
+                "Avg. uncert. |   fmax   |"
+            ]
         msg = "|{0:6d}| ".format(step)
         msg += "{} |".format(now)
         msg += "{0:21f}|".format(self.get_barrier(forward=True))
