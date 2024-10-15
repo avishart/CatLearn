@@ -56,7 +56,7 @@ mlneb.run(
 
 The following code shows how to use MLGO:
 ```python
-from catlearn.optimize.mlneb import MLGO
+from catlearn.optimize.mlgo import MLGO
 from ase.io import read
 
 # Load the slab and the adsorbate
