@@ -115,16 +115,13 @@ class Fingerprint:
         if not self.reduce_dimensions:
             return not_masked, []
         constraints = atoms.constraints
-        if len(constraints) > 0:
-            masked = np.concatenate(
-                [
-                    c.get_indices()
-                    for c in constraints
-                    if isinstance(c, FixAtoms)
-                ]
-            )
-            masked = set(masked)
-            return list(set(not_masked).difference(masked)), list(masked)
+        if len(constraints):
+            masked = [
+                c.get_indices() for c in constraints if isinstance(c, FixAtoms)
+            ]
+            if len(masked):
+                masked = set(np.concatenate(masked))
+                return list(set(not_masked).difference(masked)), list(masked)
         return not_masked, []
 
     def get_arguments(self):
