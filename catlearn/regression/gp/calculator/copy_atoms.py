@@ -76,6 +76,20 @@ class StoredDataCalculator(Calculator):
             return None
         # Return the property
         result = self.results[name]
-        if isinstance(result, np.ndarray):
+        if isinstance(result, (np.ndarray, list)):
             result = result.copy()
         return result
+
+    def get_uncertainty(self, atoms=None, **kwargs):
+        """
+        Get the predicted uncertainty of the energy.
+
+        Parameters:
+            atoms : ASE Atoms (optional)
+                The ASE Atoms instance which is used
+                if the uncertainty is not stored.
+
+        Returns:
+            float: The predicted uncertainty of the energy.
+        """
+        return self.get_property("uncertainty", atoms=atoms)
