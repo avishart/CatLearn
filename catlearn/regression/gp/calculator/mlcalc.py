@@ -167,6 +167,15 @@ class MLCalculator(Calculator):
         self.mlmodel.save_data(trajectory=trajectory, **kwarg)
         return self
 
+    def get_data_atoms(self, **kwargs):
+        """
+        Get the list of atoms in the database.
+
+        Returns:
+            list: A list of the saved ASE Atoms objects.
+        """
+        return self.mlmodel.get_data_atoms()
+
     def get_training_set_size(self):
         """
         Get the number of atoms objects in the ML model.

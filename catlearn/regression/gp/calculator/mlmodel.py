@@ -464,8 +464,13 @@ class MLModel:
         return features, targets
 
     def get_data_atoms(self, **kwargs):
-        "Get the atoms stored in the data base."
-        return self.database.get_atoms()
+        """
+        Get the list of atoms in the database.
+
+        Returns:
+            list: A list of the saved ASE Atoms objects.
+        """
+        return self.database.get_data_atoms()
 
     def reset_database(self, **kwargs):
         """
