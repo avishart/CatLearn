@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.spatial.distance import cdist
 from ase.constraints import FixAtoms
-from ase.io import write
+from ase.io.trajectory import TrajectoryWriter
 from .copy_atoms import copy_atoms
 
 
@@ -95,22 +95,23 @@ class Database:
         if not self.reduce_dimensions:
             return not_masked
         constraints = atoms.constraints
-        if len(constraints) > 0:
-            index_mask = [
+        if len(constraints):
+            masked = [
                 c.get_indices() for c in constraints if isinstance(c, FixAtoms)
             ]
-            index_mask = set(np.concatenate(index_mask))
-            return list(set(not_masked).difference(index_mask))
+            if len(masked):
+                masked = set(np.concatenate(masked))
+                return list(set(not_masked).difference(masked))
         return not_masked
 
-    def get_atoms(self, **kwargs):
+    def get_data_atoms(self, **kwargs):
         """
         Get the list of atoms in the database.
 
         Returns:
             list: A list of the saved ASE Atoms objects.
         """
-        return self.atoms_list.copy()
+        return [self.copy_atoms(atoms) for atoms in self.atoms_list]
 
     def get_features(self, **kwargs):
         """
@@ -130,18 +131,29 @@ class Database:
         """
         return np.array(self.targets)
 
-    def save_data(self, trajectory="data.traj", **kwargs):
+    def save_data(self, trajectory="data.traj", mode="w", **kwargs):
         """
         Save the ASE Atoms data to a trajectory.
 
         Parameters:
-            trajectory : str
+            trajectory : str or TrajectoryWriter instance
                 The name of the trajectory file where the data is saved.
+                Or a TrajectoryWriter instance where the data is saved to.
+            mode : str
+                The mode of the trajectory file.
 
         Returns:
             self: The updated object itself.
         """
-        write(trajectory, self.get_atoms())
+        if trajectory is None:
+            return self
+        if isinstance(trajectory, str):
+            with TrajectoryWriter(trajectory, mode=mode) as traj:
+                for atoms in self.atoms_list:
+                    traj.write(atoms)
+        elif isinstance(trajectory, TrajectoryWriter):
+            for atoms in self.atoms_list:
+                trajectory.write(atoms)
         return self
 
     def copy_atoms(self, atoms, **kwargs):
@@ -177,7 +189,11 @@ class Database:
         return self.fingerprint(atoms).get_vector()
 
     def make_target(
-        self, atoms, use_derivatives=True, use_negative_forces=True, **kwargs
+        self,
+        atoms,
+        use_derivatives=True,
+        use_negative_forces=True,
+        **kwargs,
     ):
         """
         Calculate the target as the energy and forces if selected.
@@ -200,7 +216,8 @@ class Database:
         e = atoms.get_potential_energy()
         if use_derivatives:
             not_masked = self.get_constraints(atoms)
-            f = (atoms.get_forces()[not_masked]).reshape(-1)
+            f = atoms.get_forces(apply_constraint=False)
+            f = f[not_masked].reshape(-1)
             if use_negative_forces:
                 return np.concatenate([[e], -f]).reshape(-1)
             return np.concatenate([[e], f]).reshape(-1)
