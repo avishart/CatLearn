@@ -39,6 +39,7 @@ class MLNEB(ActiveLearning):
         check_energy=False,
         check_fmax=True,
         n_evaluations_each=1,
+        min_data=2,
         trajectory="predicted.traj",
         trainingset="evaluated.traj",
         converged_trajectory="converged.traj",
@@ -144,6 +145,9 @@ class MLNEB(ActiveLearning):
                 than the initial interpolation and if so then replace it.
             n_evaluations_each: int
                 Number of evaluations for each iteration.
+            min_data: int
+                The minimum number of data points in the training set before
+                the active learning can converge.
             trajectory: str or TrajectoryWriter instance
                 Trajectory filename to store the predicted data.
                 Or the TrajectoryWriter instance to store the predicted data.
@@ -209,6 +213,7 @@ class MLNEB(ActiveLearning):
             check_energy=check_energy,
             check_fmax=check_fmax,
             n_evaluations_each=n_evaluations_each,
+            min_data=min_data,
             trajectory=trajectory,
             trainingset=trainingset,
             converged_trajectory=converged_trajectory,
@@ -355,6 +360,7 @@ class MLNEB(ActiveLearning):
             check_energy=self.check_energy,
             check_fmax=self.check_fmax,
             n_evaluations_each=self.n_evaluations_each,
+            min_data=self.min_data,
             trajectory=self.trajectory,
             trainingset=self.trainingset,
             converged_trajectory=self.converged_trajectory,

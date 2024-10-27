@@ -30,6 +30,7 @@ class ActiveLearning:
         check_energy=True,
         check_fmax=True,
         n_evaluations_each=1,
+        min_data=2,
         trajectory="predicted.traj",
         trainingset="evaluated.traj",
         converged_trajectory="converged.traj",
@@ -109,6 +110,9 @@ class ActiveLearning:
                 than the initial interpolation and if so then replace it.
             n_evaluations_each: int
                 Number of evaluations for each iteration.
+            min_data: int
+                The minimum number of data points in the training set before
+                the active learning can converge.
             trajectory: str or TrajectoryWriter instance
                 Trajectory filename to store the predicted data.
                 Or the TrajectoryWriter instance to store the predicted data.
@@ -169,6 +173,7 @@ class ActiveLearning:
             check_energy=check_energy,
             check_fmax=check_fmax,
             n_evaluations_each=n_evaluations_each,
+            min_data=min_data,
             trajectory=trajectory,
             trainingset=trainingset,
             converged_trajectory=converged_trajectory,
@@ -593,6 +598,7 @@ class ActiveLearning:
         check_energy=None,
         check_fmax=None,
         n_evaluations_each=None,
+        min_data=None,
         trajectory=None,
         trainingset=None,
         converged_trajectory=None,
@@ -670,6 +676,9 @@ class ActiveLearning:
                 than the initial interpolation and if so then replace it.
             n_evaluations_each: int
                 Number of evaluations for each iteration.
+            min_data: int
+                The minimum number of data points in the training set before
+                the active learning can converge.
             trajectory: str or TrajectoryWriter instance
                 Trajectory filename to store the predicted data.
                 Or the TrajectoryWriter instance to store the predicted data.
@@ -739,6 +748,8 @@ class ActiveLearning:
             self.n_evaluations_each = int(abs(n_evaluations_each))
             if self.n_evaluations_each < 1:
                 self.n_evaluations_each = 1
+        if min_data is not None:
+            self.min_data = int(abs(min_data))
         if trajectory is not None:
             self.trajectory = trajectory
         if trainingset is not None:
@@ -1142,6 +1153,9 @@ class ActiveLearning:
             # Check if the method converged
             if not method_converged:
                 converged = False
+            # Check if the minimum number of data points is reached
+            if self.get_training_set_size() < self.min_data:
+                converged = False
             # Check the force criterion is met if it is requested
             if self.use_fmax_convergence and self.true_fmax > fmax:
                 converged = False
@@ -1346,6 +1360,7 @@ class ActiveLearning:
             check_energy=self.check_energy,
             check_fmax=self.check_fmax,
             n_evaluations_each=self.n_evaluations_each,
+            min_data=self.min_data,
             trajectory=self.trajectory,
             trainingset=self.trainingset,
             converged_trajectory=self.converged_trajectory,
