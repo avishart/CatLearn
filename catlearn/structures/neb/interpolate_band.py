@@ -1,5 +1,7 @@
 import numpy as np
+from ase.io import read
 from ase.optimize import FIRE
+from ...regression.gp.calculator.copy_atoms import copy_atoms
 
 
 def interpolate(
@@ -99,7 +101,7 @@ def make_interpolation(
     "Make the NEB interpolation path."
     # Use a premade interpolation path
     if isinstance(method, (list, np.ndarray)):
-        images = method.copy()
+        images = [copy_atoms(image) for image in method]
     elif isinstance(method, str) and method.lower() not in [
         "linear",
         "idpp",
@@ -107,12 +109,11 @@ def make_interpolation(
         "ends",
     ]:
         # Import interpolation from a trajectory file
-        from ase.io import read
-
         images = read(method, "-{}:".format(n_images))
     else:
         # Make path by the NEB methods interpolation
-        images = [start.copy() for i in range(n_images - 1)] + [end.copy()]
+        images = [start.copy() for i in range(1, n_images - 1)]
+        images = [copy_atoms(start)] + images + [copy_atoms(end)]
         if method.lower() == "ends":
             images = make_end_interpolations(
                 images,
@@ -182,14 +183,11 @@ def make_idpp_interpolation(
         len(images) - 1
     )
     # Use IDPP as calculator
-    new_images = []
-    for i in range(len(images)):
-        image = images[i].copy()
-        target = dist0 + i * dist
+    for i, image in enumerate(images[1:-1]):
+        target = dist0 + (i + 1) * dist
         image.calc = IDPP(target=target, mic=mic)
-        new_images.append(image)
     # Make default NEB
-    neb = ImprovedTangentNEB(new_images)
+    neb = ImprovedTangentNEB(images)
     # Set local optimizer arguments
     local_kwargs_default = dict(trajectory="idpp.traj", logfile="idpp.log")
     if isinstance(local_opt, FIRE):
@@ -200,7 +198,7 @@ def make_idpp_interpolation(
     # Optimize NEB path with IDPP
     with local_opt(neb, **local_kwargs_default) as opt:
         opt.run(fmax=fmax, steps=steps)
-    return new_images
+    return images
 
 
 def make_rep_interpolation(
@@ -219,13 +217,10 @@ def make_rep_interpolation(
     from ...regression.gp.baseline import RepulsionCalculator
 
     # Use Repulsive potential as calculator
-    new_images = []
-    for i in range(len(images)):
-        image = images[i].copy()
+    for image in images[1:-1]:
         image.calc = RepulsionCalculator(power=10, mic=mic)
-        new_images.append(image)
     # Make default NEB
-    neb = ImprovedTangentNEB(new_images)
+    neb = ImprovedTangentNEB(images)
     # Set local optimizer arguments
     local_kwargs_default = dict(trajectory="rep.traj", logfile="rep.log")
     if isinstance(local_opt, FIRE):
@@ -236,7 +231,7 @@ def make_rep_interpolation(
     # Optimize NEB path with repulsive potential
     with local_opt(neb, **local_kwargs_default) as opt:
         opt.run(fmax=fmax, steps=steps)
-    return new_images
+    return images
 
 
 def make_end_interpolations(images, mic=False, trust_dist=0.2, **kwargs):

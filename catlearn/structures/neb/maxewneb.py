@@ -12,6 +12,9 @@ class MaxEWNEB(ImprovedTangentNEB):
         climb=False,
         remove_rotation_and_translation=False,
         mic=True,
+        save_properties=False,
+        parallel=False,
+        world=None,
         **kwargs
     ):
         super().__init__(
@@ -20,23 +23,26 @@ class MaxEWNEB(ImprovedTangentNEB):
             climb=climb,
             remove_rotation_and_translation=remove_rotation_and_translation,
             mic=mic,
+            save_properties=save_properties,
+            parallel=parallel,
+            world=world,
             **kwargs
         )
         self.kl_scale = kl_scale
         self.dE = dE
 
-    def get_parallel_forces(self, tangent, pos_p, pos_m, **kwargs):
+    def get_spring_constants(self, **kwargs):
+        # Get the spring constants
         energies = self.get_energies()
+        # Get the maximum energy
         emax = np.max(energies)
+        # Calculate the reference energy
         e0 = emax - self.dE
+        # Calculate the weighted spring constants
         k_l = self.k * self.kl_scale
         if e0 < emax:
             a = (emax - energies[:-1]) / (emax - e0)
             k = np.where(a < 1.0, (1.0 - a) * self.k + a * k_l, k_l)
         else:
-            k = k_l.copy()
-        forces_parallel = (k[1:] * np.linalg.norm(pos_p, axis=(1, 2))) - (
-            k[:-1] * np.linalg.norm(pos_m, axis=(1, 2))
-        )
-        forces_parallel = forces_parallel.reshape(-1, 1, 1) * tangent
-        return forces_parallel
+            k = k_l
+        return k

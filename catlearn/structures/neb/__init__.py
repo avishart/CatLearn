@@ -3,7 +3,6 @@ from .improvedneb import ImprovedTangentNEB
 from .ewneb import EWNEB
 from .avgewneb import AvgEWNEB
 from .maxewneb import MaxEWNEB
-from .nebimage import NEBImage
 from .interpolate_band import interpolate, make_interpolation
 
 __all__ = [
