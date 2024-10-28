@@ -19,7 +19,7 @@ class LocalOptimizer(OptimizerMethod):
         """
         The LocalOptimizer is used to run a local optimization on
         a given structure.
-        The LocalOptimizer is applicable to be used with Bayesian optimization.
+        The LocalOptimizer is applicable to be used with active learning.
 
         Parameters:
             atoms: Atoms instance

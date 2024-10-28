@@ -16,7 +16,7 @@ class SequentialOptimizer(OptimizerMethod):
         The SequentialOptimizer is used to run multiple optimizations in
         sequence for a given structure.
         The SequentialOptimizer is applicable to be used with
-        Bayesian optimization.
+        active learning.
 
         Parameters:
             methods: List of OptimizerMethod objects

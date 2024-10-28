@@ -50,7 +50,7 @@ class MLNEB(ActiveLearning):
         **kwargs,
     ):
         """
-        A Bayesian optimizer that is used for accelerating nudged elastic band
+        A active learner that is used for accelerating nudged elastic band
         (NEB) optimization with an active learning approach.
 
         Parameters:
@@ -128,7 +128,7 @@ class MLNEB(ActiveLearning):
                 It makes the path converge tighter on surrogate surface.
             unc_convergence: float
                 Maximum uncertainty for convergence in
-                the Bayesian optimization (in eV).
+                the active learning (in eV).
             use_method_unc_conv: bool
                 Whether to use the unc_convergence as a convergence criterion
                 in the optimization method.
@@ -168,7 +168,7 @@ class MLNEB(ActiveLearning):
                 The previous calculations must be fed as an Atoms list
                 or Trajectory filename.
             restart: bool
-                Whether to restart the Bayesian optimization.
+                Whether to restart the active learning.
             comm: MPI communicator.
                 The MPI communicator.
         """

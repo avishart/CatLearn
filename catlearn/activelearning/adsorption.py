@@ -43,7 +43,7 @@ class AdsorptionAL(ActiveLearning):
         **kwargs,
     ):
         """
-        A Bayesian optimizer that is used for accelerating local optimization
+        A active learner that is used for accelerating local optimization
         of an atomic structure with an active learning approach.
 
         Parameters:
@@ -111,7 +111,7 @@ class AdsorptionAL(ActiveLearning):
                 Whether to use the maximum force as an convergence criterion.
             unc_convergence: float
                 Maximum uncertainty for convergence in
-                the Bayesian optimization (in eV).
+                the active learning (in eV).
             use_method_unc_conv: bool
                 Whether to use the unc_convergence as a convergence criterion
                 in the optimization method.
@@ -149,7 +149,7 @@ class AdsorptionAL(ActiveLearning):
                 The previous calculations must be fed as an Atoms list
                 or Trajectory filename.
             restart: bool
-                Whether to restart the Bayesian optimization.
+                Whether to restart the active learning.
             comm: MPI communicator.
                 The MPI communicator.
         """

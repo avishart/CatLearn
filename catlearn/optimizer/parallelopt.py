@@ -16,7 +16,7 @@ class ParallelOptimizer(OptimizerMethod):
         """
         The ParallelOptimizer is used to run an optimization in parallel.
         The ParallelOptimizer is applicable to be used with
-        Bayesian optimization.
+        active learning.
 
         Parameters:
             method: OptimizerMethod instance

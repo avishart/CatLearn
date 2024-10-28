@@ -41,7 +41,7 @@ class ActiveLearning:
         **kwargs,
     ):
         """
-        A Bayesian optimizer that is used for accelerating quantum mechanincal
+        A active learner that is used for accelerating quantum mechanincal
         simulation methods with an active learning approach.
 
         Parameters:
@@ -93,7 +93,7 @@ class ActiveLearning:
                 Whether to use the maximum force as an convergence criterion.
             unc_convergence: float
                 Maximum uncertainty for convergence in
-                the Bayesian optimization (in eV).
+                the active learning (in eV).
             use_method_unc_conv: bool
                 Whether to use the unc_convergence as a convergence criterion
                 in the optimization method.
@@ -133,7 +133,7 @@ class ActiveLearning:
                 The previous calculations must be fed as an Atoms list
                 or Trajectory filename.
             restart: bool
-                Whether to restart the Bayesian optimization.
+                Whether to restart the active learning.
             comm: MPI communicator.
                 The MPI communicator.
         """
@@ -183,7 +183,7 @@ class ActiveLearning:
         )
         # Use previous calculations to train ML calculator
         self.use_prev_calculations(prev_calculations)
-        # Restart the bayesian optimization
+        # Restart the active learning
         self.restart_optimization(restart, prev_calculations)
 
     def run(
@@ -216,14 +216,14 @@ class ActiveLearning:
 
         Returns:
             converged: bool
-                Whether the Bayesian optimization is converged.
+                Whether the active learning is converged.
         """
         # Set the random seed
         if seed is not None:
             np.random.RandomState(seed)
         # Check if the method is converged
         if self.converged():
-            self.message_system("Bayesian optimization is converged.")
+            self.message_system("active learning is converged.")
             return self.best_structures
         # Check if there are any training data
         self.extra_initial_data()
@@ -231,7 +231,7 @@ class ActiveLearning:
         for step in range(1, steps + 1):
             # Check if the method is converged
             if self.converged():
-                self.message_system("Bayesian optimization is converged.")
+                self.message_system("active learning is converged.")
                 self.save_trajectory(
                     self.converged_trajectory,
                     self.best_structures,
@@ -257,15 +257,15 @@ class ActiveLearning:
                 fmax,
                 method_converged,
             )
-        # State if the Bayesian optimization did not converge
+        # State if the active learning did not converge
         if not self.converged():
-            self.message_system("Bayesian optimization did not converge!")
+            self.message_system("active learning did not converge!")
         # Return and broadcast the best atoms
         self.broadcast_best_structures()
         return self.converged()
 
     def converged(self):
-        "Whether the Bayesian optimization is converged."
+        "Whether the active learning is converged."
         return self._converged
 
     def get_number_of_steps(self):
@@ -276,7 +276,7 @@ class ActiveLearning:
 
     def reset(self, **kwargs):
         """
-        Reset the initial parameters for the Bayesian optimizer.
+        Reset the initial parameters for the active learner.
         """
         # Set initial parameters
         self.steps = 0
@@ -365,7 +365,7 @@ class ActiveLearning:
             calc_forces: bool
                 Whether to calculate the forces for all energy predictions.
             bayesian: bool
-                Whether to use the Bayesian optimization calculator.
+                Whether to use the active learning calculator.
             kappa: float
                 The scaling of the uncertainty relative to the energy.
                 Default is 2.0.
@@ -484,7 +484,7 @@ class ActiveLearning:
             if acq.objective != objective:
                 raise Exception(
                     "The objective of the acquisition function "
-                    "does not match the Bayesian optimizer."
+                    "does not match the active learner."
                 )
         return self
 
@@ -659,7 +659,7 @@ class ActiveLearning:
                 Whether to use the maximum force as an convergence criterion.
             unc_convergence: float
                 Maximum uncertainty for convergence in
-                the Bayesian optimization (in eV).
+                the active learning (in eV).
             use_method_unc_conv: bool
                 Whether to use the unc_convergence as a convergence criterion
                 in the optimization method.
@@ -699,7 +699,7 @@ class ActiveLearning:
                 The previous calculations must be fed as an Atoms list
                 or Trajectory filename.
             restart: bool
-                Whether to restart the Bayesian optimization.
+                Whether to restart the active learning.
             comm: MPI communicator.
                 The MPI communicator.
 
@@ -1069,7 +1069,7 @@ class ActiveLearning:
 
     def extra_initial_data(self, **kwargs):
         """
-        Get an initial structure for the Bayesian optimization
+        Get an initial structure for the active learning
         if the ML calculator does not have any training points.
         """
         # Check if the training set is empty
@@ -1213,7 +1213,7 @@ class ActiveLearning:
         return copy_atoms(atoms)
 
     def get_objective_str(self, **kwargs):
-        "Get what the objective is for the Bayesian optimization."
+        "Get what the objective is for the active learning."
         if not self.is_minimization:
             return "max"
         return "min"
@@ -1243,12 +1243,12 @@ class ActiveLearning:
 
     def check_attributes(self, **kwargs):
         """
-        Check that the Bayesian optimization and the method
+        Check that the active learning and the method
         agree upon the attributes.
         """
         if self.parallel_run != self.method.parallel_run:
             raise Exception(
-                "Bayesian optimizer and Optimization method does "
+                "Active learner and Optimization method does "
                 "not agree whether to run in parallel!"
             )
         return self
@@ -1319,7 +1319,7 @@ class ActiveLearning:
         prev_calculations=None,
         **kwargs,
     ):
-        "Restart the Bayesian optimization."
+        "Restart the active learning."
         # Check if the optimization should be restarted
         if not restart:
             return self
@@ -1339,7 +1339,7 @@ class ActiveLearning:
         except Exception:
             self.message_system(
                 "Warning: Restart is not possible! "
-                "Reinitalizing Bayesian optimization."
+                "Reinitalizing active learning."
             )
         # Set the writing mode
         self.mode = "a"

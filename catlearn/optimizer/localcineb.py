@@ -27,7 +27,7 @@ class LocalCINEB(SequentialOptimizer):
     ):
         """
         The LocalNEB is used to run a local optimization of NEB.
-        The LocalNEB is applicable to be used with Bayesian optimization.
+        The LocalNEB is applicable to be used with active learning.
 
         Parameters:
             start : Atoms instance or ASE Trajectory file.

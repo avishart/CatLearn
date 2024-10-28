@@ -17,8 +17,7 @@ class OptimizerMethod:
         The OptimizerMethod class is a base class for all optimization methods.
         The OptimizerMethod is used to run an optimization on a given
         optimizable.
-        The OptimizerMethod is applicable to be used with Bayesian
-        optimization.
+        The OptimizerMethod is applicable to be used with active learning.
 
         Parameters:
             optimizable: optimizable instance
@@ -85,7 +84,7 @@ class OptimizerMethod:
     def get_candidates(self):
         """
         Get the candidate structure instances.
-        It is used for Bayesian optimization.
+        It is used for active learning.
         """
         return [self.optimizable]
 
@@ -206,7 +205,7 @@ class OptimizerMethod:
     def get_uncertainty(self, per_candidate=False, **kwargs):
         """
         Get the uncertainty of the optimizable.
-        It is used for Bayesian optimization.
+        It is used for active learning.
 
         Parameters:
             per_candidate: bool
@@ -358,7 +357,7 @@ class OptimizerMethod:
     def is_within_dtrust(self, per_candidate=False, dtrust=2.0, **kwargs):
         """
         Get whether the structures are within a trust distance to the database.
-        It is used for Bayesian optimization.
+        It is used for active learning.
 
         Parameters:
             per_candidate: bool
@@ -454,7 +453,7 @@ class OptimizerMethod:
         Run the optimization with a maximum uncertainty.
         The uncertainty is checked at each optimization step if requested.
         The trust distance is checked at each optimization step if requested.
-        It is used for Bayesian optimization.
+        It is used for active learning.
         """
         raise NotImplementedError("The run_max_unc method is not implemented")
 
@@ -468,7 +467,7 @@ class OptimizerMethod:
     ):
         """
         Check if the optimization is converged also in terms of uncertainty.
-        The uncertainty is used for Bayesian optimization.
+        The uncertainty is used for active learning.
 
         Parameters:
             converged: bool

@@ -47,7 +47,7 @@ class MLGO(AdsorptionAL):
         **kwargs,
     ):
         """
-        A Bayesian optimizer that is used for accelerating local optimization
+        A active learner that is used for accelerating local optimization
         of an atomic structure with an active learning approach.
 
         Parameters:
@@ -129,7 +129,7 @@ class MLGO(AdsorptionAL):
                 Whether to use the maximum force as an convergence criterion.
             unc_convergence: float
                 Maximum uncertainty for convergence in
-                the Bayesian optimization (in eV).
+                the active learning (in eV).
             use_method_unc_conv: bool
                 Whether to use the unc_convergence as a convergence criterion
                 in the optimization method.
@@ -170,7 +170,7 @@ class MLGO(AdsorptionAL):
                 The previous calculations must be fed as an Atoms list
                 or Trajectory filename.
             restart: bool
-                Whether to restart the Bayesian optimization.
+                Whether to restart the active learning.
             comm: MPI communicator.
                 The MPI communicator.
         """
@@ -268,7 +268,7 @@ class MLGO(AdsorptionAL):
         seed=None,
         **kwargs,
     ):
-        # Run the Bayesian optimization
+        # Run the active learning
         super().run(
             fmax=fmax,
             steps=steps,
@@ -278,7 +278,7 @@ class MLGO(AdsorptionAL):
             seed=seed,
             **kwargs,
         )
-        # Check if the Bayesian optimization is converged
+        # Check if the active learning is converged
         if not self.converged():
             return self.converged()
         # Switch to the local optimization
@@ -287,7 +287,7 @@ class MLGO(AdsorptionAL):
         steps = steps - self.get_number_of_steps()
         if steps <= 0:
             return self.converged()
-        # Run the local Bayesian optimization
+        # Run the local active learning
         super().run(
             fmax=fmax,
             steps=steps,
@@ -304,7 +304,7 @@ class MLGO(AdsorptionAL):
         Switch the ML calculator used for the local optimization.
         The data is reused, but without the constraints from Adsorption.
         """
-        # Get the data from the Bayesian optimization
+        # Get the data from the active learning
         data = self.get_data_atoms()
         if not self.reuse_data_local:
             data = data[-1:]

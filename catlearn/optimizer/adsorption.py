@@ -25,7 +25,7 @@ class AdsorptionOptimizer(OptimizerMethod):
         A single structure will be created and optimized.
         Simulated annealing will be used to global optimize the structure.
         The AdsorptionOptimizer is applicable to be used with
-        Bayesian optimization.
+        active learning.
 
         Parameters:
             slab: Atoms instance
