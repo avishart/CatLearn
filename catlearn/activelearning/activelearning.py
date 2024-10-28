@@ -950,17 +950,19 @@ class ActiveLearning:
             return self
         if isinstance(trajectory, str):
             with TrajectoryWriter(trajectory, mode=mode) as traj:
-                if isinstance(structures, list):
-                    for struc in structures:
-                        traj.write(struc)
-                else:
-                    traj.write(structures)
-        elif isinstance(trajectory, TrajectoryWriter):
-            if isinstance(structures, list):
+                if not isinstance(structures, list):
+                    structures = [structures]
                 for struc in structures:
-                    trajectory.write(struc)
-            else:
-                trajectory.write(structures)
+                    if hasattr(struc.calc, "results"):
+                        struc.info["results"] = struc.calc.results
+                    traj.write(struc)
+        elif isinstance(trajectory, TrajectoryWriter):
+            if not isinstance(structures, list):
+                structures = [structures]
+            for struc in structures:
+                if hasattr(struc.calc, "results"):
+                    struc.info["results"] = struc.calc.results
+                trajectory.write(struc)
         else:
             self.message_system(
                 "The trajectory type is not supported. "
