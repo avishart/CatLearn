@@ -95,12 +95,12 @@ class AdsorptionAL(ActiveLearning):
             verbose: bool
                 Whether to print on screen the full output (True) or
                 not (False).
-            apply_constraint: boolean
+            apply_constraint: bool
                 Whether to apply the constrains of the ASE Atoms instance
                 to the calculated forces.
                 By default (apply_constraint=True) forces are 0 for
                 constrained atoms and directions.
-            force_consistent: boolean or None.
+            force_consistent: bool or None.
                 Use force-consistent energy calls (as opposed to the energy
                 extrapolated to 0 K).
                 By default force_consistent=False.

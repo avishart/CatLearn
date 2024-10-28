@@ -77,12 +77,12 @@ class ActiveLearning:
             verbose: bool
                 Whether to print on screen the full output (True) or
                 not (False).
-            apply_constraint: boolean
+            apply_constraint: bool
                 Whether to apply the constrains of the ASE Atoms instance
                 to the calculated forces.
                 By default (apply_constraint=True) forces are 0 for
                 constrained atoms and directions.
-            force_consistent: boolean or None.
+            force_consistent: bool or None.
                 Use force-consistent energy calls (as opposed to the energy
                 extrapolated to 0 K).
                 By default force_consistent=False.
@@ -643,12 +643,12 @@ class ActiveLearning:
             verbose: bool
                 Whether to print on screen the full output (True) or
                 not (False).
-            apply_constraint: boolean
+            apply_constraint: bool
                 Whether to apply the constrains of the ASE Atoms instance
                 to the calculated forces.
                 By default (apply_constraint=True) forces are 0 for
                 constrained atoms and directions.
-            force_consistent: boolean or None.
+            force_consistent: bool or None.
                 Use force-consistent energy calls (as opposed to the energy
                 extrapolated to 0 K).
                 By default force_consistent=False.
@@ -752,12 +752,20 @@ class ActiveLearning:
             self.min_data = int(abs(min_data))
         if trajectory is not None:
             self.trajectory = trajectory
+        elif not hasattr(self, "trajectory"):
+            self.trajectory = None
         if trainingset is not None:
             self.trainingset = trainingset
+        elif not hasattr(self, "trainingset"):
+            self.trainingset = None
         if converged_trajectory is not None:
             self.converged_trajectory = converged_trajectory
+        elif not hasattr(self, "converged_trajectory"):
+            self.converged_trajectory = None
         if tabletxt is not None:
             self.tabletxt = str(tabletxt)
+        elif not hasattr(self, "tabletxt"):
+            self.tabletxt = None
         # Set ASE calculator
         if ase_calc is not None:
             self.ase_calc = ase_calc

@@ -113,12 +113,12 @@ class MLGO(AdsorptionAL):
             verbose: bool
                 Whether to print on screen the full output (True) or
                 not (False).
-            apply_constraint: boolean
+            apply_constraint: bool
                 Whether to apply the constrains of the ASE Atoms instance
                 to the calculated forces.
                 By default (apply_constraint=True) forces are 0 for
                 constrained atoms and directions.
-            force_consistent: boolean or None.
+            force_consistent: bool or None.
                 Use force-consistent energy calls (as opposed to the energy
                 extrapolated to 0 K).
                 By default force_consistent=False.
@@ -238,7 +238,7 @@ class MLGO(AdsorptionAL):
         self.atoms = self.copy_atoms(atoms)
         self.local_opt = local_opt
         self.local_opt_kwargs = local_opt_kwargs
-        # Save boolean for reusing data in the mlcalc_local
+        # Save bool for reusing data in the mlcalc_local
         self.reuse_data_local = reuse_data_local
         # Build the local optimizer method
         self.local_method = LocalOptimizer(
