@@ -25,7 +25,7 @@ $ pip install git+https://github.com/avishart/CatLearn.git@v.x.x.x
 
 The following code shows how to use MLNEB:
 ```python
-from catlearn.optimize.mlneb import MLNEB
+from catlearn.activelearning.mlneb import MLNEB
 from ase.io import read
 
 # Load endpoints
@@ -40,13 +40,13 @@ mlneb = MLNEB(
     start=initial,
     end=final,
     ase_calc=calc,
-    interpolation="linear",
+    neb_interpolation="linear",
     n_images=15,
-    full_output=True,
+    unc_convergence=0.05,
+    verbose=True,
 )
 mlneb.run(
     fmax=0.05,
-    unc_convergence=0.05,
     max_unc=0.30,
     steps=100,
     ml_steps=1000,
@@ -56,7 +56,7 @@ mlneb.run(
 
 The following code shows how to use MLGO:
 ```python
-from catlearn.optimize.mlgo import MLGO
+from catlearn.activelearning.mlgo import MLGO
 from ase.io import read
 
 # Load the slab and the adsorbate
@@ -79,16 +79,20 @@ bounds = np.array(
 )
 
 # Initialize MLGO
-mlgo = MLGO(slab, ads, ase_calc=calc, bounds=bounds, full_output=True)
+mlgo = MLGO(
+    slab,
+    ads,
+    ase_calc=calc,
+    unc_convergence=0.02,
+    bounds=bounds,
+    chains=4,
+    verbose=True
+)
 mlgo.run(
     fmax=0.05,
-    unc_convergence=0.02,
     max_unc=0.30,
     steps=100,
     ml_steps=1000,
-    ml_chains=8,
-    relax=True,
-    local_steps=500,
 )
 
 ```
