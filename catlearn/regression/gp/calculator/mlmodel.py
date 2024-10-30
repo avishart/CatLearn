@@ -42,14 +42,6 @@ class MLModel:
         # Make default database if it is not given
         if database is None:
             database = get_default_database()
-        # Use default baseline if it is not given
-        if baseline is None:
-            self.baseline = None
-        # Use default pdis if it is not given
-        if pdis is None:
-            self.pdis = None
-        # Make default hyperparameters if it is not given
-        self.hp = None
         # Set the arguments
         self.update_arguments(
             model=model,
@@ -268,12 +260,18 @@ class MLModel:
             self.database = database.copy()
         if baseline is not None:
             self.baseline = baseline.copy()
+        elif not hasattr(self, "baseline"):
+            self.baseline = None
         if optimize is not None:
             self.optimize = optimize
         if hp is not None:
             self.hp = hp.copy()
+        elif not hasattr(self, "hp"):
+            self.hp = None
         if pdis is not None:
             self.pdis = pdis.copy()
+        elif not hasattr(self, "pdis"):
+            self.pdis = None
         if verbose is not None:
             self.verbose = verbose
         # Check if the baseline is used

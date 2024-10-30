@@ -377,6 +377,8 @@ class AcqEI(Acquisition):
             self.objective = objective.lower()
         if ebest is not None:
             self.ebest = ebest
+        elif not hasattr(self, "ebest"):
+            self.ebest = None
         return self
 
     def get_arguments(self):
