@@ -125,7 +125,7 @@ class AdsorptionOptimizer(OptimizerMethod):
         # Store the constraints
         self.constraints_org = [c.copy() for c in optimizable.constraints]
         # Make constraints
-        constraints = [FixAtoms(indices=list(range(self.n_slab)))]
+        self.constraints_new = [FixAtoms(indices=list(range(self.n_slab)))]
         if self.n_ads > 1:
             pairs = list(
                 itertools.combinations(
@@ -133,7 +133,7 @@ class AdsorptionOptimizer(OptimizerMethod):
                     2,
                 )
             )
-            constraints.append(FixBondLengths(pairs=pairs))
+            self.constraints_new.append(FixBondLengths(pairs=pairs))
         if self.n_ads2 > 1:
             pairs = list(
                 itertools.combinations(
@@ -141,8 +141,8 @@ class AdsorptionOptimizer(OptimizerMethod):
                     2,
                 )
             )
-            constraints.append(FixBondLengths(pairs=pairs))
-        optimizable.set_constraint(constraints)
+            self.constraints_new.append(FixBondLengths(pairs=pairs))
+        optimizable.set_constraint(self.constraints_new)
         # Setup the optimizable structure
         self.setup_optimizable(optimizable)
         return self
@@ -195,6 +195,8 @@ class AdsorptionOptimizer(OptimizerMethod):
         unc_convergence=None,
         **kwargs,
     ):
+        # Use original constraints
+        self.optimizable.set_constraint(self.constraints_org)
         # Perform the simulated annealing
         sol = dual_annealing(
             self.evaluate_value,
@@ -202,6 +204,8 @@ class AdsorptionOptimizer(OptimizerMethod):
             maxfun=steps,
             **self.opt_kwargs,
         )
+        # Set the new constraints
+        self.optimizable.set_constraint(self.constraints_new)
         # Set the positions
         self.evaluate_value(sol["x"])
         # Calculate the maximum force to check convergence
