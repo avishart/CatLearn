@@ -287,6 +287,8 @@ class ActiveLearning:
         self._converged = False
         self.unc = np.nan
         self.energy_pred = np.nan
+        self.pred_energies = []
+        self.uncertainties = []
         # Set the header for the summary table
         self.make_hdr_table()
         # Set the writing mode
@@ -992,11 +994,8 @@ class ActiveLearning:
             candidates = [candidates]
         # Evaluate the candidates
         for candidate in candidates:
-            # Get energy and uncertainty and remove it from the list
-            self.energy_pred = self.pred_energies[0]
-            self.pred_energies = self.pred_energies[1:]
-            self.unc = self.uncertainties[0]
-            self.uncertainties = self.uncertainties[1:]
+            # Broadcast the predictions
+            self.broadcast_predictions()
             # Evaluate the candidate
             self.evaluate(candidate)
         return self
@@ -1073,6 +1072,29 @@ class ActiveLearning:
         if np.linalg.norm(velocities_old - velocities_new) > dtol:
             self.candidate.set_velocities(velocities_new)
         return candidate
+
+    def broadcast_predictions(self, **kwargs):
+        "Broadcast the predictions."
+        # Get energy and uncertainty and remove it from the list
+        if self.rank == 0:
+            self.energy_pred = self.pred_energies[0]
+            self.pred_energies = self.pred_energies[1:]
+            self.unc = self.uncertainties[0]
+            self.uncertainties = self.uncertainties[1:]
+        # Broadcast the predictions
+        self.energy_pred = broadcast(self.energy_pred, root=0, comm=self.comm)
+        self.unc = broadcast(self.unc, root=0, comm=self.comm)
+        self.pred_energies = broadcast(
+            self.pred_energies,
+            root=0,
+            comm=self.comm,
+        )
+        self.uncertainties = broadcast(
+            self.uncertainties,
+            root=0,
+            comm=self.comm,
+        )
+        return self
 
     def extra_initial_data(self, **kwargs):
         """
