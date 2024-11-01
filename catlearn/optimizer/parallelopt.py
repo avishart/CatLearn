@@ -74,6 +74,7 @@ class ParallelOptimizer(OptimizerMethod):
         # Set the rank
         rank = 0
         # Make list of properties
+        structures = [None] * self.chains
         candidates = [None] * self.chains
         converged = [False] * self.chains
         used_steps = [self.steps] * self.chains
@@ -93,6 +94,8 @@ class ParallelOptimizer(OptimizerMethod):
                 )
                 # Update the number of steps
                 used_steps[chain] += method.get_number_of_steps()
+                # Get the structures
+                structures[chain] = method.get_structures()
                 # Get the candidates
                 candidates[chain] = method.get_candidates()
                 # Check if the optimization is converged
@@ -109,9 +112,9 @@ class ParallelOptimizer(OptimizerMethod):
                 rank = 0
         # Broadcast the saved instances
         rank = 0
-        for chain, method in enumerate(self.methods):
-            self.methods[chain] = broadcast(
-                self.methods[chain],
+        for chain in range(self.chains):
+            structures[chain] = broadcast(
+                structures[chain],
                 root=rank,
                 comm=self.comm,
             )
@@ -146,7 +149,7 @@ class ParallelOptimizer(OptimizerMethod):
                 self.candidates.append(candidate)
         # Check the minimum value
         i_min = np.argmin(values)
-        self.method = self.methods[i_min]
+        self.method = self.method.update_optimizable(structures[i_min])
         self.steps = np.max(used_steps)
         # Check if the optimization is converged
         self._converged = self.check_convergence(
@@ -164,7 +167,7 @@ class ParallelOptimizer(OptimizerMethod):
         return self
 
     def is_energy_minimized(self):
-        return self.methods[-1].is_energy_minimized()
+        return self.method.is_energy_minimized()
 
     def is_parallel_allowed(self):
         return True
