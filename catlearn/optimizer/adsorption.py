@@ -133,7 +133,7 @@ class AdsorptionOptimizer(OptimizerMethod):
                     2,
                 )
             )
-            constraints.append(FixBondLengths(indices=pairs))
+            constraints.append(FixBondLengths(pairs=pairs))
         if self.n_ads2 > 1:
             pairs = list(
                 itertools.combinations(
@@ -141,7 +141,7 @@ class AdsorptionOptimizer(OptimizerMethod):
                     2,
                 )
             )
-            constraints.append(FixBondLengths(indices=pairs))
+            constraints.append(FixBondLengths(pairs=pairs))
         optimizable.set_constraint(constraints)
         # Setup the optimizable structure
         self.setup_optimizable(optimizable)
