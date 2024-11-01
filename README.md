@@ -7,13 +7,13 @@ CalLearn uses ASE for handling the atomic systems and the calculator interface f
 
 You can simply install CatLearn by dowloading it from github as:
 ```shell
-$ git clone https://github.com/avishart/CatLearn
+$ git clone https://github.com/avishart/CatLearn/tree/activelearning
 $ pip install -e CatLearn/.
 ```
 
 You can also install CatLearn directly from github:
 ```shell
-$ pip install git@github.com:avishart/CatLearn.git
+$ pip install git@github.com:avishart/CatLearn.git@activelearning
 ```
 
 However, it is recommended to install a specific tag to ensure it is a stable version:
@@ -74,7 +74,7 @@ bounds = np.array(
         [0.5, 1.0],
         [0.0, 2 * np.pi],
         [0.0, 2 * np.pi],
-        [0.0, 2 * np.pi],
+        [0.5, 2 * np.pi],
     ]
 )
 
