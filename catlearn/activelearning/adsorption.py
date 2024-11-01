@@ -33,6 +33,7 @@ class AdsorptionAL(ActiveLearning):
         check_fmax=True,
         n_evaluations_each=1,
         min_data=2,
+        save_properties_traj=True,
         trajectory="predicted.traj",
         trainingset="evaluated.traj",
         converged_trajectory="converged.traj",
@@ -129,6 +130,8 @@ class AdsorptionAL(ActiveLearning):
             min_data: int
                 The minimum number of data points in the training set before
                 the active learning can converge.
+            save_properties_traj: bool
+                Whether to save the calculated properties to the trajectory.
             trajectory: str or TrajectoryWriter instance
                 Trajectory filename to store the predicted data.
                 Or the TrajectoryWriter instance to store the predicted data.
@@ -189,6 +192,7 @@ class AdsorptionAL(ActiveLearning):
             check_fmax=check_fmax,
             n_evaluations_each=n_evaluations_each,
             min_data=min_data,
+            save_properties_traj=save_properties_traj,
             trajectory=trajectory,
             trainingset=trainingset,
             converged_trajectory=converged_trajectory,
@@ -342,6 +346,7 @@ class AdsorptionAL(ActiveLearning):
             check_fmax=self.check_fmax,
             n_evaluations_each=self.n_evaluations_each,
             min_data=self.min_data,
+            save_properties_traj=self.save_properties_traj,
             trajectory=self.trajectory,
             trainingset=self.trainingset,
             converged_trajectory=self.converged_trajectory,

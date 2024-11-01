@@ -31,6 +31,7 @@ class ActiveLearning:
         check_fmax=True,
         n_evaluations_each=1,
         min_data=2,
+        save_properties_traj=True,
         trajectory="predicted.traj",
         trainingset="evaluated.traj",
         converged_trajectory="converged.traj",
@@ -113,6 +114,8 @@ class ActiveLearning:
             min_data: int
                 The minimum number of data points in the training set before
                 the active learning can converge.
+            save_properties_traj: bool
+                Whether to save the calculated properties to the trajectory.
             trajectory: str or TrajectoryWriter instance
                 Trajectory filename to store the predicted data.
                 Or the TrajectoryWriter instance to store the predicted data.
@@ -174,6 +177,7 @@ class ActiveLearning:
             check_fmax=check_fmax,
             n_evaluations_each=n_evaluations_each,
             min_data=min_data,
+            save_properties_traj=save_properties_traj,
             trajectory=trajectory,
             trainingset=trainingset,
             converged_trajectory=converged_trajectory,
@@ -491,6 +495,7 @@ class ActiveLearning:
     def get_structures(
         self,
         get_all=True,
+        **kwargs,
     ):
         """
         Get the list of ASE Atoms object from the method.
@@ -502,12 +507,7 @@ class ActiveLearning:
         Returns:
             Atoms object or list of Atoms objects.
         """
-        structures = self.method.get_structures()
-        if isinstance(structures, list):
-            if get_all:
-                return structures
-            return structures[0]
-        return structures
+        return self.method.get_structures(get_all=get_all, **kwargs)
 
     def get_candidates(self):
         """
@@ -599,6 +599,7 @@ class ActiveLearning:
         check_fmax=None,
         n_evaluations_each=None,
         min_data=None,
+        save_properties_traj=None,
         trajectory=None,
         trainingset=None,
         converged_trajectory=None,
@@ -679,6 +680,8 @@ class ActiveLearning:
             min_data: int
                 The minimum number of data points in the training set before
                 the active learning can converge.
+            save_properties_traj: bool
+                Whether to save the calculated properties to the trajectory.
             trajectory: str or TrajectoryWriter instance
                 Trajectory filename to store the predicted data.
                 Or the TrajectoryWriter instance to store the predicted data.
@@ -750,6 +753,8 @@ class ActiveLearning:
                 self.n_evaluations_each = 1
         if min_data is not None:
             self.min_data = int(abs(min_data))
+        if save_properties_traj is not None:
+            self.save_properties_traj = save_properties_traj
         if trajectory is not None:
             self.trajectory = trajectory
         elif not hasattr(self, "trajectory"):
@@ -961,15 +966,17 @@ class ActiveLearning:
                 if not isinstance(structures, list):
                     structures = [structures]
                 for struc in structures:
-                    if hasattr(struc.calc, "results"):
-                        struc.info["results"] = struc.calc.results
+                    if self.save_properties_traj:
+                        if hasattr(struc.calc, "results"):
+                            struc.info["results"] = struc.calc.results
                     traj.write(struc)
         elif isinstance(trajectory, TrajectoryWriter):
             if not isinstance(structures, list):
                 structures = [structures]
             for struc in structures:
-                if hasattr(struc.calc, "results"):
-                    struc.info["results"] = struc.calc.results
+                if self.save_properties_traj:
+                    if hasattr(struc.calc, "results"):
+                        struc.info["results"] = struc.calc.results
                 trajectory.write(struc)
         else:
             self.message_system(
@@ -1371,6 +1378,7 @@ class ActiveLearning:
             check_fmax=self.check_fmax,
             n_evaluations_each=self.n_evaluations_each,
             min_data=self.min_data,
+            save_properties_traj=self.save_properties_traj,
             trajectory=self.trajectory,
             trainingset=self.trainingset,
             converged_trajectory=self.converged_trajectory,
