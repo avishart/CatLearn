@@ -224,7 +224,7 @@ class ActiveLearning:
         """
         # Set the random seed
         if seed is not None:
-            np.random.RandomState(seed)
+            np.random.seed(seed)
         # Check if the method is converged
         if self.converged():
             self.message_system("active learning is converged.")
