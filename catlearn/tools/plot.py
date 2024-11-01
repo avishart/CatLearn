@@ -44,8 +44,6 @@ def plot_minimize(
     eval_energies = [atoms.get_potential_energy() for atoms in eval_atoms]
     # Get the reference energy
     e_ref = eval_energies[0]
-    # Truncate the evaluated energies
-    eval_energies = np.array(eval_energies)[-len(pred_energies) :]
     # Get the uncertainties of the atoms if requested
     uncertainties = None
     if use_uncertainty:
@@ -60,21 +58,22 @@ def plot_minimize(
     pred_energies = np.array(pred_energies) - e_ref
     eval_energies = np.array(eval_energies) - e_ref
     # Make x values
-    x_values = np.arange(1, len(pred_energies) + 1)
+    x_values = np.arange(1, len(eval_energies) + 1)
+    x_pred = x_values[-len(pred_energies) :]
     # Plot the energies of the atoms
-    ax.plot(x_values, pred_energies, "o-", color="red", label="Predicted")
+    ax.plot(x_pred, pred_energies, "o-", color="red", label="Predicted")
     ax.plot(x_values, eval_energies, "o-", color="black", label="Evaluated")
     # Plot the uncertainties of the atoms if requested
     if uncertainties is not None:
         ax.fill_between(
-            x_values,
+            x_pred,
             pred_energies - uncertainties,
             pred_energies + uncertainties,
             color="red",
             alpha=0.3,
         )
         ax.fill_between(
-            x_values,
+            x_pred,
             pred_energies - 2.0 * uncertainties,
             pred_energies + 2.0 * uncertainties,
             color="red",
