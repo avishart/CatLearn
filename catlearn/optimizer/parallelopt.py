@@ -53,13 +53,13 @@ class ParallelOptimizer(OptimizerMethod):
         self.reset_optimization()
         return self
 
-    def get_optimizable(self):
-        return self.method.get_optimizable()
+    def get_optimizable(self, **kwargs):
+        return self.method.get_optimizable(**kwargs)
 
-    def get_structures(self):
-        return self.method.get_structures()
+    def get_structures(self, get_all=True, **kwargs):
+        return self.method.get_structures(get_all=get_all, **kwargs)
 
-    def get_candidates(self):
+    def get_candidates(self, **kwargs):
         return self.candidates
 
     def run(

@@ -61,7 +61,7 @@ class OptimizerMethod:
         self.reset_optimization()
         return self
 
-    def get_optimizable(self):
+    def get_optimizable(self, **kwargs):
         """
         Get the optimizable that are considered for the optimizer.
 
@@ -71,9 +71,14 @@ class OptimizerMethod:
         """
         return self.optimizable
 
-    def get_structures(self):
+    def get_structures(self, get_all=True, **kwargs):
         """
         Get the structures that optimizable instance is dependent on.
+
+        Parameters:
+            get_all: bool
+                If True, all structures are returned.
+                Else, only the first structure is returned
 
         Returns:
             structures: Atoms instance or list of Atoms instances
@@ -81,7 +86,7 @@ class OptimizerMethod:
         """
         return self.copy_atoms(self.optimizable)
 
-    def get_candidates(self):
+    def get_candidates(self, **kwargs):
         """
         Get the candidate structure instances.
         It is used for active learning.
@@ -319,7 +324,6 @@ class OptimizerMethod:
         Returns:
             dict: The requested properties.
         """
-
         if per_candidate:
             results = {name: [] for name in properties}
             for atoms in self.get_candidates():
@@ -542,6 +546,12 @@ class OptimizerMethod:
 
     def copy_atoms(self, atoms):
         "Copy an atoms instance."
+        # Enforce the correct results in the calculator
+        if atoms.calc is not None:
+            if hasattr(atoms.calc, "results"):
+                if len(atoms.calc.results):
+                    atoms.get_forces()
+        # Save the structure with saved properties
         return copy_atoms(atoms)
 
     def message(self, message):

@@ -55,10 +55,17 @@ class LocalNEB(LocalOptimizer):
         self.reset_optimization()
         return self
 
-    def get_structures(self):
-        return [self.copy_atoms(image) for image in self.optimizable.images]
+    def get_structures(self, get_all=True, **kwargs):
+        # Get only the first image
+        if not get_all:
+            return self.copy_atoms(self.optimizable.images[0])
+        # Get all the images
+        structures = [
+            self.copy_atoms(image) for image in self.optimizable.images
+        ]
+        return structures
 
-    def get_candidates(self):
+    def get_candidates(self, **kwargs):
         return self.optimizable.images[1:-1]
 
     def set_calculator(self, calculator, copy_calc=False, **kwargs):

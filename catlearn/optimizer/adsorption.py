@@ -64,7 +64,7 @@ class AdsorptionOptimizer(OptimizerMethod):
             **kwargs,
         )
 
-    def get_structures(self):
+    def get_structures(self, get_all=True, **kwargs):
         structures = self.copy_atoms(self.optimizable)
         structures.set_constraint(self.constraints_org)
         return structures

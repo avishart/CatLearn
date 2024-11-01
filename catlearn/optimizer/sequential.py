@@ -52,12 +52,14 @@ class SequentialOptimizer(OptimizerMethod):
     def get_optimizable(self):
         return self.optimizable
 
-    def get_structures(self):
+    def get_structures(self, get_all=True, **kwargs):
         if isinstance(self.structures, list):
+            if not get_all:
+                return self.copy_atoms(self.structures[0])
             return [self.copy_atoms(struc) for struc in self.structures]
         return self.copy_atoms(self.structures)
 
-    def get_candidates(self):
+    def get_candidates(self, **kwargs):
         return self.candidates
 
     def run(
