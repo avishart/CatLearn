@@ -2,15 +2,15 @@ import unittest
 from .functions import get_slab_ads, check_fmax
 
 
-class TestMLGO(unittest.TestCase):
+class TestAdsorption(unittest.TestCase):
     """
-    Test if the MLGO works and give the right output.
+    Test if the Adsorption works and give the right output.
     """
 
-    def test_mlgo_init(self):
-        "Test if the MLGO can be initialized."
+    def test_adsorption_init(self):
+        "Test if the Adsorption can be initialized."
         import numpy as np
-        from catlearn.activelearning.mlgo import MLGO
+        from catlearn.activelearning.adsorption import AdsorptionAL
         from ase.calculators.emt import EMT
 
         # Get the initial and final states
@@ -26,8 +26,8 @@ class TestMLGO(unittest.TestCase):
                 [0.0, 2 * np.pi],
             ]
         )
-        # Initialize MLGO
-        MLGO(
+        # Initialize Adsorption AL
+        AdsorptionAL(
             slab=slab,
             adsorbate=ads,
             ase_calc=EMT(),
@@ -35,14 +35,13 @@ class TestMLGO(unittest.TestCase):
             bounds=bounds,
             min_data=4,
             verbose=False,
-            local_opt_kwargs=dict(logfile=None),
             tabletxt=None,
         )
 
-    def test_mlgo_run(self):
-        "Test if the MLGO can run and converge."
+    def test_adsorption_run(self):
+        "Test if the Adsorption can run and converge."
         import numpy as np
-        from catlearn.activelearning.mlgo import MLGO
+        from catlearn.activelearning.adsorption import AdsorptionAL
         from ase.calculators.emt import EMT
 
         # Get the initial and final states
@@ -60,8 +59,8 @@ class TestMLGO(unittest.TestCase):
         )
         # Set random seed
         np.random.seed(1)
-        # Initialize MLGO
-        mlgo = MLGO(
+        # Initialize Adsorption AL
+        ads_al = AdsorptionAL(
             slab=slab,
             adsorbate=ads,
             ase_calc=EMT(),
@@ -69,20 +68,19 @@ class TestMLGO(unittest.TestCase):
             bounds=bounds,
             min_data=4,
             verbose=False,
-            local_opt_kwargs=dict(logfile=None),
             tabletxt=None,
         )
-        # Test if the MLGO can be run
-        mlgo.run(
+        # Test if the Adsorption AL can be run
+        ads_al.run(
             fmax=0.05,
             steps=50,
             max_unc=0.050,
             ml_steps=500,
         )
-        # Check that MLGO converged
-        self.assertTrue(mlgo.converged() is True)
-        # Check that MLGO give a minimum
-        atoms = mlgo.get_best_structures()
+        # Check that Adsorption AL converged
+        self.assertTrue(ads_al.converged() is True)
+        # Check that Adsorption AL give a minimum
+        atoms = ads_al.get_best_structures()
         self.assertTrue(check_fmax(atoms, EMT(), fmax=0.05))
 
 
