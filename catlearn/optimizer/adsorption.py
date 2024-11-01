@@ -122,9 +122,10 @@ class AdsorptionOptimizer(OptimizerMethod):
         # Store the positions and cell
         self.positions0 = optimizable.get_positions().copy()
         self.cell = np.array(optimizable.get_cell())
-        # Store the constraints
+        # Store the original constraints
         self.constraints_org = [c.copy() for c in optimizable.constraints]
-        # Make constraints
+        # Make constraints for optimization
+        self.constraints_used = [FixAtoms(indices=list(range(self.n_slab)))]
         self.constraints_new = [FixAtoms(indices=list(range(self.n_slab)))]
         if self.n_ads > 1:
             pairs = list(
@@ -196,7 +197,7 @@ class AdsorptionOptimizer(OptimizerMethod):
         **kwargs,
     ):
         # Use original constraints
-        self.optimizable.set_constraint(self.constraints_org)
+        self.optimizable.set_constraint(self.constraints_used)
         # Perform the simulated annealing
         sol = dual_annealing(
             self.evaluate_value,
@@ -204,10 +205,11 @@ class AdsorptionOptimizer(OptimizerMethod):
             maxfun=steps,
             **self.opt_kwargs,
         )
-        # Set the new constraints
-        self.optimizable.set_constraint(self.constraints_new)
+
         # Set the positions
         self.evaluate_value(sol["x"])
+        # Set the new constraints
+        self.optimizable.set_constraint(self.constraints_new)
         # Calculate the maximum force to check convergence
         if fmax > self.get_fmax():
             # Check if the optimization is converged

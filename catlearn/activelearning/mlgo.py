@@ -321,7 +321,7 @@ class MLGO(AdsorptionAL):
             atoms=structures,
         )
         # Remove adsorption constraints
-        constraints = structures.constraints
+        constraints = [c.copy() for c in structures.constraints]
         for atoms in data:
             atoms.set_constraint(constraints)
         self.use_prev_calculations(data)
