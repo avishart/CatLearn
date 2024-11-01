@@ -65,14 +65,16 @@ class OriginalNEB:
         self.parallel = parallel
         if parallel:
             if world is None:
-                from ase.parallel import world, parprint
+                from ase.parallel import world
 
             self.world = world
             if self.nimages % self.world.size != 0:
-                parprint(
-                    "Warning: The number of images are not chosen optimal for "
-                    "the number of processors when running in parallel!"
-                )
+                if self.world.rank == 0:
+                    print(
+                        "Warning: The number of images are not chosen optimal "
+                        "for the number of processors when running in "
+                        "parallel!"
+                    )
         else:
             self.world = None
         # Set the properties
