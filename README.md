@@ -7,7 +7,7 @@ CalLearn uses ASE for handling the atomic systems and the calculator interface f
 
 You can simply install CatLearn by dowloading it from github as:
 ```shell
-$ git clone https://github.com/avishart/CatLearn/tree/activelearning
+$ git clone --single-branch --branch activelearning https://github.com/avishart/CatLearn
 $ pip install -e CatLearn/.
 ```
 
