@@ -194,7 +194,7 @@ class ActiveLearning:
         self,
         fmax=0.05,
         steps=200,
-        ml_steps=200,
+        ml_steps=1000,
         max_unc=None,
         dtrust=None,
         seed=None,
