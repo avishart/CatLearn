@@ -36,7 +36,7 @@ class MLGO(AdsorptionAL):
         check_energy=True,
         check_fmax=True,
         n_evaluations_each=1,
-        min_data=2,
+        min_data=3,
         save_properties_traj=True,
         trajectory="predicted.traj",
         trainingset="evaluated.traj",

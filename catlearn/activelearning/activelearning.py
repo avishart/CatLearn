@@ -30,7 +30,7 @@ class ActiveLearning:
         check_energy=True,
         check_fmax=True,
         n_evaluations_each=1,
-        min_data=2,
+        min_data=3,
         save_properties_traj=True,
         trajectory="predicted.traj",
         trainingset="evaluated.traj",
@@ -1192,8 +1192,8 @@ class ActiveLearning:
             # Check if the method converged
             if not method_converged:
                 converged = False
-            # Check if the minimum number of data points is reached
-            if self.get_training_set_size() < self.min_data:
+            # Check if the minimum number of trained data points is reached
+            if self.get_training_set_size() - 1 < self.min_data:
                 converged = False
             # Check the force criterion is met if it is requested
             if self.use_fmax_convergence and self.true_fmax > fmax:
