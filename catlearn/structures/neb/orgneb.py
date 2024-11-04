@@ -1,6 +1,7 @@
 import numpy as np
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.build import minimize_rotation_and_translation
+from ase.parallel import broadcast
 from ..structure import Structure
 from ...regression.gp.fingerprint.geometry import mic_distance
 
@@ -237,8 +238,16 @@ class OriginalNEB:
         # Broadcast the results
         for i in range(1, self.nimages - 1):
             root = (i - 1) % self.world.size
-            self.world.broadcast(self.energies[i : i + 1], root=root)
-            self.world.broadcast(self.real_forces[i : i + 1], root=root)
+            self.energies[i : i + 1] = broadcast(
+                self.energies[i : i + 1],
+                root=root,
+                comm=self.world,
+            )
+            self.real_forces[i : i + 1] = broadcast(
+                self.real_forces[i : i + 1],
+                root=root,
+                comm=self.world,
+            )
         return self.energies, self.real_forces
 
     def emax(self, **kwargs):
