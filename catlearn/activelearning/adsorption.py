@@ -3,7 +3,7 @@ from .activelearning import ActiveLearning
 from ..optimizer import AdsorptionOptimizer
 from ..optimizer import ParallelOptimizer
 from ..regression.gp.baseline.repulsive import RepulsionCalculator
-from ..regression.gp.baseline.mie import MiePotential
+from ..regression.gp.baseline.mie import MieCalculator
 
 
 class AdsorptionAL(ActiveLearning):
@@ -255,7 +255,7 @@ class AdsorptionAL(ActiveLearning):
             return
         # Get the initial structures from repulsion potential
         self.method.set_calculator(
-            MiePotential(denergy=1.0, power_r=10, power_a=6)
+            MieCalculator(denergy=1.0, power_r=10, power_a=6)
         )
         self.method.run(fmax=0.05, steps=1000)
         atoms = self.method.get_candidates()[0]
