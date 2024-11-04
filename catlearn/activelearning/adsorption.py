@@ -2,8 +2,7 @@ from ase.parallel import world
 from .activelearning import ActiveLearning
 from ..optimizer import AdsorptionOptimizer
 from ..optimizer import ParallelOptimizer
-from ..regression.gp.baseline.repulsive import RepulsionCalculator
-from ..regression.gp.baseline.mie import MieCalculator
+from ..regression.gp.baseline import RepulsionCalculator, MieCalculator
 
 
 class AdsorptionAL(ActiveLearning):
@@ -250,20 +249,28 @@ class AdsorptionAL(ActiveLearning):
         return method
 
     def extra_initial_data(self, **kwargs):
+        # Get the number of training data
+        n_data = self.get_training_set_size()
         # Check if the training set is empty
-        if self.get_training_set_size():
-            return
-        # Get the initial structures from repulsion potential
-        self.method.set_calculator(
-            MieCalculator(denergy=1.0, power_r=10, power_a=6)
-        )
+        if n_data >= 2:
+            return self
+        # Get the initial structures from baseline potentials
+        if n_data == 0:
+            self.method.set_calculator(RepulsionCalculator(r_scale=0.7))
+        else:
+            self.method.set_calculator(
+                MieCalculator(r_scale=1.1, denergy=1.0, power_r=10, power_a=6)
+            )
         self.method.run(fmax=0.05, steps=1000)
         atoms = self.method.get_candidates()[0]
         # Calculate the initial structure
         self.evaluate(atoms)
         # Print summary table
-        self.print_statement()
-        return atoms
+        if n_data == 1:
+            self.print_statement()
+        else:
+            self.extra_initial_data(**kwargs)
+        return self
 
     def setup_mlcalc(
         self,

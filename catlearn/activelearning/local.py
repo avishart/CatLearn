@@ -217,7 +217,7 @@ class LocalAL(ActiveLearning):
 
     def extra_initial_data(self, **kwargs):
         # Check if the training set is empty
-        if self.get_training_set_size():
+        if self.get_training_set_size() >= 1:
             return self
         # Get the initial structure if it is calculated
         if self.atoms.calc is not None:

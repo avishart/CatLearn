@@ -330,6 +330,27 @@ class MLNEB(ActiveLearning):
         )
         return method
 
+    def extra_initial_data(self, **kwargs):
+        # Check if the training set is empty
+        if self.get_training_set_size() >= 3:
+            return self
+        # Get the images
+        images = self.get_structures(get_all=True)
+        # Calculate energies of end points
+        e_start = self.start.get_potential_energy()
+        e_end = self.end.get_potential_energy()
+        # Get the image with the potential highest energy
+        if e_start >= e_end:
+            i_middle = int((len(images) - 2) / 3.0)
+        else:
+            i_middle = int(2.0 * (len(images) - 2) / 3.0)
+        candidate = images[1 + i_middle].copy()
+        # Calculate the structure
+        self.evaluate(candidate)
+        # Print summary table
+        self.print_statement()
+        return self
+
     def get_arguments(self):
         "Get the arguments of the class itself."
         # Get the arguments given to the class in the initialization

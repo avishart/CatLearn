@@ -1102,7 +1102,7 @@ class ActiveLearning:
         if the ML calculator does not have any training points.
         """
         # Check if the training set is empty
-        if self.get_training_set_size():
+        if self.get_training_set_size() >= 1:
             return self
         # Calculate the initial structure
         self.evaluate(self.get_structures(get_all=False))
