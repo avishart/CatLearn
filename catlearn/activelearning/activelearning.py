@@ -150,6 +150,7 @@ class ActiveLearning:
         self.setup_mlcalc(
             mlcalc,
             save_memory=save_memory,
+            verbose=verbose,
         )
         # Setup the acquisition function
         self.setup_acq(
@@ -339,6 +340,7 @@ class ActiveLearning:
         calc_forces=True,
         bayesian=True,
         kappa=2.0,
+        verbose=True,
         **kwargs,
     ):
         """
@@ -375,6 +377,9 @@ class ActiveLearning:
             kappa: float
                 The scaling of the uncertainty relative to the energy.
                 Default is 2.0.
+            verbose: bool
+                Whether to print on screen the full output (True) or
+                not (False).
 
         Returns:
             self: The object itself.
@@ -426,6 +431,7 @@ class ActiveLearning:
             use_derivatives=True,
             parallel=(not save_memory),
             database_reduction=database_reduction,
+            verbose=verbose,
         )
         # Setup the ML calculator
         if bayesian:

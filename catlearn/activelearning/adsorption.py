@@ -284,6 +284,7 @@ class AdsorptionAL(ActiveLearning):
         calc_forces=True,
         bayesian=True,
         kappa=2.0,
+        verbose=True,
         **kwargs,
     ):
         if mlcalc is None:
@@ -324,6 +325,7 @@ class AdsorptionAL(ActiveLearning):
             calc_forces=calc_forces,
             bayesian=bayesian,
             kappa=kappa,
+            verbose=verbose,
             **kwargs,
         )
 
