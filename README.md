@@ -23,10 +23,44 @@ $ pip install git+https://github.com/avishart/CatLearn.git@v.x.x.x
 
 ## Usage
 
+The following code shows how to use LocalAL:
+```python
+from catlearn.activelearning.local import LocalAL
+from ase.io import read
+from ase.optimize import FIRE
+
+# Load initial structure
+atoms = read("initial.traj")
+
+# Make the ASE calculator
+calc = ...
+
+# Initialize local optimization
+dyn = LocalAL(
+    atoms=atoms,
+    ase_calc=calc,
+    unc_convergence=0.05,
+    local_opt=FIRE,    
+    local_opt_kwargs={},
+    save_memory=False,
+    use_restart=True,
+    min_data=3,
+    verbose=True,
+)
+dyn.run(
+    fmax=0.05,
+    max_unc=0.30,
+    steps=100,
+    ml_steps=1000,
+)
+
+```
+
 The following code shows how to use MLNEB:
 ```python
 from catlearn.activelearning.mlneb import MLNEB
 from ase.io import read
+from ase.optimize import FIRE
 
 # Load endpoints
 initial = read("initial.traj")
@@ -40,9 +74,18 @@ mlneb = MLNEB(
     start=initial,
     end=final,
     ase_calc=calc,
-    neb_interpolation="linear",
-    n_images=15,
     unc_convergence=0.05,
+    n_images=15,
+    neb_method="improvedtangentneb",
+    neb_kwargs={},
+    neb_interpolation="linear",
+    reuse_ci_path=True,
+    save_memory=False,
+    parallel_run=False,
+    local_opt=FIRE,    
+    local_opt_kwargs={},
+    use_restart=True,
+    min_data=3,
     verbose=True,
 )
 mlneb.run(
@@ -58,6 +101,7 @@ The following code shows how to use MLGO:
 ```python
 from catlearn.activelearning.mlgo import MLGO
 from ase.io import read
+from ase.optimize import FIRE
 
 # Load the slab and the adsorbate
 slab = read("slab.traj")
@@ -80,12 +124,18 @@ bounds = np.array(
 
 # Initialize MLGO
 mlgo = MLGO(
-    slab,
-    ads,
+    slab=slab,
+    adsorbate=ads,
+    adsorbate2=None,
     ase_calc=calc,
     unc_convergence=0.02,
     bounds=bounds,
-    chains=4,
+    opt_kwargs={},
+    local_opt=FIRE,
+    local_opt_kwargs={},
+    reuse_data_local=True,
+    parallel_run=False,
+    min_data=3,
     verbose=True
 )
 mlgo.run(
