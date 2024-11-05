@@ -20,7 +20,7 @@ class MLNEB(ActiveLearning):
         climb=True,
         neb_interpolation="linear",
         neb_interpolation_kwargs={},
-        reuse_ci_path=False,
+        reuse_ci_path=True,
         local_opt=FIRE,
         local_opt_kwargs={},
         acq=None,
