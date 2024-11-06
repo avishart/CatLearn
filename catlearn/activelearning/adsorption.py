@@ -44,7 +44,7 @@ class AdsorptionAL(ActiveLearning):
         **kwargs,
     ):
         """
-        A active learner that is used for accelerating local optimization
+        An active learner that is used for accelerating local optimization
         of an atomic structure with an active learning approach.
 
         Parameters:

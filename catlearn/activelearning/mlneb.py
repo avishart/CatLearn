@@ -51,7 +51,7 @@ class MLNEB(ActiveLearning):
         **kwargs,
     ):
         """
-        A active learner that is used for accelerating nudged elastic band
+        An active learner that is used for accelerating nudged elastic band
         (NEB) optimization with an active learning approach.
 
         Parameters:

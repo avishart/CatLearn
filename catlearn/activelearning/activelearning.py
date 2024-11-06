@@ -42,7 +42,7 @@ class ActiveLearning:
         **kwargs,
     ):
         """
-        A active learner that is used for accelerating quantum mechanincal
+        An active learner that is used for accelerating quantum mechanincal
         simulation methods with an active learning approach.
 
         Parameters:
@@ -228,7 +228,7 @@ class ActiveLearning:
             np.random.seed(seed)
         # Check if the method is converged
         if self.converged():
-            self.message_system("active learning is converged.")
+            self.message_system("Active learning is converged.")
             return self.best_structures
         # Check if there are any training data
         self.extra_initial_data()
@@ -236,7 +236,7 @@ class ActiveLearning:
         for step in range(1, steps + 1):
             # Check if the method is converged
             if self.converged():
-                self.message_system("active learning is converged.")
+                self.message_system("Active learning is converged.")
                 self.save_trajectory(
                     self.converged_trajectory,
                     self.best_structures,
@@ -264,7 +264,7 @@ class ActiveLearning:
             )
         # State if the active learning did not converge
         if not self.converged():
-            self.message_system("active learning did not converge!")
+            self.message_system("Active learning did not converge!")
         # Return and broadcast the best atoms
         self.broadcast_best_structures()
         return self.converged()
@@ -373,7 +373,7 @@ class ActiveLearning:
             calc_forces: bool
                 Whether to calculate the forces for all energy predictions.
             bayesian: bool
-                Whether to use the active learning calculator.
+                Whether to use the Bayesian optimization calculator.
             kappa: float
                 The scaling of the uncertainty relative to the energy.
                 The uncertainty is added to the predicted energy.
