@@ -331,7 +331,9 @@ class MLModel:
         )
         # Correct the predicted targets with the baseline if it is used
         y = self.add_baseline_correction(
-            y, atoms=atoms, use_derivatives=get_forces
+            y,
+            atoms=atoms,
+            use_derivatives=get_forces,
         )
         # Extract the energy
         energy = y[0][0]
@@ -387,17 +389,23 @@ class MLModel:
         # Make the full matrix of forces and save it
         if forces is not None:
             results["forces"] = self.not_masked_reshape(
-                forces, not_masked, natoms
+                forces,
+                not_masked,
+                natoms,
             )
         # Make the full matrix of force uncertainties and save it
         if unc_forces is not None:
             results["force uncertainties"] = self.not_masked_reshape(
-                unc_forces, not_masked, natoms
+                unc_forces,
+                not_masked,
+                natoms,
             )
         # Make the full matrix of derivatives of uncertainty and save it
         if unc_deriv is not None:
             results["uncertainty derivatives"] = self.not_masked_reshape(
-                unc_deriv, not_masked, natoms
+                unc_deriv,
+                not_masked,
+                natoms,
             )
         return results
 
@@ -408,7 +416,9 @@ class MLModel:
         if self.use_baseline:
             # Calculate the baseline for the ASE atoms object
             y_base = self.calculate_baseline(
-                [atoms], use_derivatives=use_derivatives, **kwargs
+                [atoms],
+                use_derivatives=use_derivatives,
+                **kwargs,
             )
             # Add baseline correction to the targets
             return targets + np.array(y_base)[0]
@@ -484,7 +494,9 @@ class MLModel:
     def make_targets(self, atoms, use_derivatives=True, **kwargs):
         "Make the target in the data base."
         return self.database.make_target(
-            atoms, use_derivatives=use_derivatives, use_negative_forces=True
+            atoms,
+            use_derivatives=use_derivatives,
+            use_negative_forces=True,
         )
 
     def get_constraints(self, atoms, **kwargs):
@@ -623,7 +635,8 @@ def get_default_model(
     from ..kernel.se import SE
 
     kernel = SE(
-        use_fingerprint=use_fingerprint, use_derivatives=use_derivatives
+        use_fingerprint=use_fingerprint,
+        use_derivatives=use_derivatives,
     )
     # Set the hyperparameter optimization method
     if global_optimization:
@@ -644,7 +657,9 @@ def get_default_model(
             from ..optimizers.linesearcher import GoldenSearch
 
             line_optimizer = GoldenSearch(
-                optimize=True, multiple_min=False, parallel=False
+                optimize=True,
+                multiple_min=False,
+                parallel=False,
             )
         optimizer = FactorizedOptimizer(
             line_optimizer=line_optimizer,
@@ -698,7 +713,9 @@ def get_default_model(
         from ..models.gp import GaussianProcess
 
         model = GaussianProcess(
-            prior=prior, kernel=kernel, use_derivatives=use_derivatives
+            prior=prior,
+            kernel=kernel,
+            use_derivatives=use_derivatives,
         )
         # Set objective function
         if global_optimization:
@@ -720,7 +737,9 @@ def get_default_model(
         from ..hpfitter.redhpfitter import ReducedHyperparameterFitter
 
         hpfitter = ReducedHyperparameterFitter(
-            func=func, optimizer=optimizer, opt_tr_size=n_reduced
+            func=func,
+            optimizer=optimizer,
+            opt_tr_size=n_reduced,
         )
     model.update_arguments(hpfitter=hpfitter)
     return model
