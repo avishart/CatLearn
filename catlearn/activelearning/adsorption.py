@@ -283,7 +283,7 @@ class AdsorptionAL(ActiveLearning):
         database_reduction=False,
         calc_forces=True,
         bayesian=True,
-        kappa=2.0,
+        kappa=-2.0,
         verbose=True,
         **kwargs,
     ):

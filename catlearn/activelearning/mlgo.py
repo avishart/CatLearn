@@ -345,6 +345,7 @@ class MLGO(AdsorptionAL):
             save_memory=self.save_memory,
             atoms=structures,
             verbose=self.verbose,
+            **kwargs,
         )
         # Remove adsorption constraints
         constraints = [c.copy() for c in structures.constraints]

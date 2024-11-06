@@ -376,6 +376,7 @@ class ActiveLearning:
                 Whether to use the active learning calculator.
             kappa: float
                 The scaling of the uncertainty relative to the energy.
+                The uncertainty is added to the predicted energy.
                 Default is 2.0.
             verbose: bool
                 Whether to print on screen the full output (True) or
