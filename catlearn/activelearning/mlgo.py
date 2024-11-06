@@ -266,12 +266,37 @@ class MLGO(AdsorptionAL):
         self,
         fmax=0.05,
         steps=200,
-        ml_steps=2000,
+        ml_steps=4000,
+        ml_steps_local=1000,
         max_unc=None,
         dtrust=None,
         seed=None,
         **kwargs,
     ):
+        """
+        Run the active learning optimization.
+
+        Parameters:
+            fmax: float
+                Convergence criteria (in eV/Angs).
+            steps: int
+                Maximum number of evaluations.
+            ml_steps: int
+                Maximum number of steps for the optimization method
+                on the predicted landscape.
+            ml_steps_local: int
+                Maximum number of steps for the local optimization method.
+            max_unc: float (optional)
+                Maximum uncertainty for continuation of the optimization.
+            dtrust: float (optional)
+                The trust distance for the optimization method.
+            seed: int (optional)
+                The random seed.
+
+        Returns:
+            converged: bool
+                Whether the active learning is converged.
+        """
         # Run the active learning
         super().run(
             fmax=fmax,
@@ -295,7 +320,7 @@ class MLGO(AdsorptionAL):
         super().run(
             fmax=fmax,
             steps=steps,
-            ml_steps=ml_steps,
+            ml_steps=ml_steps_local,
             max_unc=max_unc,
             dtrust=dtrust,
             seed=seed,
