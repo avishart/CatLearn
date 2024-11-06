@@ -336,6 +336,7 @@ class ActiveLearning:
         atoms=None,
         prior=None,
         baseline=None,
+        use_derivatives=True,
         database_reduction=False,
         calc_forces=True,
         bayesian=True,
@@ -368,6 +369,8 @@ class ActiveLearning:
             baseline: Baseline class instance (optional)
                 The baseline instance used for the ML model.
                 The default is None.
+            use_derivatives : bool
+                Whether to use derivatives of the targets in the ML model.
             database_reduction: bool
                 Whether to reduce the database.
             calc_forces: bool
@@ -429,7 +432,7 @@ class ActiveLearning:
             prior=prior,
             fp=fp,
             baseline=baseline,
-            use_derivatives=True,
+            use_derivatives=use_derivatives,
             parallel=(not save_memory),
             database_reduction=database_reduction,
             verbose=verbose,
@@ -441,6 +444,13 @@ class ActiveLearning:
                 calc_forces=calc_forces,
                 kappa=kappa,
             )
+            if not use_derivatives and kappa > 0.0:
+                if world.rank == 0:
+                    print(
+                        "Warning: The Bayesian optimization calculator "
+                        "with a positive kappa value and no derivatives "
+                        "is not recommended!"
+                    )
         else:
             self.mlcalc = MLCalculator(
                 mlmodel=mlmodel,
