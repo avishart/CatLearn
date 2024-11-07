@@ -341,6 +341,7 @@ class ActiveLearning:
         calc_forces=True,
         bayesian=True,
         kappa=2.0,
+        reuse_mlcalc_data=False,
         verbose=True,
         **kwargs,
     ):
@@ -380,6 +381,8 @@ class ActiveLearning:
             kappa: float
                 The scaling of the uncertainty relative to the energy.
                 The uncertainty is added to the predicted energy.
+            reuse_mlcalc_data: bool
+                Whether to reuse the data from a previous mlcalc.
             verbose: bool
                 Whether to print on screen the full output (True) or
                 not (False).
@@ -387,9 +390,11 @@ class ActiveLearning:
         Returns:
             self: The object itself.
         """
+        # Check if the ML calculator is given
         if mlcalc is not None:
             self.mlcalc = mlcalc
             return self
+        # Create the ML calculator
         from ..regression.gp.calculator.mlmodel import get_default_mlmodel
         from ..regression.gp.calculator.bocalc import BOCalculator
         from ..regression.gp.calculator.mlcalc import MLCalculator
@@ -436,6 +441,12 @@ class ActiveLearning:
             database_reduction=database_reduction,
             verbose=verbose,
         )
+        # Get the data from a previous mlcalc if requested and it exist
+        if reuse_mlcalc_data:
+            if hasattr(self, "mlcalc"):
+                data = self.get_data_atoms()
+            else:
+                data = []
         # Setup the ML calculator
         if bayesian:
             self.mlcalc = BOCalculator(
@@ -455,6 +466,10 @@ class ActiveLearning:
                 mlmodel=mlmodel,
                 calc_forces=calc_forces,
             )
+        # Reuse the data from a previous mlcalc if requested
+        if reuse_mlcalc_data:
+            if len(data):
+                self.add_training(data)
         return self
 
     def setup_acq(

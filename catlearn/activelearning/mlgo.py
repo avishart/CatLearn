@@ -344,6 +344,7 @@ class MLGO(AdsorptionAL):
             mlcalc_local=self.mlcalc_local,
             save_memory=self.save_memory,
             atoms=structures,
+            reuse_mlcalc_data=False,
             verbose=self.verbose,
             **kwargs,
         )

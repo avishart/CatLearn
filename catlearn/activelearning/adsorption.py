@@ -285,6 +285,7 @@ class AdsorptionAL(ActiveLearning):
         calc_forces=True,
         bayesian=True,
         kappa=-1.0,
+        reuse_mlcalc_data=False,
         verbose=True,
         **kwargs,
     ):
@@ -327,6 +328,7 @@ class AdsorptionAL(ActiveLearning):
             calc_forces=calc_forces,
             bayesian=bayesian,
             kappa=kappa,
+            reuse_mlcalc_data=reuse_mlcalc_data,
             verbose=verbose,
             **kwargs,
         )
