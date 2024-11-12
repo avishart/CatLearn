@@ -1301,6 +1301,21 @@ class ActiveLearning:
         self.mlcalc.save_mlcalc(filename, **kwargs)
         return self
 
+    def get_mlcalc(self, copy_mlcalc=True, **kwargs):
+        """
+        Get the ML calculator instance.
+
+        Parameters:
+            copy_mlcalc : bool
+                Whether to copy the instance.
+
+        Returns:
+            MLCalculator: The ML calculator instance.
+        """
+        if copy_mlcalc:
+            return self.mlcalc.copy()
+        return self.mlcalc
+
     def check_attributes(self, **kwargs):
         """
         Check that the active learning and the method
