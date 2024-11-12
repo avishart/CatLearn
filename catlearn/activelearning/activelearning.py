@@ -885,23 +885,25 @@ class ActiveLearning:
 
     def initiate_structure(self, step=1, **kwargs):
         "Initiate the method with right structure."
+        # Define boolean for using the temporary structure
+        use_tmp = True
         # Do not use the temporary structure
         if not self.use_restart or step == 1:
             self.message_system("The initial structure is used.")
-            self.update_method(self.best_structures)
-            return
+            use_tmp = False
         # Reuse the temporary structure if it passes tests
-        self.update_method(self.structures)
-        # Get uncertainty and fmax
-        uncmax_tmp, energy_tmp, fmax_tmp = self.get_predictions()
-        use_tmp = True
-        # Check uncertainty is low enough
-        if self.check_unc:
-            if uncmax_tmp > self.unc_convergence:
-                self.message_system(
-                    "The uncertainty is too large to use the last structure."
-                )
-                use_tmp = False
+        if use_tmp:
+            self.update_method(self.structures)
+            # Get uncertainty and fmax
+            uncmax_tmp, energy_tmp, fmax_tmp = self.get_predictions()
+            # Check uncertainty is low enough
+            if self.check_unc:
+                if uncmax_tmp > self.unc_convergence:
+                    self.message_system(
+                        "The uncertainty is too large to "
+                        "use the last structure."
+                    )
+                    use_tmp = False
         # Check fmax is lower than previous structure
         if use_tmp and (self.check_fmax or self.check_energy):
             self.update_method(self.best_structures)
