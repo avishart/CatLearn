@@ -226,10 +226,6 @@ class ActiveLearning:
         # Set the random seed
         if seed is not None:
             np.random.seed(seed)
-        # Check if the method is converged
-        if self.converged():
-            self.message_system("Active learning is converged.")
-            return self.best_structures
         # Check if there are any training data
         self.extra_initial_data()
         # Run the active learning
