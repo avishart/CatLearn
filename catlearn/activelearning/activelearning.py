@@ -924,7 +924,10 @@ class ActiveLearning:
         if use_tmp:
             self.copy_best_structures()
             self.message_system("The last structure is used.")
+        # Set the best structures as the initial structures for the method
         self.update_method(self.best_structures)
+        # Store the best structures with the ML calculator
+        self.copy_best_structures()
         return
 
     def get_predictions(self, **kwargs):
