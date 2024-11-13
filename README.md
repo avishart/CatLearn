@@ -1,17 +1,17 @@
 # CatLearn
 
-CatLearn utilieties machine learning in form of Gaussian Process or Student T process to accelerate catalysis simulations. The Nudged-elastic-band method (NEB) is accelerated with MLNEB code. Furthermore, a global adsorption search is accelerated with the MLGO code. 
-CalLearn uses ASE for handling the atomic systems and the calculator interface for the potential energy calculations.
+CatLearn utilities machine learning in form of Gaussian Process or Student T process to accelerate catalysis simulations. The local optimization of a structure is accelerated with the `LocalAL` code. The Nudged-elastic-band method (NEB) is accelerated with `MLNEB` code. Furthermore, a global adsorption search is accelerated with the `MLGO` code. 
+CalLearn uses ASE to handle the atomic systems and the calculator interface to calculate the potential energy.
 
 ## Installation
 
-You can simply install CatLearn by dowloading it from github as:
+You can simply install CatLearn by downloading it from GitHub as:
 ```shell
 $ git clone --single-branch --branch activelearning https://github.com/avishart/CatLearn
 $ pip install -e CatLearn/.
 ```
 
-You can also install CatLearn directly from github:
+You can also install CatLearn directly from GitHub:
 ```shell
 $ pip install git@github.com:avishart/CatLearn.git@activelearning
 ```
@@ -23,7 +23,8 @@ $ pip install git+https://github.com/avishart/CatLearn.git@v.x.x.x
 
 ## Usage
 
-The following code shows how to use LocalAL:
+### LocalAL
+The following code shows how to use `LocalAL`:
 ```python
 from catlearn.activelearning.local import LocalAL
 from ase.io import read
@@ -45,6 +46,7 @@ dyn = LocalAL(
     save_memory=False,
     use_restart=True,
     min_data=3,
+    restart=False,
     verbose=True,
 )
 dyn.run(
@@ -56,7 +58,19 @@ dyn.run(
 
 ```
 
-The following code shows how to use MLNEB:
+The active learning minimization can be visualized by extending the Python script with the following code:
+```python
+import matplotlib.pyplot as plt
+from catlearn.tools.plot import plot_minimize
+
+fig, ax = plt.subplots()
+plot_minimize("predicted.traj", "evaluated.traj", ax=ax)
+plt.savefig('AL_minimization.png')
+plt.close()
+```
+
+### MLNEB
+The following code shows how to use `MLNEB`:
 ```python
 from catlearn.activelearning.mlneb import MLNEB
 from ase.io import read
@@ -86,6 +100,7 @@ mlneb = MLNEB(
     local_opt_kwargs={},
     use_restart=True,
     min_data=3,
+    restart=False,
     verbose=True,
 )
 mlneb.run(
@@ -97,7 +112,47 @@ mlneb.run(
 
 ```
 
-The following code shows how to use MLGO:
+The obtained NEB band from the MLNEB optimization can be visualized in three ways.
+The converged NEB band with uncertainties can be visualized by extending the Python code with the following code:
+```python
+import matplotlib.pyplot as plt
+from catlearn.tools.plot import plot_neb
+
+fig, ax = plt.subplots()
+plot_neb(mlneb.get_structures(), use_uncertainty=True, ax=ax)
+plt.savefig('Converged_NEB.png')
+plt.close()
+```
+
+The converged NEB band can also be plotted with the predicted curve between the images by extending with the following code:
+```python
+import matplotlib.pyplot as plt
+from catlearn.tools.plot import plot_neb_fit_mlcalc
+
+fig, ax = plt.subplots()
+plot_neb_fit_mlcalc(
+    mlneb.get_structures(),
+    mlcalc=mlneb.get_mlcalc(),
+    use_uncertainty=True,
+    ax=ax,
+)
+plt.savefig('Converged_NEB_fit.png')
+plt.close()
+```
+
+All the obtained NEB bands from `MLNEB` can also be visualized within the same figure by using the following code:
+```python
+import matplotlib.pyplot as plt
+from catlearn.tools.plot import plot_all_neb
+
+fig, ax = plt.subplots()
+plot_all_neb("predicted.traj", n_images=15, ax=ax)
+plt.savefig('All_NEB_paths.png')
+plt.close()
+```
+
+### MLGO
+The following code shows how to use `MLGO`:
 ```python
 from catlearn.activelearning.mlgo import MLGO
 from ase.io import read
@@ -136,6 +191,7 @@ mlgo = MLGO(
     reuse_data_local=True,
     parallel_run=False,
     min_data=3,
+    restart=False,
     verbose=True
 )
 mlgo.run(
@@ -147,3 +203,4 @@ mlgo.run(
 
 ```
 
+The `MLGO` optimization can be visualized in the same way as the `LocalAL` optimization.
