@@ -131,6 +131,7 @@ def get_neb_data(
     used_neb_kwargs = dict(
         k=3.0,
         remove_rotation_and_translation=False,
+        save_properties=True,
         mic=True,
     )
     used_neb_kwargs.update(neb_kwargs)
