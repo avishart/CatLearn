@@ -44,6 +44,7 @@ class MLNEB(ActiveLearning):
         trajectory="predicted.traj",
         trainingset="evaluated.traj",
         converged_trajectory="converged.traj",
+        initial_traj="initial_struc.traj",
         tabletxt="ml_summary.txt",
         prev_calculations=None,
         restart=False,
@@ -159,9 +160,13 @@ class MLNEB(ActiveLearning):
                 Or the TrajectoryWriter instance to store the evaluated
                 training data.
             converged_trajectory: str or TrajectoryWriter instance
-                Trajectory filename to store the converged structures.
+                Trajectory filename to store the converged structure(s).
                 Or the TrajectoryWriter instance to store the converged
-                structures.
+                structure(s).
+            initial_traj: str or TrajectoryWriter instance
+                Trajectory filename to store the initial structure(s).
+                Or the TrajectoryWriter instance to store the initial
+                structure(s).
             tabletxt: str
                 Name of the .txt file where the summary table is printed.
                 It is not saved to the file if tabletxt=None.
@@ -221,6 +226,7 @@ class MLNEB(ActiveLearning):
             trajectory=trajectory,
             trainingset=trainingset,
             converged_trajectory=converged_trajectory,
+            initial_traj=initial_traj,
             tabletxt=tabletxt,
             prev_calculations=self.prev_calculations,
             restart=restart,
@@ -390,6 +396,7 @@ class MLNEB(ActiveLearning):
             trajectory=self.trajectory,
             trainingset=self.trainingset,
             converged_trajectory=self.converged_trajectory,
+            initial_traj=self.initial_traj,
             tabletxt=self.tabletxt,
             comm=self.comm,
         )

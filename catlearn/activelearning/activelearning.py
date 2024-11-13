@@ -35,6 +35,7 @@ class ActiveLearning:
         trajectory="predicted.traj",
         trainingset="evaluated.traj",
         converged_trajectory="converged.traj",
+        initial_traj="initial_struc.traj",
         tabletxt="ml_summary.txt",
         prev_calculations=None,
         restart=False,
@@ -124,9 +125,13 @@ class ActiveLearning:
                 Or the TrajectoryWriter instance to store the evaluated
                 training data.
             converged_trajectory: str or TrajectoryWriter instance
-                Trajectory filename to store the converged structures.
+                Trajectory filename to store the converged structure(s).
                 Or the TrajectoryWriter instance to store the converged
-                structures.
+                structure(s).
+            initial_traj: str or TrajectoryWriter instance
+                Trajectory filename to store the initial structure(s).
+                Or the TrajectoryWriter instance to store the initial
+                structure(s).
             tabletxt: str
                 Name of the .txt file where the summary table is printed.
                 It is not saved to the file if tabletxt=None.
@@ -182,6 +187,7 @@ class ActiveLearning:
             trajectory=trajectory,
             trainingset=trainingset,
             converged_trajectory=converged_trajectory,
+            initial_traj=initial_traj,
             tabletxt=tabletxt,
             comm=comm,
             **kwargs,
@@ -632,6 +638,7 @@ class ActiveLearning:
         trajectory=None,
         trainingset=None,
         converged_trajectory=None,
+        initial_traj=None,
         tabletxt=None,
         comm=None,
         **kwargs,
@@ -641,14 +648,14 @@ class ActiveLearning:
         The existing arguments are used if they are not given.
 
         Parameters:
-            method: OptimizationMethod instance.
+            method: OptimizationMethod instance
                 The quantum mechanincal simulation method instance.
-            ase_calc: ASE calculator instance.
+            ase_calc: ASE calculator instance
                 ASE calculator as implemented in ASE.
-            mlcalc: ML-calculator instance.
+            mlcalc: ML-calculator instance
                 The ML-calculator instance used as surrogate surface.
                 The default BOCalculator instance is used if mlcalc is None.
-            acq: Acquisition class instance.
+            acq: Acquisition class instance
                 The Acquisition instance used for calculating the
                 acq. function and choose a candidate to calculate next.
                 The default AcqUME instance is used if acq is None.
@@ -719,9 +726,13 @@ class ActiveLearning:
                 Or the TrajectoryWriter instance to store the evaluated
                 training data.
             converged_trajectory: str or TrajectoryWriter instance
-                Trajectory filename to store the converged structures.
+                Trajectory filename to store the converged structure(s).
                 Or the TrajectoryWriter instance to store the converged
-                structures.
+                structure(s).
+            initial_traj: str or TrajectoryWriter instance
+                Trajectory filename to store the initial structure(s).
+                Or the TrajectoryWriter instance to store the initial
+                structure(s).
             tabletxt: str
                 Name of the .txt file where the summary table is printed.
                 It is not saved to the file if tabletxt=None.
@@ -796,6 +807,10 @@ class ActiveLearning:
             self.converged_trajectory = converged_trajectory
         elif not hasattr(self, "converged_trajectory"):
             self.converged_trajectory = None
+        if initial_traj is not None:
+            self.initial_traj = initial_traj
+        elif not hasattr(self, "initial_traj"):
+            self.initial_traj = None
         if tabletxt is not None:
             self.tabletxt = str(tabletxt)
         elif not hasattr(self, "tabletxt"):
@@ -928,6 +943,9 @@ class ActiveLearning:
         self.update_method(self.best_structures)
         # Store the best structures with the ML calculator
         self.copy_best_structures()
+        # Save the initial trajectory
+        if step == 1 and self.initial_traj is not None:
+            self.save_trajectory(self.initial_traj, self.best_structures)
         return
 
     def get_predictions(self, **kwargs):
@@ -1451,6 +1469,7 @@ class ActiveLearning:
             trajectory=self.trajectory,
             trainingset=self.trainingset,
             converged_trajectory=self.converged_trajectory,
+            initial_traj=self.initial_traj,
             tabletxt=self.tabletxt,
             comm=self.comm,
         )
