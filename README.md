@@ -113,6 +113,7 @@ mlneb.run(
 ```
 
 The obtained NEB band from the MLNEB optimization can be visualized in three ways.
+
 The converged NEB band with uncertainties can be visualized by extending the Python code with the following code:
 ```python
 import matplotlib.pyplot as plt
