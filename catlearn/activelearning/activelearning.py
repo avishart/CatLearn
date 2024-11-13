@@ -192,10 +192,13 @@ class ActiveLearning:
             comm=comm,
             **kwargs,
         )
+        # Restart the active learning
+        prev_calculations = self.restart_optimization(
+            restart,
+            prev_calculations,
+        )
         # Use previous calculations to train ML calculator
         self.use_prev_calculations(prev_calculations)
-        # Restart the active learning
-        self.restart_optimization(restart, prev_calculations)
 
     def run(
         self,
@@ -314,8 +317,10 @@ class ActiveLearning:
         self.structures = self.get_structures()
         if isinstance(self.structures, list):
             self.n_structures = len(self.structures)
+            self.natoms = len(self.structures[0])
         else:
             self.n_structures = 1
+            self.natoms = len(self.structures)
         self.best_structures = self.get_structures()
         self._converged = self.method.converged()
         # Set the evaluated candidate and its calculator
@@ -1416,28 +1421,33 @@ class ActiveLearning:
         "Restart the active learning."
         # Check if the optimization should be restarted
         if not restart:
-            return self
-        # Check if the previous calculations are given
-        if prev_calculations is not None:
-            self.message_system(
-                "Warning: Given previous calculations does "
-                "not work with restart!"
-            )
+            return prev_calculations
         # Load the previous calculations from trajectory
         try:
+            # Test if the restart is possible
+            structure = read(self.trajectory, "0")
+            assert len(structure) == self.natoms
+            # Load the predicted structures
+            if self.n_structures == 1:
+                index = "-1"
+            else:
+                index = f"-{self.n_structures}:"
             self.structures = read(
                 self.trajectory,
-                f"-{self.n_structures}:",
+                index,
             )
+            # Load the previous training data
             prev_calculations = read(self.trainingset, ":")
+            # Update the method with the structures
+            self.update_method(self.structures)
+            # Set the writing mode
+            self.mode = "a"
         except Exception:
             self.message_system(
                 "Warning: Restart is not possible! "
                 "Reinitalizing active learning."
             )
-        # Set the writing mode
-        self.mode = "a"
-        return self
+        return prev_calculations
 
     def get_arguments(self):
         "Get the arguments of the class itself."
