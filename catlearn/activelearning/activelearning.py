@@ -761,7 +761,7 @@ class ActiveLearning:
             self.use_database_check = use_database_check
         if save_memory is not None:
             self.save_memory = save_memory
-        if comm is not None:
+        if comm is not None or not hasattr(self, "comm"):
             # Setup parallelization
             self.parallel_setup(comm)
         if parallel_run is not None:
@@ -772,10 +772,17 @@ class ActiveLearning:
             # Whether to have the full output
             self.verbose = verbose
             self.set_verbose(verbose=verbose)
+        elif not hasattr(self, "verbose"):
+            self.verbose = False
+            self.set_verbose(verbose=False)
         if apply_constraint is not None:
             self.apply_constraint = apply_constraint
+        elif not hasattr(self, "apply_constraint"):
+            self.apply_constraint = True
         if force_consistent is not None:
             self.force_consistent = force_consistent
+        elif not hasattr(self, "force_consistent"):
+            self.force_consistent = False
         if scale_fmax is not None:
             self.scale_fmax = abs(float(scale_fmax))
         if use_fmax_convergence is not None:
@@ -985,9 +992,12 @@ class ActiveLearning:
 
     def parallel_setup(self, comm, **kwargs):
         "Setup the parallelization."
-        self.comm = comm
-        self.rank = comm.rank
-        self.size = comm.size
+        if comm is None:
+            self.comm = world
+        else:
+            self.comm = comm
+        self.rank = self.comm.rank
+        self.size = self.comm.size
         return self
 
     def add_training(self, atoms_list, **kwargs):
