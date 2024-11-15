@@ -288,7 +288,7 @@ class AdsorptionAL(ActiveLearning):
         baseline=RepulsionCalculator(),
         use_derivatives=True,
         database_reduction=False,
-        calc_forces=True,
+        calc_forces=False,
         bayesian=True,
         kappa=-2.0,
         reuse_mlcalc_data=False,
