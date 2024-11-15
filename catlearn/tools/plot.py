@@ -410,7 +410,7 @@ def plot_all_neb(
     neb_kwargs={},
     ax=None,
     cmap=cm.jet,
-    alpha=1.0,
+    alpha=0.7,
     **kwargs,
 ):
     """
