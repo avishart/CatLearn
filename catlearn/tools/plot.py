@@ -445,11 +445,6 @@ def plot_all_neb(
     # Make figure if it is not given
     if ax is None:
         _, ax = plt.subplots()
-    # Make colors for NEB bands
-    colors = cm.ScalarMappable(
-        cmap=cmap,
-        norm=plt.Normalize(1, n_neb),
-    )
     # Plot all NEB bands
     for i in range(n_neb):
         # Get the images of the NEB band
