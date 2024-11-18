@@ -15,6 +15,7 @@ class MLGO(AdsorptionAL):
         adsorbate2=None,
         bounds=None,
         opt_kwargs={},
+        bond_tol=1e-8,
         chains=None,
         local_opt=FIRE,
         local_opt_kwargs={},
@@ -80,6 +81,8 @@ class MLGO(AdsorptionAL):
                 the second adsorbate.
             opt_kwargs: dict
                 The keyword arguments for the simulated annealing optimizer.
+            bond_tol: float
+                The bond tolerance used for the FixBondLengths.
             chains: int (optional)
                 The number of optimization that will be run in parallel.
                 It is only used if parallel_run=True.
@@ -191,6 +194,7 @@ class MLGO(AdsorptionAL):
             adsorbate2=adsorbate2,
             bounds=bounds,
             opt_kwargs=opt_kwargs,
+            bond_tol=bond_tol,
             chains=chains,
             acq=acq,
             use_database_check=use_database_check,
@@ -387,6 +391,7 @@ class MLGO(AdsorptionAL):
             adsorbate2=self.adsorbate2,
             bounds=self.bounds,
             opt_kwargs=self.opt_kwargs,
+            bond_tol=self.bond_tol,
             chains=self.chains,
             local_opt=self.local_opt,
             local_opt_kwargs=self.local_opt_kwargs,

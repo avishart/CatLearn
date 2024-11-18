@@ -15,6 +15,7 @@ class AdsorptionAL(ActiveLearning):
         adsorbate2=None,
         bounds=None,
         opt_kwargs={},
+        bond_tol=1e-8,
         chains=None,
         acq=None,
         use_database_check=True,
@@ -72,6 +73,8 @@ class AdsorptionAL(ActiveLearning):
                 the second adsorbate.
             opt_kwargs: dict
                 The keyword arguments for the simulated annealing optimizer.
+            bond_tol: float
+                The bond tolerance used for the FixBondLengths.
             chains: int (optional)
                 The number of optimization that will be run in parallel.
                 It is only used if parallel_run=True.
@@ -168,6 +171,7 @@ class AdsorptionAL(ActiveLearning):
             adsorbate2=adsorbate2,
             bounds=bounds,
             opt_kwargs=opt_kwargs,
+            bond_tol=bond_tol,
             chains=chains,
             parallel_run=parallel_run,
             comm=comm,
@@ -216,6 +220,7 @@ class AdsorptionAL(ActiveLearning):
         adsorbate2=None,
         bounds=None,
         opt_kwargs={},
+        bond_tol=1e-8,
         chains=None,
         parallel_run=False,
         comm=world,
@@ -232,6 +237,7 @@ class AdsorptionAL(ActiveLearning):
             self.adsorbate2 = None
         self.bounds = bounds
         self.opt_kwargs = opt_kwargs.copy()
+        self.bond_tol = bond_tol
         self.chains = chains
         # Build the optimizer method
         method = AdsorptionOptimizer(
@@ -240,6 +246,7 @@ class AdsorptionAL(ActiveLearning):
             adsorbate2=adsorbate2,
             bounds=bounds,
             opt_kwargs=opt_kwargs,
+            bond_tol=bond_tol,
             parallel_run=False,
             comm=comm,
             verbose=verbose,
@@ -350,6 +357,7 @@ class AdsorptionAL(ActiveLearning):
             adsorbate2=self.adsorbate2,
             bounds=self.bounds,
             opt_kwargs=self.opt_kwargs,
+            bond_tol=self.bond_tol,
             chains=self.chains,
             acq=self.acq,
             use_database_check=self.use_database_check,

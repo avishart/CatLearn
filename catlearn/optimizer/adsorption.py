@@ -14,6 +14,7 @@ class AdsorptionOptimizer(OptimizerMethod):
         adsorbate2=None,
         bounds=None,
         opt_kwargs={},
+        bond_tol=1e-8,
         parallel_run=False,
         comm=world,
         verbose=False,
@@ -43,6 +44,8 @@ class AdsorptionOptimizer(OptimizerMethod):
                 if chosen.
             opt_kwargs: dict
                 The keyword arguments for the simulated annealing optimization.
+            bond_tol: float
+                The bond tolerance used for the FixBondLengths.
             parallel_run: bool
                 If True, the optimization will be run in parallel.
             comm: ASE communicator instance
@@ -52,7 +55,7 @@ class AdsorptionOptimizer(OptimizerMethod):
                 not (False).
         """
         # Create the atoms object from the slab and adsorbate
-        self.create_slab_ads(slab, adsorbate, adsorbate2)
+        self.create_slab_ads(slab, adsorbate, adsorbate2, bond_tol=bond_tol)
         # Create the boundary conditions
         self.setup_bounds(bounds)
         # Set the parameters
@@ -69,7 +72,14 @@ class AdsorptionOptimizer(OptimizerMethod):
         structures.set_constraint(self.constraints_org)
         return structures
 
-    def create_slab_ads(self, slab, adsorbate, adsorbate2=None):
+    def create_slab_ads(
+        self,
+        slab,
+        adsorbate,
+        adsorbate2=None,
+        bond_tol=1e-8,
+        **kwargs,
+    ):
         """
         Create the structure for the adsorption optimization.
 
@@ -80,6 +90,8 @@ class AdsorptionOptimizer(OptimizerMethod):
                 The adsorbate structure.
             adsorbate2: Atoms object (optional)
                 The second adsorbate structure.
+            bond_tol: float
+                The bond tolerance used for the FixBondLengths.
 
         Returns:
             self: object
@@ -88,6 +100,8 @@ class AdsorptionOptimizer(OptimizerMethod):
         # Check the slab and adsorbate are given
         if slab is None or adsorbate is None:
             raise Exception("The slab and adsorbate must be given!")
+        # Save the bond length tolerance
+        self.bond_tol = float(bond_tol)
         # Setup the slab
         self.n_slab = len(slab)
         self.slab = slab.copy()
@@ -128,21 +142,45 @@ class AdsorptionOptimizer(OptimizerMethod):
         self.constraints_used = [FixAtoms(indices=list(range(self.n_slab)))]
         self.constraints_new = [FixAtoms(indices=list(range(self.n_slab)))]
         if self.n_ads > 1:
-            pairs = list(
-                itertools.combinations(
-                    range(self.n_slab, self.n_slab + self.n_ads),
-                    2,
+            # Get the fixed bond length pairs
+            pairs = itertools.combinations(
+                range(self.n_slab, self.n_slab + self.n_ads),
+                2,
+            )
+            pairs = np.array(list(pairs))
+            # Get the bond lengths
+            bondlengths = np.linalg.norm(
+                self.positions0[pairs[:, 0]] - self.positions0[pairs[:, 1]],
+                axis=1,
+            )
+            # Add the constraints
+            self.constraints_new.append(
+                FixBondLengths(
+                    pairs=pairs,
+                    tolerance=self.bond_tol,
+                    bondlengths=bondlengths,
                 )
             )
-            self.constraints_new.append(FixBondLengths(pairs=pairs))
         if self.n_ads2 > 1:
-            pairs = list(
-                itertools.combinations(
-                    range(self.n_slab + self.n_ads, self.natoms),
-                    2,
+            # Get the fixed bond length pairs
+            pairs = itertools.combinations(
+                range(self.n_slab + self.n_ads, self.natoms),
+                2,
+            )
+            pairs = np.array(list(pairs))
+            # Get the bond lengths
+            bondlengths = np.linalg.norm(
+                self.positions0[pairs[:, 0]] - self.positions0[pairs[:, 1]],
+                axis=1,
+            )
+            # Add the constraints
+            self.constraints_new.append(
+                FixBondLengths(
+                    pairs=pairs,
+                    tolerance=self.bond_tol,
+                    bondlengths=bondlengths,
                 )
             )
-            self.constraints_new.append(FixBondLengths(pairs=pairs))
         optimizable.set_constraint(self.constraints_new)
         # Setup the optimizable structure
         self.setup_optimizable(optimizable)
@@ -233,6 +271,7 @@ class AdsorptionOptimizer(OptimizerMethod):
         adsorbate2=None,
         bounds=None,
         opt_kwargs=None,
+        bond_tol=None,
         parallel_run=None,
         comm=None,
         verbose=None,
@@ -243,12 +282,27 @@ class AdsorptionOptimizer(OptimizerMethod):
         The existing arguments are used if they are not given.
 
         Parameters:
-            atoms: Atoms object
-                The atoms object to be optimized.
+            slab: Atoms instance
+                The slab structure.
+            adsorbate: Atoms instance
+                The adsorbate structure.
+            adsorbate2: Atoms instance (optional)
+                The second adsorbate structure.
+            bounds : (6,2) or (12,2) ndarray (optional).
+                The boundary conditions used for the global optimization in
+                form of the simulated annealing.
+                The boundary conditions are the x, y, and z coordinates of
+                the center of the adsorbate and 3 rotations.
+                Same boundary conditions can be set for the second adsorbate
+                if chosen.
+            opt_kwargs: dict
+                The keyword arguments for the simulated annealing optimization.
+            bond_tol: float
+                The bond tolerance used for the FixBondLengths.
             parallel_run: bool
                 If True, the optimization will be run in parallel.
-            comm: ASE communicator object
-                The communicator object for parallelization.
+            comm: ASE communicator instance
+                The communicator instance for parallelization.
             verbose: bool
                 Whether to print the full output (True) or
                 not (False).
@@ -261,9 +315,16 @@ class AdsorptionOptimizer(OptimizerMethod):
         # Set the verbose
         if verbose is not None:
             self.verbose = verbose
+        if bond_tol is not None:
+            self.bond_tol = float(bond_tol)
         # Create the atoms object from the slab and adsorbate
         if slab is not None and adsorbate is not None:
-            self.create_slab_ads(slab, adsorbate, adsorbate2)
+            self.create_slab_ads(
+                slab,
+                adsorbate,
+                adsorbate2,
+                bond_tol=self.bond_tol,
+            )
         # Create the boundary conditions
         if bounds is not None:
             self.setup_bounds(bounds)
