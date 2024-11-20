@@ -51,11 +51,20 @@ class LocalCINEB(SequentialOptimizer):
             climb : bool
                 Whether to use the climbing image in the NEB.
                 It is strongly recommended to have climb=True.
-            neb_interpolation : str
+            neb_interpolation : str or list of ASE Atoms or ASE Trajectory file
                 The interpolation method used to create the NEB path.
-                The default is 'linear'.
+                The string can be:
+                - 'linear' (default)
+                - 'idpp'
+                - 'rep'
+                - 'ends'
+                Otherwise, the premade images can be given as a list of
+                ASE Atoms.
+                A string of the ASE Trajectory file that contains the images
+                can also be given.
             neb_interpolation_kwargs : dict
                 The keyword arguments for the interpolation method.
+                It is only used when the interpolation method is a string.
             reuse_ci_path : bool
                 Whether to remove the non-climbing image method when the NEB
                 without climbing image is converged.
