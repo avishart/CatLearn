@@ -346,10 +346,12 @@ class ActiveLearning:
         use_derivatives=True,
         database_reduction=False,
         calc_forces=True,
+        optimize_hp=True,
         bayesian=True,
         kappa=2.0,
         reuse_mlcalc_data=False,
         verbose=True,
+        calc_kwargs={},
         **kwargs,
     ):
         """
@@ -383,6 +385,9 @@ class ActiveLearning:
                 Whether to reduce the database.
             calc_forces: bool
                 Whether to calculate the forces for all energy predictions.
+            optimize_hp: bool
+                Whether to optimize the hyperparameters when the model is
+                trained.
             bayesian: bool
                 Whether to use the Bayesian optimization calculator.
             kappa: float
@@ -393,6 +398,8 @@ class ActiveLearning:
             verbose: bool
                 Whether to print on screen the full output (True) or
                 not (False).
+            calc_kwargs: dict
+                The keyword arguments for the ML calculator.
 
         Returns:
             self: The object itself.
@@ -446,7 +453,9 @@ class ActiveLearning:
             use_derivatives=use_derivatives,
             parallel=(not save_memory),
             database_reduction=database_reduction,
+            optimize_hp=optimize_hp,
             verbose=verbose,
+            **kwargs,
         )
         # Get the data from a previous mlcalc if requested and it exist
         if reuse_mlcalc_data:
@@ -460,6 +469,7 @@ class ActiveLearning:
                 mlmodel=mlmodel,
                 calc_forces=calc_forces,
                 kappa=kappa,
+                **calc_kwargs,
             )
             if not use_derivatives and kappa > 0.0:
                 if world.rank == 0:
@@ -472,6 +482,7 @@ class ActiveLearning:
             self.mlcalc = MLCalculator(
                 mlmodel=mlmodel,
                 calc_forces=calc_forces,
+                **calc_kwargs,
             )
         # Reuse the data from a previous mlcalc if requested
         if reuse_mlcalc_data:
