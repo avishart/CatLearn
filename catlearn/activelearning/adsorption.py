@@ -288,18 +288,12 @@ class AdsorptionAL(ActiveLearning):
     def setup_mlcalc(
         self,
         mlcalc=None,
-        save_memory=False,
         fp=None,
         atoms=None,
-        prior=None,
         baseline=RepulsionCalculator(),
         use_derivatives=True,
-        database_reduction=False,
         calc_forces=False,
-        bayesian=True,
         kappa=-2.0,
-        reuse_mlcalc_data=False,
-        verbose=True,
         **kwargs,
     ):
         if mlcalc is None:
@@ -331,18 +325,12 @@ class AdsorptionAL(ActiveLearning):
                     )
         return super().setup_mlcalc(
             mlcalc=mlcalc,
-            save_memory=save_memory,
             fp=fp,
             atoms=atoms,
-            prior=prior,
             baseline=baseline,
             use_derivatives=use_derivatives,
-            database_reduction=database_reduction,
             calc_forces=calc_forces,
-            bayesian=bayesian,
             kappa=kappa,
-            reuse_mlcalc_data=reuse_mlcalc_data,
-            verbose=verbose,
             **kwargs,
         )
 
