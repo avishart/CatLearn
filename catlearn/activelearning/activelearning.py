@@ -1463,6 +1463,17 @@ class ActiveLearning:
             self.update_method(self.structures)
             # Set the writing mode
             self.mode = "a"
+            # Load the summary table
+            if self.tabletxt is not None:
+                with open(self.tabletxt, "r") as thefile:
+                    self.print_list = [
+                        line.replace("\n", "") for line in thefile
+                    ]
+                # Update the total steps
+                self.steps = len(self.print_list) - 1
+                # Make a reference energy
+                atoms_ref = copy_atoms(prev_calculations[0])
+                self.e_ref = atoms_ref.get_potential_energy()
         except Exception:
             self.message_system(
                 "Warning: Restart is not possible! "
