@@ -1,6 +1,7 @@
 import numpy as np
 from ase.io import read
 from ase.optimize import FIRE
+from ase.build import minimize_rotation_and_translation
 from ...regression.gp.calculator.copy_atoms import copy_atoms
 
 
@@ -11,18 +12,19 @@ def interpolate(
     n_images=15,
     method="linear",
     mic=True,
-    remove_rotation_and_translation=True,
+    remove_rotation_and_translation=False,
     **interpolation_kwargs,
 ):
     """
     Make an interpolation between the start and end structure.
     A transition state structure can be given to guide the interpolation.
     """
+    # Copy the start and end structures
+    start = copy_atoms(start)
+    end = copy_atoms(end)
     # The rotation and translation should be removed the end structure
     # is optimized compared to start structure
     if remove_rotation_and_translation:
-        from ase.build import minimize_rotation_and_translation
-
         start.center()
         end.center()
         minimize_rotation_and_translation(start, end)
@@ -38,6 +40,8 @@ def interpolate(
             **interpolation_kwargs,
         )
         return images
+    # Copy the transition state structure
+    ts = copy_atoms(ts)
     # Get the interpolated path from the start structure to the TS structure
     images = make_interpolation(
         start,
