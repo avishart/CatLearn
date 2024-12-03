@@ -278,7 +278,7 @@ class MLGO(AdsorptionAL):
         steps=200,
         ml_steps=4000,
         ml_steps_local=1000,
-        max_unc=None,
+        max_unc=0.3,
         dtrust=None,
         seed=None,
         **kwargs,
@@ -298,6 +298,8 @@ class MLGO(AdsorptionAL):
                 Maximum number of steps for the local optimization method.
             max_unc: float (optional)
                 Maximum uncertainty for continuation of the optimization.
+                If max_unc is None, then the optimization is performed
+                without the maximum uncertainty.
             dtrust: float (optional)
                 The trust distance for the optimization method.
             seed: int (optional)
