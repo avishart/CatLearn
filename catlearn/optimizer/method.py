@@ -1,5 +1,5 @@
 import numpy as np
-from ase.parallel import world
+from ase.parallel import world, broadcast
 from ..regression.gp.calculator.copy_atoms import copy_atoms
 from ..structures.structure import Structure
 
@@ -161,12 +161,32 @@ class OptimizerMethod:
                 The potential energy of the optimizable.
         """
         if per_candidate:
+            if self.is_parallel_used():
+                return self.get_potential_energy_parallel(**kwargs)
             energy = [
                 atoms.get_potential_energy(**kwargs)
                 for atoms in self.get_candidates()
             ]
         else:
             energy = self.optimizable.get_potential_energy(**kwargs)
+        return energy
+
+    def get_potential_energy_parallel(self, **kwargs):
+        """
+        Get the potential energies of the candidates in parallel.
+
+        Returns:
+            energy: list of floats
+                The potential energies of the candidates.
+        """
+        energy = []
+        for i, atoms in enumerate(self.get_candidates()):
+            root = i % self.size
+            e = None
+            if self.rank == root:
+                e = atoms.get_potential_energy(**kwargs)
+            e = broadcast(e, root=root, comm=self.comm)
+            energy.append(e)
         return energy
 
     def get_forces(self, per_candidate=False, **kwargs):
@@ -183,12 +203,32 @@ class OptimizerMethod:
                 The forces of the optimizable.
         """
         if per_candidate:
-            force = [
+            if self.is_parallel_used():
+                return self.get_forces_parallel(**kwargs)
+            forces = [
                 atoms.get_forces(**kwargs) for atoms in self.get_candidates()
             ]
         else:
-            force = self.optimizable.get_forces(**kwargs)
-        return force
+            forces = self.optimizable.get_forces(**kwargs)
+        return forces
+
+    def get_forces_parallel(self, **kwargs):
+        """
+        Get the forces of the candidates in parallel.
+
+        Returns:
+            forces: list of (N,3) arrays
+                The forces of the candidates.
+        """
+        forces = []
+        for i, atoms in enumerate(self.get_candidates()):
+            root = i % self.size
+            f = None
+            if self.rank == root:
+                f = atoms.get_forces(**kwargs)
+            f = broadcast(f, root=root, comm=self.comm)
+            forces.append(f)
+        return forces
 
     def get_fmax(self, per_candidate=False, **kwargs):
         """
@@ -221,19 +261,49 @@ class OptimizerMethod:
             uncertainty: float or list
                 The uncertainty of the optimizable.
         """
-        uncertainty = []
-        for atoms in self.get_candidates():
-            if isinstance(atoms, Structure):
-                unc = atoms.get_uncertainty(**kwargs)
-            else:
-                unc = atoms.calc.get_property(
-                    "uncertainty",
-                    atoms=atoms,
-                    **kwargs,
+        if self.is_parallel_used():
+            uncertainty = self.get_uncertainty_parallel(**kwargs)
+        else:
+            uncertainty = [
+                (
+                    atoms.get_uncertainty(**kwargs)
+                    if isinstance(atoms, Structure)
+                    else atoms.calc.get_property(
+                        "uncertainty",
+                        atoms=atoms,
+                        **kwargs,
+                    )
                 )
-            uncertainty.append(unc)
+                for atoms in self.get_candidates()
+            ]
         if not per_candidate:
             uncertainty = np.max(uncertainty)
+        return uncertainty
+
+    def get_uncertainty_parallel(self, **kwargs):
+        """
+        Get the uncertainty of the candidates in parallel.
+        It is used for active learning.
+
+        Returns:
+            uncertainty: list of floats
+                The uncertainty of the candidates.
+        """
+        uncertainty = []
+        for i, atoms in enumerate(self.get_candidates()):
+            root = i % self.size
+            unc = None
+            if self.rank == root:
+                if isinstance(atoms, Structure):
+                    unc = atoms.get_uncertainty(**kwargs)
+                else:
+                    unc = atoms.calc.get_property(
+                        "uncertainty",
+                        atoms=atoms,
+                        **kwargs,
+                    )
+            unc = broadcast(unc, root=root, comm=self.comm)
+            uncertainty.append(unc)
         return uncertainty
 
     def get_property(
@@ -259,6 +329,12 @@ class OptimizerMethod:
             float or list: The requested property.
         """
         if per_candidate:
+            if self.is_parallel_used():
+                return self.get_property_parallel(
+                    name,
+                    allow_calculation,
+                    **kwargs,
+                )
             output = []
             for atoms in self.get_candidates():
                 if name == "energy":
@@ -302,6 +378,49 @@ class OptimizerMethod:
                 )
         return output
 
+    def get_property_parallel(
+        self,
+        name,
+        allow_calculation=True,
+        **kwargs,
+    ):
+        """
+        Get the requested property of the candidates in parallel.
+
+        Parameters:
+            name: str
+                The name of the requested property.
+            allow_calculation: bool
+                Whether the property is allowed to be calculated.
+
+        Returns:
+            list: The list of requested property.
+        """
+        output = []
+        for i, atoms in enumerate(self.get_candidates()):
+            root = i % self.size
+            result = None
+            if self.rank == root:
+                if name == "energy":
+                    result = atoms.get_potential_energy(**kwargs)
+                elif name == "forces":
+                    result = atoms.get_forces(**kwargs)
+                elif name == "fmax":
+                    force = atoms.get_forces(**kwargs)
+                    result = np.linalg.norm(force, axis=-1).max()
+                elif name == "uncertainty" and isinstance(atoms, Structure):
+                    result = atoms.get_uncertainty(**kwargs)
+                else:
+                    result = atoms.calc.get_property(
+                        name,
+                        atoms=atoms,
+                        allow_calculation=allow_calculation,
+                        **kwargs,
+                    )
+            result = broadcast(result, root=root, comm=self.comm)
+            output.append(result)
+        return output
+
     def get_properties(
         self,
         properties,
@@ -325,6 +444,12 @@ class OptimizerMethod:
             dict: The requested properties.
         """
         if per_candidate:
+            if self.is_parallel_used():
+                return self.get_properties_parallel(
+                    properties,
+                    allow_calculation,
+                    **kwargs,
+                )
             results = {name: [] for name in properties}
             for atoms in self.get_candidates():
                 for name in properties:
@@ -356,6 +481,52 @@ class OptimizerMethod:
                     per_candidate=per_candidate,
                     **kwargs,
                 )
+        return results
+
+    def get_properties_parallel(
+        self,
+        properties,
+        allow_calculation=True,
+        **kwargs,
+    ):
+        """
+        Get the requested properties of the candidates in parallel.
+
+        Parameters:
+            properties: list of str
+                The names of the requested properties.
+            allow_calculation: bool
+                Whether the properties are allowed to be calculated.
+
+        Returns:
+            dict: The requested properties.
+        """
+        results = {name: [] for name in properties}
+        for i, atoms in enumerate(self.get_candidates()):
+            root = i % self.size
+            for name in properties:
+                output = None
+                if self.rank == root:
+                    if name == "energy":
+                        output = atoms.get_potential_energy(**kwargs)
+                    elif name == "forces":
+                        output = atoms.get_forces(**kwargs)
+                    elif name == "fmax":
+                        force = atoms.get_forces(**kwargs)
+                        output = np.linalg.norm(force, axis=-1).max()
+                    elif name == "uncertainty" and isinstance(
+                        atoms, Structure
+                    ):
+                        output = atoms.get_uncertainty(**kwargs)
+                    else:
+                        output = atoms.calc.get_property(
+                            name,
+                            atoms=atoms,
+                            allow_calculation=allow_calculation,
+                            **kwargs,
+                        )
+                output = broadcast(output, root=root, comm=self.comm)
+                results[name].append(output)
         return results
 
     def is_within_dtrust(self, per_candidate=False, dtrust=2.0, **kwargs):
@@ -421,6 +592,12 @@ class OptimizerMethod:
         Check if the optimization method allows parallelization.
         """
         return False
+
+    def is_parallel_used(self):
+        """
+        Check if the optimization method uses parallelization.
+        """
+        return self.parallel_run and self.is_parallel_allowed()
 
     def run(
         self,

@@ -71,21 +71,23 @@ class ParallelOptimizer(OptimizerMethod):
         unc_convergence=None,
         **kwargs,
     ):
-        # Set the rank
-        rank = 0
+        # Check if the optimization can take any steps
+        if steps <= 0:
+            return self._converged
         # Make list of properties
         structures = [None] * self.chains
-        candidates = [None] * self.chains
+        candidates = [[]] * self.chains
         converged = [False] * self.chains
         used_steps = [self.steps] * self.chains
         values = [np.inf] * self.chains
         # Run the optimizations
         for chain, method in enumerate(self.methods):
-            if self.rank == rank:
+            root = chain % self.size
+            if self.rank == root:
                 # Set the random seed
                 np.random.RandomState(chain + 1)
                 # Run the optimization
-                method.run(
+                converged[chain] = method.run(
                     fmax=fmax,
                     steps=steps,
                     max_unc=max_unc,
@@ -98,50 +100,44 @@ class ParallelOptimizer(OptimizerMethod):
                 structures[chain] = method.get_structures()
                 # Get the candidates
                 candidates[chain] = method.get_candidates()
-                # Check if the optimization is converged
-                converged[chain] = method.converged()
                 # Get the values
                 if self.method.is_energy_minimized():
                     values[chain] = method.get_potential_energy()
                 else:
                     values[chain] = method.get_fmax()
-
-            # Update the rank
-            rank += 1
-            if rank == self.size:
-                rank = 0
         # Broadcast the saved instances
-        rank = 0
         for chain in range(self.chains):
+            root = chain % self.size
             structures[chain] = broadcast(
                 structures[chain],
-                root=rank,
+                root=root,
                 comm=self.comm,
             )
-            candidates[chain] = broadcast(
-                candidates[chain],
-                root=rank,
+            candidates_tmp = broadcast(
+                [
+                    self.copy_atoms(candidate)
+                    for candidate in candidates[chain]
+                ],
+                root=root,
                 comm=self.comm,
             )
+            if self.rank != root:
+                candidates[chain] = candidates_tmp
             converged[chain] = broadcast(
                 converged[chain],
-                root=rank,
+                root=root,
                 comm=self.comm,
             )
             used_steps[chain] = broadcast(
                 used_steps[chain],
-                root=rank,
+                root=root,
                 comm=self.comm,
             )
             values[chain] = broadcast(
                 values[chain],
-                root=rank,
+                root=root,
                 comm=self.comm,
             )
-            # Update the rank
-            rank += 1
-            if rank == self.size:
-                rank = 0
         # Set the candidates
         self.candidates = []
         for candidate_inner in candidates:

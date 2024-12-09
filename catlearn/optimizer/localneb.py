@@ -1,5 +1,5 @@
 from .local import LocalOptimizer
-from ase.parallel import world
+from ase.parallel import world, broadcast
 from ase.optimize import FIRE
 import numpy as np
 
@@ -60,9 +60,26 @@ class LocalNEB(LocalOptimizer):
         if not get_all:
             return self.copy_atoms(self.optimizable.images[0])
         # Get all the images
+        if self.is_parallel_used():
+            return self.get_structures_parallel(**kwargs)
         structures = [
             self.copy_atoms(image) for image in self.optimizable.images
         ]
+        return structures
+
+    def get_structures_parallel(self, **kwargs):
+        # Get the structures in parallel
+        structures = [self.copy_atoms(self.optimizable.images[0])]
+        for i, image in enumerate(self.optimizable.images[1:-1]):
+            root = i % self.size
+            structures.append(
+                broadcast(
+                    self.copy_atoms(image),
+                    root=root,
+                    comm=self.comm,
+                )
+            )
+        structures.append(self.copy_atoms(self.optimizable.images[-1]))
         return structures
 
     def get_candidates(self, **kwargs):
