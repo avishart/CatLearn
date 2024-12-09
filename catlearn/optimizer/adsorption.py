@@ -234,6 +234,9 @@ class AdsorptionOptimizer(OptimizerMethod):
         unc_convergence=None,
         **kwargs,
     ):
+        # Check if the optimization can take any steps
+        if steps <= 0:
+            return self._converged
         # Use original constraints
         self.optimizable.set_constraint(self.constraints_used)
         # Perform the simulated annealing
@@ -243,7 +246,6 @@ class AdsorptionOptimizer(OptimizerMethod):
             maxfun=steps,
             **self.opt_kwargs,
         )
-
         # Set the positions
         self.evaluate_value(sol["x"])
         # Set the new constraints

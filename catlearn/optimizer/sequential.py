@@ -71,6 +71,9 @@ class SequentialOptimizer(OptimizerMethod):
         unc_convergence=None,
         **kwargs,
     ):
+        # Check if the optimization can take any steps
+        if steps <= 0:
+            return self._converged
         # Get number of methods
         n_methods = len(self.methods)
         # Run the optimizations
@@ -79,7 +82,7 @@ class SequentialOptimizer(OptimizerMethod):
             if i > 0:
                 method.update_optimizable(self.structures)
             # Run the optimization
-            method.run(
+            converged = method.run(
                 fmax=fmax,
                 steps=steps,
                 max_unc=max_unc,
@@ -93,11 +96,9 @@ class SequentialOptimizer(OptimizerMethod):
             # Update the number of steps
             self.steps += method.get_number_of_steps()
             steps -= method.get_number_of_steps()
-            # Check if the optimization method is converged
-            converged = method.converged()
             # Check if the optimization is converged
             converged = self.check_convergence(
-                converged=method.converged(),
+                converged=converged,
                 max_unc=max_unc,
                 dtrust=dtrust,
                 unc_convergence=unc_convergence,
@@ -107,6 +108,9 @@ class SequentialOptimizer(OptimizerMethod):
             # Check if the complete optimization is converged
             if i + 1 == n_methods:
                 self._converged = True
+                break
+            # Check if any steps are left
+            if steps <= 0:
                 break
             # Check if the method should be removed
             if self.remove_methods and i + 1 < n_methods:

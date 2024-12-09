@@ -56,14 +56,18 @@ class LocalOptimizer(OptimizerMethod):
         unc_convergence=None,
         **kwargs,
     ):
+        # Check if the optimization can take any steps
+        if steps <= 0:
+            return self._converged
         # Run the local optimization
         with self.local_opt(
             self.optimizable, **self.local_opt_kwargs
         ) as optimizer:
             if max_unc is None and dtrust is None:
                 optimizer.run(fmax=fmax, steps=steps)
+                converged = optimizer.converged()
             else:
-                optimizer = self.run_max_unc(
+                converged = self.run_max_unc(
                     optimizer=optimizer,
                     fmax=fmax,
                     steps=steps,
@@ -73,7 +77,7 @@ class LocalOptimizer(OptimizerMethod):
                 )
             # Check if the optimization is converged
             self._converged = self.check_convergence(
-                converged=optimizer.converged(),
+                converged=converged,
                 max_unc=max_unc,
                 dtrust=dtrust,
                 unc_convergence=unc_convergence,
@@ -106,9 +110,11 @@ class LocalOptimizer(OptimizerMethod):
                 The distance trust criterion.
 
         Returns:
-            optimizer: ASE optimizer instance
-                The optimizer instance.
+            converged: bool
+                Whether the optimization is converged.
         """
+        # Set the converged parameter
+        converged = False
         # Make a copy of the atoms
         while self.steps < steps:
             # Check if the maximum number of steps is reached
@@ -116,7 +122,7 @@ class LocalOptimizer(OptimizerMethod):
                 self.message("The maximum number of steps is reached.")
                 break
             # Run a local optimization step
-            self.run_max_unc_step(optimizer, fmax=fmax, **kwargs)
+            _converged = self.run_max_unc_step(optimizer, fmax=fmax, **kwargs)
             # Check if the uncertainty is above the maximum allowed
             if max_unc is not None:
                 # Get the uncertainty of the atoms
@@ -136,9 +142,10 @@ class LocalOptimizer(OptimizerMethod):
                 self.message("The energy is NaN.")
                 break
             # Check if the optimization is converged
-            if optimizer.converged():
+            if _converged:
+                converged = True
                 break
-        return optimizer
+        return converged
 
     def setup_local_optimizer(self, local_opt=None, local_opt_kwargs={}):
         """
@@ -228,7 +235,7 @@ class LocalOptimizer(OptimizerMethod):
         else:
             optimizer.run(fmax=fmax, steps=self.steps + 1, **kwargs)
         self.steps += 1
-        return optimizer
+        return optimizer.converged()
 
     def get_arguments(self):
         "Get the arguments of the class itself."
