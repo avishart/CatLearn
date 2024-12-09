@@ -69,11 +69,11 @@ class OriginalNEB:
                 from ase.parallel import world
 
             self.world = world
-            if self.nimages % self.world.size != 0:
+            if (self.nimages - 2) % self.world.size != 0:
                 if self.world.rank == 0:
                     print(
-                        "Warning: The number of images are not chosen optimal "
-                        "for the number of processors when running in "
+                        "Warning: The number of moving images are not chosen "
+                        "optimal for the number of processors when running in "
                         "parallel!"
                     )
         else:
@@ -238,13 +238,8 @@ class OriginalNEB:
         # Broadcast the results
         for i in range(1, self.nimages - 1):
             root = (i - 1) % self.world.size
-            self.energies[i : i + 1] = broadcast(
-                self.energies[i : i + 1],
-                root=root,
-                comm=self.world,
-            )
-            self.real_forces[i : i + 1] = broadcast(
-                self.real_forces[i : i + 1],
+            self.energies[i], self.real_forces[i] = broadcast(
+                (self.energies[i], self.real_forces[i]),
                 root=root,
                 comm=self.world,
             )
