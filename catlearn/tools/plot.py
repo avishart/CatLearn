@@ -298,6 +298,7 @@ def plot_neb_fit_mlcalc(
     climb=True,
     use_uncertainty=True,
     distance_step=0.01,
+    include_noise=True,
     ax=None,
     **kwargs,
 ):
@@ -319,6 +320,8 @@ def plot_neb_fit_mlcalc(
             If True, use the uncertainty of the predictions.
         distance_step: float
             The step size for the distance between the images.
+        include_noise: bool
+            Whether to include noise in the uncertainty from the model.
         ax: matplotlib axis instance
             The axis to plot the NEB images.
 
@@ -336,6 +339,8 @@ def plot_neb_fit_mlcalc(
     )
     # Get the reference energy
     e0 = images[0].get_potential_energy()
+    # Update whether to include noise in uncertainty prediction
+    mlcalc = mlcalc.update_mlmodel_arguments(include_noise=include_noise)
     # Get the first image
     image = images[0].copy()
     image.calc = mlcalc

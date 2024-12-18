@@ -147,6 +147,7 @@ plot_neb_fit_mlcalc(
     mlneb.get_structures(),
     mlcalc=mlneb.get_mlcalc(),
     use_uncertainty=True,
+    include_noise=True,
     ax=ax,
 )
 plt.savefig('Converged_NEB_fit.png')
