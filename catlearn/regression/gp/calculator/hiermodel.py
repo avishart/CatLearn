@@ -12,6 +12,7 @@ class HierarchicalMLModel(MLModel):
         optimize=True,
         hp=None,
         pdis=None,
+        include_noise=False,
         verbose=False,
         npoints=25,
         initial_indicies=[0],
@@ -25,27 +26,29 @@ class HierarchicalMLModel(MLModel):
         The old models are used as a baseline.
 
         Parameters:
-            model : Model
+            model: Model
                 The Machine Learning Model with kernel and
                 prior that are optimized.
-            database : Database object
+            database: Database object
                 The Database object with ASE atoms.
-            baseline : Baseline object
+            baseline: Baseline object
                 The Baseline object calculator
                 that calculates energy and forces.
-            optimize : bool
+            optimize: bool
                 Whether to optimize the hyperparameters
                 when the model is trained.
-            hp : dict
+            hp: dict
                 Use a set of hyperparameters to optimize from
                 else the current set is used.
-            pdis : dict
+            pdis: dict
                 A dict of prior distributions for each hyperparameter type.
-            verbose : bool
+            include_noise: bool
+                Whether to include noise in the uncertainty from the model.
+            verbose: bool
                 Whether to print statements in the optimization.
-            npoints : int
+            npoints: int
                 Number of points that are used from the database in the models.
-            initial_indicies : list
+            initial_indicies: list
                 The indicies of the data points that must be included in
                 the used data base for every model.
         """
@@ -56,6 +59,7 @@ class HierarchicalMLModel(MLModel):
             optimize=optimize,
             hp=hp,
             pdis=pdis,
+            include_noise=include_noise,
             verbose=verbose,
             npoints=npoints,
             initial_indicies=initial_indicies,
@@ -67,7 +71,7 @@ class HierarchicalMLModel(MLModel):
         Add training data in form of the ASE Atoms to the database.
 
         Parameters:
-            atoms_list : list or ASE Atoms
+            atoms_list: list or ASE Atoms
                 A list of or a single ASE Atoms with
                 calculated energies and forces.
 
@@ -109,6 +113,7 @@ class HierarchicalMLModel(MLModel):
         optimize=None,
         hp=None,
         pdis=None,
+        include_noise=None,
         verbose=None,
         npoints=None,
         initial_indicies=None,
@@ -119,27 +124,29 @@ class HierarchicalMLModel(MLModel):
         The existing arguments are used if they are not given.
 
         Parameters:
-            model : Model
+            model: Model
                 The Machine Learning Model with kernel and
                 prior that are optimized.
-            database : Database object
+            database: Database object
                 The Database object with ASE atoms.
-            baseline : Baseline object
+            baseline: Baseline object
                 The Baseline object calculator
                 that calculates energy and forces.
-            optimize : bool
+            optimize: bool
                 Whether to optimize the hyperparameters
                 when the model is trained.
-            hp : dict
+            hp: dict
                 Use a set of hyperparameters to optimize from
                 else the current set is used.
-            pdis : dict
+            pdis: dict
                 A dict of prior distributions for each hyperparameter type.
-            verbose : bool
+            include_noise: bool
+                Whether to include noise in the uncertainty from the model.
+            verbose: bool
                 Whether to print statements in the optimization.
-            npoints : int
+            npoints: int
                 Number of points that are used from the database in the models.
-            initial_indicies : list
+            initial_indicies: list
                 The indicies of the data points that must be included in
                 the used data base for every model.
 
@@ -152,12 +159,20 @@ class HierarchicalMLModel(MLModel):
             self.database = database.copy()
         if baseline is not None:
             self.baseline = baseline.copy()
+        elif not hasattr(self, "baseline"):
+            self.baseline = None
         if optimize is not None:
             self.optimize = optimize
         if hp is not None:
             self.hp = hp.copy()
+        elif not hasattr(self, "hp"):
+            self.hp = None
         if pdis is not None:
             self.pdis = pdis.copy()
+        elif not hasattr(self, "pdis"):
+            self.pdis = None
+        if include_noise is not None:
+            self.include_noise = include_noise
         if verbose is not None:
             self.verbose = verbose
         if npoints is not None:
@@ -186,6 +201,7 @@ class HierarchicalMLModel(MLModel):
             optimize=self.optimize,
             hp=self.hp,
             pdis=self.pdis,
+            include_noise=self.include_noise,
             verbose=self.verbose,
             npoints=self.npoints,
             initial_indicies=self.initial_indicies,

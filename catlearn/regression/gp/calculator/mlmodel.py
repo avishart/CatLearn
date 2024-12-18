@@ -10,6 +10,7 @@ class MLModel:
         optimize=True,
         hp=None,
         pdis=None,
+        include_noise=False,
         verbose=False,
         **kwargs,
     ):
@@ -17,23 +18,25 @@ class MLModel:
         Machine Learning model used for ASE Atoms and calculator.
 
         Parameters:
-            model : Model
+            model: Model
                 The Machine Learning Model with kernel and
                 prior that are optimized.
-            database : Database object
+            database: Database object
                 The Database object with ASE atoms.
-            baseline : Baseline object
+            baseline: Baseline object
                 The Baseline object calculator
                 that calculates energy and forces.
-            optimize : bool
+            optimize: bool
                 Whether to optimize the hyperparameters
                 when the model is trained.
-            hp : dict
+            hp: dict
                 Use a set of hyperparameters to optimize from
                 else the current set is used.
-            pdis : dict
+            pdis: dict
                 A dict of prior distributions for each hyperparameter type.
-            verbose : bool
+            include_noise: bool
+                Whether to include noise in the uncertainty from the model.
+            verbose: bool
                 Whether to print statements in the optimization.
         """
         # Make default model if it is not given
@@ -50,6 +53,7 @@ class MLModel:
             optimize=optimize,
             hp=hp,
             pdis=pdis,
+            include_noise=include_noise,
             verbose=verbose,
             **kwargs,
         )
@@ -59,7 +63,7 @@ class MLModel:
         Add training data in form of the ASE Atoms to the database.
 
         Parameters:
-            atoms_list : list or ASE Atoms
+            atoms_list: list or ASE Atoms
                 A list of or a single ASE Atoms with
                 calculated energies and forces.
 
@@ -106,29 +110,29 @@ class MLModel:
         If get_variance=False, variance is returned as None.
 
         Parameters:
-            atoms : ASE Atoms
+            atoms: ASE Atoms
                 The ASE Atoms object that the properties (incl. energy)
                 are calculated for.
-            get_uncertainty : bool
+            get_uncertainty: bool
                 Whether to calculate the uncertainty.
                 The uncertainty is None if get_uncertainty=False.
-            get_forces : bool
+            get_forces: bool
                 Whether to calculate the forces.
-            get_force_uncertainties : bool
+            get_force_uncertainties: bool
                 Whether to calculate the uncertainties of the predicted forces.
-            get_unc_derivatives : bool
+            get_unc_derivatives: bool
                 Whether to calculate the derivatives of
                 the uncertainty of the predicted energy.
 
         Returns:
-            energy : float
+            energy: float
                 The predicted energy of the ASE Atoms.
-            forces : (Nat,3) array or None
+            forces: (Nat,3) array or None
                 The predicted forces if get_forces=True.
-            uncertainty : float or None
+            uncertainty: float or None
                 The predicted uncertainty of the energy
                 if get_uncertainty=True.
-            uncertainty_forces : (Nat,3) array or None
+            uncertainty_forces: (Nat,3) array or None
                 The predicted uncertainties of the forces
                 if get_uncertainty=True and get_forces=True.
         """
@@ -156,7 +160,7 @@ class MLModel:
         Save the ASE Atoms data to a trajectory.
 
         Parameters:
-            trajectory : str
+            trajectory: str
                 The name of the trajectory file where the data is saved.
 
         Returns:
@@ -180,7 +184,7 @@ class MLModel:
         Check if the ASE Atoms is in the database.
 
         Parameters:
-            atoms : ASE Atoms
+            atoms: ASE Atoms
                 The ASE Atoms object with a calculator.
 
         Returns:
@@ -193,7 +197,7 @@ class MLModel:
         Copy the atoms object together with the calculated properties.
 
         Parameters:
-            atoms : ASE Atoms
+            atoms: ASE Atoms
                 The ASE Atoms object with a calculator that is copied.
 
         Returns:
@@ -207,7 +211,7 @@ class MLModel:
         Update the arguments in the database.
 
         Parameters:
-            point_interest : list
+            point_interest: list
                 A list of the points of interest as ASE Atoms instances.
 
         Returns:
@@ -224,6 +228,7 @@ class MLModel:
         optimize=None,
         hp=None,
         pdis=None,
+        include_noise=None,
         verbose=None,
         **kwargs,
     ):
@@ -232,23 +237,25 @@ class MLModel:
         The existing arguments are used if they are not given.
 
         Parameters:
-            model : Model
+            model: Model
                 The Machine Learning Model with kernel and
                 prior that are optimized.
-            database : Database object
+            database: Database object
                 The Database object with ASE atoms.
-            baseline : Baseline object
+            baseline: Baseline object
                 The Baseline object calculator
                 that calculates energy and forces.
-            optimize : bool
+            optimize: bool
                 Whether to optimize the hyperparameters
                 when the model is trained.
-            hp : dict
+            hp: dict
                 Use a set of hyperparameters to optimize from
                 else the current set is used.
-            pdis : dict
+            pdis: dict
                 A dict of prior distributions for each hyperparameter type.
-            verbose : bool
+            include_noise: bool
+                Whether to include noise in the uncertainty from the model.
+            verbose: bool
                 Whether to print statements in the optimization.
 
         Returns:
@@ -272,6 +279,8 @@ class MLModel:
             self.pdis = pdis.copy()
         elif not hasattr(self, "pdis"):
             self.pdis = None
+        if include_noise is not None:
+            self.include_noise = include_noise
         if verbose is not None:
             self.verbose = verbose
         # Check if the baseline is used
@@ -325,7 +334,7 @@ class MLModel:
             np.array([fp]),
             get_derivatives=get_forces,
             get_variance=get_uncertainty,
-            include_noise=False,
+            include_noise=self.include_noise,
             get_derivtives_var=get_force_uncertainties,
             get_var_derivatives=get_unc_derivatives,
         )
@@ -538,6 +547,7 @@ class MLModel:
             optimize=self.optimize,
             hp=self.hp,
             pdis=self.pdis,
+            include_noise=self.include_noise,
             verbose=self.verbose,
         )
         # Get the constants made within the class
@@ -584,29 +594,29 @@ def get_default_model(
     Get the default ML model from the simple given arguments.
 
     Parameters:
-        model : str
+        model: str
             Either the tp that gives the Studen T process or
             gp that gives the Gaussian process.
-        prior : str
+        prior: str
             Specify what prior mean should be used.
-        use_derivatives : bool
+        use_derivatives: bool
             Whether to use derivatives of the targets.
-        use_fingerprint : bool
+        use_fingerprint: bool
             Whether to use fingerprints for the features.
             This has to be the same as for the database!
-        global_optimization : bool
+        global_optimization: bool
             Whether to perform a global optimization of the hyperparameters.
             A local optimization is used if global_optimization=False,
             which can not be parallelized.
-        parallel : bool
+        parallel: bool
             Whether to optimize the hyperparameters in parallel.
-        n_reduced : int or None
+        n_reduced: int or None
             If n_reduced is an integer, the hyperparameters are only optimized
                 when the data set size is equal to or below the integer.
             If n_reduced is None, the hyperparameter is always optimized.
 
     Returns:
-        model : Model
+        model: Model
             The Machine Learning Model with kernel and
             prior that are optimized.
     """
@@ -756,20 +766,20 @@ def get_default_database(
     Get the default Database from the simple given arguments.
 
     Parameters:
-        fp : Fingerprint class object or None
+        fp: Fingerprint class object or None
             The fingerprint object used to generate the fingerprints.
             Cartesian coordinates are used if it is None.
-        use_derivatives : bool
+        use_derivatives: bool
             Whether to use derivatives of the targets.
-        database_reduction : bool
+        database_reduction: bool
             Whether to used a reduced database after a number
             of training points.
-        database_reduction_kwargs : dict
+        database_reduction_kwargs: dict
             A dictionary with the arguments for the reduced database
             if it is used.
 
     Returns:
-        database : Database object
+        database: Database object
             The Database object with ASE atoms.
     """
     # Set a fingerprint
@@ -859,43 +869,43 @@ def get_default_mlmodel(
     from the simple given arguments.
 
     Parameters:
-        model : str
+        model: str
             Either the tp that gives the Studen T process or
             gp that gives the Gaussian process.
-        fp : Fingerprint class object or None
+        fp: Fingerprint class object or None
             The fingerprint object used to generate the fingerprints.
             Cartesian coordinates are used if it is None.
-        baseline : Baseline object
+        baseline: Baseline object
             The Baseline object calculator that calculates energy and forces.
-        prior : str
+        prior: str
             Specify what prior mean should be used.
-        use_derivatives : bool
+        use_derivatives: bool
             Whether to use derivatives of the targets.
-        optimize_hp : bool
+        optimize_hp: bool
             Whether to optimize the hyperparameters when the model is trained.
-        global_optimization : bool
+        global_optimization: bool
             Whether to perform a global optimization of the hyperparameters.
             A local optimization is used if global_optimization=False,
             which can not be parallelized.
-        parallel : bool
+        parallel: bool
             Whether to optimize the hyperparameters in parallel.
-        use_pdis : bool
+        use_pdis: bool
             Whether to make prior distributions for the hyperparameters.
-        n_reduced : int or None
+        n_reduced: int or None
             If n_reduced is an integer, the hyperparameters are only optimized
                 when the data set size is equal to or below the integer.
             If n_reduced is None, the hyperparameter is always optimized.
-        database_reduction : bool
+        database_reduction: bool
             Whether to used a reduced database after a number
             of training points.
-        database_reduction_kwargs : dict
+        database_reduction_kwargs: dict
             A dictionary with the arguments for the reduced database
             if it is used.
-        verbose : bool
+        verbose: bool
             Whether to print statements in the optimization.
 
     Returns:
-        mlmodel : MLModel class object
+        mlmodel: MLModel class object
             Machine Learning model used for ASE Atoms and calculator.
     """
     # Check if fingerprints are used
