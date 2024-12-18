@@ -27,7 +27,7 @@ class MLCalculator(Calculator):
         ML calculator object applicable as an ASE calculator.
 
         Parameters:
-            mlmodel : MLModel class object
+            mlmodel: MLModel class object
                 Machine Learning model used for ASE Atoms and calculator.
                 The object must have the functions: calculate, train_model,
                 and add_training.
@@ -42,7 +42,7 @@ class MLCalculator(Calculator):
             calc_unc_deriv: bool
                 Whether to calculate
                 the derivatives of the uncertainty of the energy.
-            calc_kwargs : dict
+            calc_kwargs: dict
                 A dictionary with kwargs for
                 the parent calculator class object.
         """
@@ -74,7 +74,7 @@ class MLCalculator(Calculator):
         Get the predicted uncertainty of the energy.
 
         Parameters:
-            atoms : ASE Atoms (optional)
+            atoms: ASE Atoms (optional)
                 The ASE Atoms instance which is used
                 if the uncertainty is not stored.
 
@@ -88,7 +88,7 @@ class MLCalculator(Calculator):
         Get the predicted uncertainty of the forces.
 
         Parameters:
-            atoms : ASE Atoms (optional)
+            atoms: ASE Atoms (optional)
                 The ASE Atoms instance which is used
                 if the force uncertainties are not stored.
 
@@ -102,7 +102,7 @@ class MLCalculator(Calculator):
         Get the derivatives of the uncertainty of the energy.
 
         Parameters:
-            atoms : ASE Atoms (optional)
+            atoms: ASE Atoms (optional)
                 The ASE Atoms instance which is used
                 if the derivatives of the uncertainty are not stored.
 
@@ -116,7 +116,7 @@ class MLCalculator(Calculator):
         Save the ASE Atoms instance in the calculator.
 
         Parameters:
-            atoms : ASE Atoms
+            atoms: ASE Atoms
                 The ASE Atoms instance that are saved.
 
         Returns:
@@ -132,7 +132,7 @@ class MLCalculator(Calculator):
         Add training data as ASE Atoms to the ML model.
 
         Parameters:
-            atoms_list : list or ASE Atoms
+            atoms_list: list or ASE Atoms
                 A list of or a single ASE Atoms
                 with calculated energies and forces.
 
@@ -158,7 +158,7 @@ class MLCalculator(Calculator):
         Save the ASE Atoms data to a trajectory.
 
         Parameters:
-            trajectory : str
+            trajectory: str
                 The name of the trajectory file where the data is saved.
 
         Returns:
@@ -190,7 +190,7 @@ class MLCalculator(Calculator):
         Check if the ASE Atoms is in the database.
 
         Parameters:
-            atoms : ASE Atoms
+            atoms: ASE Atoms
                 The ASE Atoms instance with a calculator.
 
         Returns:
@@ -203,7 +203,7 @@ class MLCalculator(Calculator):
         Copy the atoms object together with the calculated properties.
 
         Parameters:
-            atoms : ASE Atoms
+            atoms: ASE Atoms
                 The ASE Atoms object with a calculator that is copied.
 
         Returns:
@@ -212,12 +212,26 @@ class MLCalculator(Calculator):
         """
         return self.mlmodel.copy_atoms(atoms, **kwargs)
 
+    def update_mlmodel_arguments(self, **kwargs):
+        """
+        Update the arguments in the ML model.
+
+        Parameters:
+            kwargs: dict
+                A dictionary with the arguments to update.
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.mlmodel.update_arguments(**kwargs)
+        return self
+
     def update_database_arguments(self, point_interest=None, **kwargs):
         """
         Update the arguments in the database.
 
         Parameters:
-            point_interest : list
+            point_interest: list
                 A list of the points of interest as ASE Atoms instances.
 
         Returns:
@@ -247,7 +261,7 @@ class MLCalculator(Calculator):
         using *atoms.calc.get_uncertainty_derivatives(atoms)*.
 
         Returns:
-            self.results : dict
+            self.results: dict
                 A dictionary with all the calculated properties.
         """
         # Atoms object
@@ -278,7 +292,7 @@ class MLCalculator(Calculator):
         Save the ML calculator object to a file.
 
         Parameters:
-            filename : str
+            filename: str
                 The name of the file where the object is saved.
 
         Returns:
@@ -295,7 +309,7 @@ class MLCalculator(Calculator):
         Load the ML calculator object from a file.
 
         Parameters:
-            filename : str
+            filename: str
                 The name of the file where the object is saved.
 
         Returns:
@@ -322,7 +336,7 @@ class MLCalculator(Calculator):
         The existing arguments are used if they are not given.
 
         Parameters:
-            mlmodel : MLModel class object
+            mlmodel: MLModel class object
                 Machine Learning model used for ASE Atoms and calculator.
                 The object must have the functions: calculate, train_model,
                 and add_training.
@@ -337,7 +351,7 @@ class MLCalculator(Calculator):
             calc_unc_deriv: bool
                 Whether to calculate
                 the derivatives of the uncertainty of the energy.
-            calc_kwargs : dict
+            calc_kwargs: dict
                 A dictionary with kwargs for
                 the parent calculator class object.
 

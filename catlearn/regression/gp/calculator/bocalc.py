@@ -32,7 +32,7 @@ class BOCalculator(MLCalculator):
         applicable as an ASE calculator.
 
         Parameters:
-            mlmodel : MLModel class object
+            mlmodel: MLModel class object
                 Machine Learning model used for ASE Atoms and calculator.
                 The object must have the functions: calculate, train_model,
                 and add_training.
@@ -47,10 +47,10 @@ class BOCalculator(MLCalculator):
             calc_unc_deriv: bool
                 Whether to calculate
                 the derivatives of the uncertainty of the energy.
-            calc_kwargs : dict
+            calc_kwargs: dict
                 A dictionary with kwargs for
                 the parent calculator class object.
-            kappa : float
+            kappa: float
                 The weight of the uncertainty relative to the energy.
                 If kappa>0, the uncertainty is added to the predicted energy.
         """
@@ -70,7 +70,7 @@ class BOCalculator(MLCalculator):
         Get the predicted energy without the uncertainty.
 
         Parameters:
-            atoms : ASE Atoms (optional)
+            atoms: ASE Atoms (optional)
                 The ASE Atoms instance which is used
                 if the uncertainty is not stored.
 
@@ -84,7 +84,7 @@ class BOCalculator(MLCalculator):
         Get the predicted forces without the derivatives of the uncertainty.
 
         Parameters:
-            atoms : ASE Atoms (optional)
+            atoms: ASE Atoms (optional)
                 The ASE Atoms instance which is used
                 if the uncertainty is not stored.
 
@@ -114,7 +114,7 @@ class BOCalculator(MLCalculator):
         and predicted forces using *atoms.calc.get_predicted_forces(atoms)*.
 
         Returns:
-            self.results : dict
+            self.results: dict
                 A dictionary with all the calculated properties.
         """
         # Atoms object.
@@ -169,7 +169,7 @@ class BOCalculator(MLCalculator):
         The existing arguments are used if they are not given.
 
         Parameters:
-            mlmodel : MLModel class object
+            mlmodel: MLModel class object
                 Machine Learning model used for ASE Atoms and calculator.
                 The object must have the functions: calculate, train_model,
                 and add_training.
@@ -184,10 +184,10 @@ class BOCalculator(MLCalculator):
             calc_unc_deriv: bool
                 Whether to calculate
                 the derivatives of the uncertainty of the energy.
-            calc_kwargs : dict
+            calc_kwargs: dict
                 A dictionary with kwargs for
                 the parent calculator class object.
-            kappa : float
+            kappa: float
                 The weight of the uncertainty relative to the energy.
 
         Returns:
