@@ -334,6 +334,8 @@ def plot_neb_fit_mlcalc(
         use_uncertainty=False,
         use_projection=False,
     )
+    # Get the reference energy
+    e0 = images[0].get_potential_energy()
     # Get the first image
     image = images[0].copy()
     image.calc = mlcalc
@@ -370,8 +372,9 @@ def plot_neb_fit_mlcalc(
                 uncertainties.append(unc)
         pos0 += disp
         cum_distance += dist
+    # Make numpy arrays
     pred_distance = np.array(pred_distance)
-    pred_energies = np.array(pred_energies) - pred_energies[0]
+    pred_energies = np.array(pred_energies) - e0
     uncertainties = np.array(uncertainties)
     # Make figure if it is not given
     if ax is None:
