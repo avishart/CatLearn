@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from ase.io import read
+from ase.parallel import world
 from ..structures.neb import ImprovedTangentNEB
 
 
@@ -34,6 +35,9 @@ def plot_minimize(
     # Make figure if it is not given
     if ax is None:
         _, ax = plt.subplots()
+    # Only plot the atoms on the master rank
+    if world.rank != 0:
+        return ax
     # Get the energies of the predicted atoms
     if isinstance(pred_atoms, str):
         pred_atoms = read(pred_atoms, ":")
@@ -238,6 +242,12 @@ def plot_neb(
     Returns:
         ax: matplotlib axis instance
     """
+    # Make figure if it is not given
+    if ax is None:
+        _, ax = plt.subplots()
+    # Only plot the atoms on the master rank
+    if world.rank != 0:
+        return ax
     # Get data from NEB
     _, distances, energies, uncertainties, deriv_proj = get_neb_data(
         images,
@@ -247,9 +257,6 @@ def plot_neb(
         use_uncertainty=use_uncertainty,
         use_projection=use_projection,
     )
-    # Make figure if it is not given
-    if ax is None:
-        _, ax = plt.subplots()
     # Plot the NEB images
     ax.plot(distances, energies, "o-", color="black")
     if uncertainties is not None:
@@ -328,6 +335,12 @@ def plot_neb_fit_mlcalc(
     Returns:
         ax: matplotlib axis instance
     """
+    # Make figure if it is not given
+    if ax is None:
+        _, ax = plt.subplots()
+    # Only plot the atoms on the master rank
+    if world.rank != 0:
+        return ax
     # Get data from NEB
     neb, distances, energies, _, _ = get_neb_data(
         images,
@@ -381,9 +394,6 @@ def plot_neb_fit_mlcalc(
     pred_distance = np.array(pred_distance)
     pred_energies = np.array(pred_energies) - e0
     uncertainties = np.array(uncertainties)
-    # Make figure if it is not given
-    if ax is None:
-        _, ax = plt.subplots()
     # Plot the NEB images
     ax.plot(distances, energies, "o", color="black")
     ax.plot(pred_distance, pred_energies, "-", color="red")
@@ -446,13 +456,16 @@ def plot_all_neb(
     Returns:
         ax: matplotlib axis instance
     """
+    # Make figure if it is not given
+    if ax is None:
+        _, ax = plt.subplots()
+    # Only plot the atoms on the master rank
+    if world.rank != 0:
+        return ax
     # Calculate the number of NEB bands
     if isinstance(neb_traj, str):
         neb_traj = read(neb_traj, ":")
     n_neb = len(neb_traj) // n_images
-    # Make figure if it is not given
-    if ax is None:
-        _, ax = plt.subplots()
     # Plot all NEB bands
     for i in range(n_neb):
         # Get the images of the NEB band
