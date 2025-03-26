@@ -421,16 +421,16 @@ class ActiveLearning:
         if save_memory is None:
             try:
                 save_memory = self.save_memory
-            except Exception:
-                raise Exception("The save_memory is not given.")
+            except NameError:
+                raise NameError("The save_memory is not given.")
         # Setup the fingerprint
         if fp is None:
             # Check if the Atoms object is given
             if atoms is None:
                 try:
                     atoms = self.get_structures(get_all=False)
-                except Exception:
-                    raise Exception("The Atoms object is not given or stored.")
+                except NameError:
+                    raise NameError("The Atoms object is not given or stored.")
             # Can only use distances if there are more than one atom
             if len(atoms) > 1:
                 if atoms.pbc.any():
@@ -539,7 +539,7 @@ class ActiveLearning:
             # Check if the objective is the same
             objective = self.get_objective_str()
             if acq.objective != objective:
-                raise Exception(
+                raise ValueError(
                     "The objective of the acquisition function "
                     "does not match the active learner."
                 )
@@ -1377,7 +1377,7 @@ class ActiveLearning:
         agree upon the attributes.
         """
         if self.parallel_run != self.method.parallel_run:
-            raise Exception(
+            raise ValueError(
                 "Active learner and Optimization method does "
                 "not agree whether to run in parallel!"
             )
@@ -1484,7 +1484,7 @@ class ActiveLearning:
                 # Make a reference energy
                 atoms_ref = copy_atoms(prev_calculations[0])
                 self.e_ref = atoms_ref.get_potential_energy()
-        except Exception:
+        except (AssertionError, FileNotFoundError, IndexError, StopIteration):
             self.message_system(
                 "Warning: Restart is not possible! "
                 "Reinitalizing active learning."

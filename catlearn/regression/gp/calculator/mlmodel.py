@@ -541,7 +541,7 @@ class MLModel:
             self.model.get_use_fingerprint()
             != self.database.get_use_fingerprint()
         ):
-            raise Exception(
+            raise ValueError(
                 "Model and Database do not agree "
                 "whether to use fingerprints!"
             )
@@ -549,7 +549,7 @@ class MLModel:
             self.model.get_use_derivatives()
             != self.database.get_use_derivatives()
         ):
-            raise Exception(
+            raise ValueError(
                 "Model and Database do not agree "
                 "whether to use derivatives/forces!"
             )
