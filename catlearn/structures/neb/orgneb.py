@@ -91,7 +91,7 @@ class OriginalNEB:
             len(initial_atomic_numbers) != len(final_atomic_numbers)
             or (initial_atomic_numbers != final_atomic_numbers).any()
         ):
-            raise Exception(
+            raise ValueError(
                 "The atoms in the initial and final images "
                 "are not the same."
             )
@@ -342,7 +342,7 @@ class OriginalNEB:
         self.reset()
         if isinstance(calculators, (list, tuple)):
             if len(calculators) != self.nimages - 2:
-                raise Exception(
+                raise ValueError(
                     "The number of calculators must be "
                     "equal to the number of moving images."
                 )
