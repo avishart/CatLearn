@@ -155,19 +155,37 @@ class MLModel:
         )
         return results
 
-    def save_data(self, trajectory="data.traj", **kwarg):
+    def save_data(
+        self,
+        trajectory="data.traj",
+        mode="w",
+        write_last=False,
+        **kwargs,
+    ):
         """
         Save the ASE Atoms data to a trajectory.
 
         Parameters:
-            trajectory: str
+            trajectory: str or TrajectoryWriter instance
                 The name of the trajectory file where the data is saved.
+                Or a TrajectoryWriter instance where the data is saved to.
+            mode: str
+                The mode of the trajectory file.
+            write_last: bool
+                Whether to only write the last atoms instance to the
+                trajectory.
+                If False, all atoms instances in the database are written
+                to the trajectory.
 
         Returns:
             self: The updated object itself.
         """
-        " Save the ASE atoms data to a trajectory. "
-        self.database.save_data(trajectory=trajectory, **kwarg)
+        self.database.save_data(
+            trajectory=trajectory,
+            mode=mode,
+            write_last=write_last,
+            **kwargs,
+        )
         return self
 
     def get_training_set_size(self, **kwargs):

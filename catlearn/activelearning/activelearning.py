@@ -1034,7 +1034,15 @@ class ActiveLearning:
 
     def save_data(self, **kwargs):
         "Save the training data to a file."
-        self.mlcalc.save_data(trajectory=self.trainingset)
+        if self.steps > 1:
+            self.mlcalc.save_data(
+                trajectory=self.trainingset,
+                mode="a",
+                write_last=True,
+                **kwargs,
+            )
+        else:
+            self.mlcalc.save_data(trajectory=self.trainingset, **kwargs)
         return self
 
     def save_trajectory(self, trajectory, structures, mode="w", **kwargs):

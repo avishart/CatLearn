@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.spatial.distance import cdist
 from .database import Database
-from ase.io import write
 
 
 class DatabaseReduction(Database):
@@ -237,20 +236,6 @@ class DatabaseReduction(Database):
             list: A list of indicies that not used.
         """
         return list(set(all_indicies).difference(indicies))
-
-    def save_data(self, trajectory="data.traj", **kwargs):
-        """
-        Save the ASE Atoms data to a trajectory.
-
-        Parameters:
-            trajectory : str
-                The name of the trajectory file where the data is saved.
-
-        Returns:
-            self: The updated object itself.
-        """
-        write(trajectory, self.get_all_atoms())
-        return self
 
     def append(self, atoms, **kwargs):
         "Append the atoms object, the fingerprint, and target(s) to lists."

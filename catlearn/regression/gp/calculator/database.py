@@ -19,14 +19,14 @@ class Database:
         into fingerprints and targets.
 
         Parameters:
-            fingerprint : Fingerprint object
+            fingerprint: Fingerprint object
                 An object as a fingerprint class
                 that convert atoms to fingerprint.
             reduce_dimensions: bool
                 Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether to use derivatives/forces in the targets.
-            use_fingerprint : bool
+            use_fingerprint: bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
         """
@@ -54,7 +54,7 @@ class Database:
         Add an ASE Atoms object to the database.
 
         Parameters:
-            atoms : ASE Atoms
+            atoms: ASE Atoms
                 The ASE Atoms object with a calculator.
 
         Returns:
@@ -68,7 +68,7 @@ class Database:
         Add a set of ASE Atoms objects to the database.
 
         Parameters:
-            atoms_list : list or ASE Atoms
+            atoms_list: list or ASE Atoms
                 A list of or a single ASE Atoms
                 with calculated energies and forces.
 
@@ -84,11 +84,11 @@ class Database:
         Get the indicies of the atoms that does not have fixed constraints.
 
         Parameters:
-            atoms : ASE Atoms
+            atoms: ASE Atoms
                 The ASE Atoms object with a calculator.
 
         Returns:
-            not_masked : list
+            not_masked: list
                 A list of indicies for the moving atoms.
         """
         not_masked = list(range(len(atoms)))
@@ -131,16 +131,27 @@ class Database:
         """
         return np.array(self.targets)
 
-    def save_data(self, trajectory="data.traj", mode="w", **kwargs):
+    def save_data(
+        self,
+        trajectory="data.traj",
+        mode="w",
+        write_last=False,
+        **kwargs,
+    ):
         """
         Save the ASE Atoms data to a trajectory.
 
         Parameters:
-            trajectory : str or TrajectoryWriter instance
+            trajectory: str or TrajectoryWriter instance
                 The name of the trajectory file where the data is saved.
                 Or a TrajectoryWriter instance where the data is saved to.
-            mode : str
+            mode: str
                 The mode of the trajectory file.
+            write_last: bool
+                Whether to only write the last atoms instance to the
+                trajectory.
+                If False, all atoms instances in the database are written
+                to the trajectory.
 
         Returns:
             self: The updated object itself.
@@ -149,11 +160,17 @@ class Database:
             return self
         if isinstance(trajectory, str):
             with TrajectoryWriter(trajectory, mode=mode) as traj:
-                for atoms in self.atoms_list:
-                    traj.write(atoms)
+                if write_last:
+                    traj.write(self.atoms_list[-1])
+                else:
+                    for atoms in self.atoms_list:
+                        traj.write(atoms)
         elif isinstance(trajectory, TrajectoryWriter):
-            for atoms in self.atoms_list:
-                trajectory.write(atoms)
+            if write_last:
+                trajectory.write(self.atoms_list[-1])
+            else:
+                for atoms in self.atoms_list:
+                    trajectory.write(atoms)
         return self
 
     def copy_atoms(self, atoms, **kwargs):
@@ -161,7 +178,7 @@ class Database:
         Copy the atoms object together with the calculated properties.
 
         Parameters:
-            atoms : ASE Atoms
+            atoms: ASE Atoms
                 The ASE Atoms object with a calculator that is copied.
 
         Returns:
@@ -176,7 +193,7 @@ class Database:
         It can e.g. be used for predicting.
 
         Parameters:
-            atoms : ASE Atoms
+            atoms: ASE Atoms
                 The ASE Atoms object with a calculator.
 
         Returns:
@@ -199,11 +216,11 @@ class Database:
         Calculate the target as the energy and forces if selected.
 
         Parameters:
-            atoms : ASE Atoms
+            atoms: ASE Atoms
                 The ASE Atoms object with a calculator.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether to use derivatives/forces in the targets.
-            use_negative_forces : bool
+            use_negative_forces: bool
                 Whether derivatives (True) or forces (False) are used.
 
         Returns:
@@ -240,9 +257,9 @@ class Database:
         Check if the ASE Atoms is in the database.
 
         Parameters:
-            atoms : ASE Atoms
+            atoms: ASE Atoms
                 The ASE Atoms object with a calculator.
-            dtol : float
+            dtol: float
                 The tolerance value to determine identical Atoms.
 
         Returns:
@@ -311,14 +328,14 @@ class Database:
         if they are not given.
 
         Parameters:
-            fingerprint : Fingerprint object
+            fingerprint: Fingerprint object
                 An object as a fingerprint class
                 that convert atoms to fingerprint.
             reduce_dimensions: bool
                 Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether to use derivatives/forces in the targets.
-            use_fingerprint : bool
+            use_fingerprint: bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
 
