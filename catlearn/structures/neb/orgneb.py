@@ -45,6 +45,8 @@ class OriginalNEB:
                 The communicator instance for parallelization.
 
         """
+        # Check that the endpoints are the same
+        self.check_endpoints(images)
         # Set images
         if save_properties:
             self.images = [Structure(image) for image in images]
@@ -80,6 +82,20 @@ class OriginalNEB:
             self.world = None
         # Set the properties
         self.reset()
+
+    def check_endpoints(self, images):
+        "Check that the endpoints of the images are the same structures."
+        initial_atomic_numbers = images[0].get_atomic_numbers()
+        final_atomic_numbers = images[-1].get_atomic_numbers()
+        if (
+            len(initial_atomic_numbers) != len(final_atomic_numbers)
+            or (initial_atomic_numbers != final_atomic_numbers).any()
+        ):
+            raise Exception(
+                "The atoms in the initial and final images "
+                "are not the same."
+            )
+        return self
 
     def interpolate(self, method="linear", mic=True, **kwargs):
         """
