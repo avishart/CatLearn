@@ -1,4 +1,5 @@
-import numpy as np
+from numpy import array, asarray, concatenate
+from numpy import round as round_
 from scipy.spatial.distance import cdist
 from ase.constraints import FixAtoms
 from ase.io.trajectory import TrajectoryWriter
@@ -12,6 +13,8 @@ class Database:
         reduce_dimensions=True,
         use_derivatives=True,
         use_fingerprint=True,
+        round_targets=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -29,6 +32,11 @@ class Database:
             use_fingerprint: bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
+            round_targets: int (optional)
+                The number of decimals to round the targets to.
+                If None, the targets are not rounded.
+            dtype: type
+                The data type of the arrays.
         """
         # The negative forces have to be used since the derivatives are used
         self.use_negative_forces = True
@@ -46,6 +54,8 @@ class Database:
             reduce_dimensions=reduce_dimensions,
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
+            round_targets=round_targets,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -100,7 +110,7 @@ class Database:
                 c.get_indices() for c in constraints if isinstance(c, FixAtoms)
             ]
             if len(masked):
-                masked = set(np.concatenate(masked))
+                masked = set(concatenate(masked))
                 return list(set(not_masked).difference(masked))
         return not_masked
 
@@ -120,7 +130,7 @@ class Database:
         Returns:
             array: A matrix array with the saved features or fingerprints.
         """
-        return np.array(self.features)
+        return array(self.features, dtype=self.dtype)
 
     def get_targets(self, **kwargs):
         """
@@ -129,7 +139,7 @@ class Database:
         Returns:
             array: A matrix array with the saved targets.
         """
-        return np.array(self.targets)
+        return array(self.targets, dtype=self.dtype)
 
     def save_data(
         self,
@@ -205,6 +215,31 @@ class Database:
             return self.fingerprint(atoms)
         return self.fingerprint(atoms).get_vector()
 
+    def append_target(self, atoms, **kwargs):
+        """
+        Append the target(s) to the list.
+
+        Parameters:
+            atoms: ASE Atoms
+                The ASE Atoms object with a calculator.
+
+        Returns:
+            self: The updated object
+        """
+        # Make the target(s)
+        target = self.make_target(
+            atoms,
+            use_derivatives=self.use_derivatives,
+            use_negative_forces=self.use_negative_forces,
+            **kwargs,
+        )
+        # Round the target if needed
+        if self.round_targets is not None:
+            target = round_(target, self.round_targets)
+        # Append the target(s)
+        self.targets.append(target)
+        return self
+
     def make_target(
         self,
         atoms,
@@ -236,9 +271,9 @@ class Database:
             f = atoms.get_forces(apply_constraint=False)
             f = f[not_masked].reshape(-1)
             if use_negative_forces:
-                return np.concatenate([[e], -f]).reshape(-1)
-            return np.concatenate([[e], f]).reshape(-1)
-        return np.array([e])
+                return concatenate([[e], -f], dtype=self.dtype).reshape(-1)
+            return concatenate([[e], f], dtype=self.dtype).reshape(-1)
+        return array([e], dtype=self.dtype)
 
     def reset_database(self, **kwargs):
         """
@@ -275,9 +310,12 @@ class Database:
         # Transform the fingerprints into vectors
         if self.use_fingerprint:
             fp_atoms = fp_atoms.get_vector()
-            fp_database = np.array([fp.get_vector() for fp in fp_database])
+            fp_database = asarray(
+                [fp.get_vector() for fp in fp_database],
+                dtype=self.dtype,
+            )
         # Get the minimum distance between atoms object and the database
-        dis_min = np.min(cdist([fp_atoms], fp_database))
+        dis_min = cdist([fp_atoms], fp_database).min()
         # Check if the atoms object is in the database
         if dis_min < dtol:
             return True
@@ -292,12 +330,7 @@ class Database:
         # Append the feature
         self.features.append(self.make_atoms_feature(atoms))
         # Append the target(s)
-        target = self.make_target(
-            atoms,
-            use_derivatives=self.use_derivatives,
-            use_negative_forces=self.use_negative_forces,
-        )
-        self.targets.append(target)
+        self.append_target(atoms)
         return self
 
     def get_use_derivatives(self):
@@ -321,6 +354,8 @@ class Database:
         reduce_dimensions=None,
         use_derivatives=None,
         use_fingerprint=None,
+        round_targets=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -338,6 +373,11 @@ class Database:
             use_fingerprint: bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
+            round_targets: int (optional)
+                The number of decimals to round the targets to.
+                If None, the targets are not rounded.
+            dtype: type
+                The data type of the arrays.
 
         Returns:
             self: The updated object itself.
@@ -356,6 +396,10 @@ class Database:
         if use_fingerprint is not None:
             self.use_fingerprint = use_fingerprint
             reset_database = True
+        if round_targets is not None or not hasattr(self, "round_targets"):
+            self.round_targets = round_targets
+        if dtype is not None or not hasattr(self, "dtype"):
+            self.dtype = dtype
         # Check that the database and the fingerprint have the same attributes
         self.check_attributes()
         # Reset the database if an argument has been changed
@@ -366,7 +410,7 @@ class Database:
     def check_attributes(self):
         "Check if all attributes agree between the class and subclasses."
         if self.reduce_dimensions != self.fingerprint.get_reduce_dimensions():
-            raise Exception(
+            raise ValueError(
                 "Database and Fingerprint do not agree "
                 "whether to reduce dimensions!"
             )
@@ -384,6 +428,8 @@ class Database:
             reduce_dimensions=self.reduce_dimensions,
             use_derivatives=self.use_derivatives,
             use_fingerprint=self.use_fingerprint,
+            round_targets=self.round_targets,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()

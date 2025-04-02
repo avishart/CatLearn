@@ -1,4 +1,18 @@
-import numpy as np
+# import numpy as np
+from numpy import (
+    append,
+    arange,
+    argmax,
+    argmin,
+    argsort,
+    array,
+    asarray,
+    delete,
+    einsum,
+    nanmin,
+    sqrt,
+)
+from numpy.random import choice, permutation
 from scipy.spatial.distance import cdist
 from .database import Database
 
@@ -10,6 +24,8 @@ class DatabaseReduction(Database):
         reduce_dimensions=True,
         use_derivatives=True,
         use_fingerprint=True,
+        round_targets=None,
+        dtype=None,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -32,6 +48,11 @@ class DatabaseReduction(Database):
             use_fingerprint : bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
+            round_targets: int (optional)
+                The number of decimals to round the targets to.
+                If None, the targets are not rounded.
+            dtype: type
+                The data type of the arrays.
             npoints : int
                 Number of points that are used from the database.
             initial_indicies : list
@@ -58,6 +79,8 @@ class DatabaseReduction(Database):
             reduce_dimensions=reduce_dimensions,
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
+            round_targets=round_targets,
+            dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
             include_last=include_last,
@@ -70,6 +93,8 @@ class DatabaseReduction(Database):
         reduce_dimensions=None,
         use_derivatives=None,
         use_fingerprint=None,
+        round_targets=None,
+        dtype=None,
         npoints=None,
         initial_indicies=None,
         include_last=None,
@@ -90,6 +115,11 @@ class DatabaseReduction(Database):
             use_fingerprint : bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
+            round_targets: int (optional)
+                The number of decimals to round the targets to.
+                If None, the targets are not rounded.
+            dtype: type
+                The data type of the arrays.
             npoints : int
                 Number of points that are used from the database.
             initial_indicies : list
@@ -115,10 +145,14 @@ class DatabaseReduction(Database):
         if use_fingerprint is not None:
             self.use_fingerprint = use_fingerprint
             reset_database = True
+        if round_targets is not None or not hasattr(self, "round_targets"):
+            self.round_targets = round_targets
+        if dtype is not None or not hasattr(self, "dtype"):
+            self.dtype = dtype
         if npoints is not None:
             self.npoints = int(npoints)
         if initial_indicies is not None:
-            self.initial_indicies = np.array(initial_indicies, dtype=int)
+            self.initial_indicies = array(initial_indicies, dtype=int)
         if include_last is not None:
             self.include_last = int(abs(include_last))
         # Check that too many last points are not included
@@ -165,14 +199,14 @@ class DatabaseReduction(Database):
             array: A matrix array with the saved features or fingerprints.
         """
         indicies = self.get_reduction_indicies()
-        return np.array(self.features)[indicies]
+        return array(self.features, dtype=self.dtype)[indicies]
 
     def get_all_feature_vectors(self, **kwargs):
         "Get all the features in numpy array form."
         if self.use_fingerprint:
             features = [feature.get_vector() for feature in self.features]
-            return np.array(features)
-        return np.array(self.features)
+            return array(features, dtype=self.dtype)
+        return array(self.features, dtype=self.dtype)
 
     def get_targets(self, **kwargs):
         """
@@ -182,7 +216,7 @@ class DatabaseReduction(Database):
             array: A matrix array with the saved targets.
         """
         indicies = self.get_reduction_indicies()
-        return np.array(self.targets)[indicies]
+        return array(self.targets, dtype=self.dtype)[indicies]
 
     def get_all_targets(self, **kwargs):
         """
@@ -191,7 +225,7 @@ class DatabaseReduction(Database):
         Returns:
             array: A matrix array with the saved targets.
         """
-        return np.array(self.targets)
+        return array(self.targets, dtype=self.dtype)
 
     def get_initial_indicies(self, **kwargs):
         """
@@ -216,7 +250,7 @@ class DatabaseReduction(Database):
             list: A list of the used indicies including the last indicies.
         """
         if self.include_last != 0:
-            indicies = np.append(
+            indicies = append(
                 indicies,
                 [not_indicies[-self.include_last :]],
             )
@@ -253,7 +287,7 @@ class DatabaseReduction(Database):
         # Set up all the indicies
         self.update_indicies = False
         data_len = self.__len__()
-        all_indicies = np.arange(data_len)
+        all_indicies = arange(data_len)
         # No reduction is needed if the database is not large
         if data_len <= self.npoints:
             self.indicies = all_indicies.copy()
@@ -274,6 +308,8 @@ class DatabaseReduction(Database):
             reduce_dimensions=self.reduce_dimensions,
             use_derivatives=self.use_derivatives,
             use_fingerprint=self.use_fingerprint,
+            round_targets=self.round_targets,
+            dtype=self.dtype,
             npoints=self.npoints,
             initial_indicies=self.initial_indicies,
             include_last=self.include_last,
@@ -297,6 +333,8 @@ class DatabaseDistance(DatabaseReduction):
         reduce_dimensions=True,
         use_derivatives=True,
         use_fingerprint=True,
+        round_targets=None,
+        dtype=None,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -319,6 +357,11 @@ class DatabaseDistance(DatabaseReduction):
             use_fingerprint : bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
+            round_targets: int (optional)
+                The number of decimals to round the targets to.
+                If None, the targets are not rounded.
+            dtype: type
+                The data type of the arrays.
             npoints : int
                 Number of points that are used from the database.
             initial_indicies : list
@@ -332,6 +375,8 @@ class DatabaseDistance(DatabaseReduction):
             reduce_dimensions=reduce_dimensions,
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
+            round_targets=round_targets,
+            dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
             include_last=include_last,
@@ -348,7 +393,7 @@ class DatabaseDistance(DatabaseReduction):
         indicies = self.get_last_indicies(indicies, not_indicies)
         # Get a random index if no fixed index exist
         if len(indicies) == 0:
-            indicies = np.array([np.random.choice(all_indicies)])
+            indicies = asarray([choice(all_indicies)])
         # Get all the features
         features = self.get_all_feature_vectors()
         fdim = len(features[0])
@@ -361,9 +406,9 @@ class DatabaseDistance(DatabaseReduction):
                 features[not_indicies].reshape(-1, fdim),
             )
             # Choose the point furthest from the points already used
-            i_max = np.argmax(np.nanmin(dist, axis=0))
-            indicies = np.append(indicies, [not_indicies[i_max]])
-        return np.array(indicies, dtype=int)
+            i_max = argmax(nanmin(dist, axis=0))
+            indicies = append(indicies, [not_indicies[i_max]])
+        return array(indicies, dtype=int)
 
 
 class DatabaseRandom(DatabaseReduction):
@@ -373,6 +418,8 @@ class DatabaseRandom(DatabaseReduction):
         reduce_dimensions=True,
         use_derivatives=True,
         use_fingerprint=True,
+        round_targets=None,
+        dtype=None,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -395,6 +442,11 @@ class DatabaseRandom(DatabaseReduction):
             use_fingerprint : bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
+            round_targets: int (optional)
+                The number of decimals to round the targets to.
+                If None, the targets are not rounded.
+            dtype: type
+                The data type of the arrays.
             npoints : int
                 Number of points that are used from the database.
             initial_indicies : list
@@ -408,6 +460,8 @@ class DatabaseRandom(DatabaseReduction):
             reduce_dimensions=reduce_dimensions,
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
+            round_targets=round_targets,
+            dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
             include_last=include_last,
@@ -427,11 +481,11 @@ class DatabaseRandom(DatabaseReduction):
         # Get the number of missing points
         npoints = int(self.npoints - len(indicies))
         # Randomly get the indicies
-        indicies = np.append(
+        indicies = append(
             indicies,
-            np.random.permutation(not_indicies)[:npoints],
+            permutation(not_indicies)[:npoints],
         )
-        return np.array(indicies, dtype=int)
+        return array(indicies, dtype=int)
 
 
 class DatabaseHybrid(DatabaseReduction):
@@ -441,6 +495,8 @@ class DatabaseHybrid(DatabaseReduction):
         reduce_dimensions=True,
         use_derivatives=True,
         use_fingerprint=True,
+        round_targets=None,
+        dtype=None,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -465,6 +521,11 @@ class DatabaseHybrid(DatabaseReduction):
             use_fingerprint : bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
+            round_targets: int (optional)
+                The number of decimals to round the targets to.
+                If None, the targets are not rounded.
+            dtype: type
+                The data type of the arrays.
             npoints : int
                 Number of points that are used from the database.
             initial_indicies : list
@@ -480,6 +541,8 @@ class DatabaseHybrid(DatabaseReduction):
             reduce_dimensions=reduce_dimensions,
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
+            round_targets=round_targets,
+            dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
             include_last=include_last,
@@ -493,6 +556,8 @@ class DatabaseHybrid(DatabaseReduction):
         reduce_dimensions=None,
         use_derivatives=None,
         use_fingerprint=None,
+        round_targets=None,
+        dtype=None,
         npoints=None,
         initial_indicies=None,
         include_last=None,
@@ -514,6 +579,11 @@ class DatabaseHybrid(DatabaseReduction):
             use_fingerprint : bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
+            round_targets: int (optional)
+                The number of decimals to round the targets to.
+                If None, the targets are not rounded.
+            dtype: type
+                The data type of the arrays.
             npoints : int
                 Number of points that are used from the database.
             initial_indicies : list
@@ -541,10 +611,14 @@ class DatabaseHybrid(DatabaseReduction):
         if use_fingerprint is not None:
             self.use_fingerprint = use_fingerprint
             reset_database = True
+        if round_targets is not None or not hasattr(self, "round_targets"):
+            self.round_targets = round_targets
+        if dtype is not None or not hasattr(self, "dtype"):
+            self.dtype = dtype
         if npoints is not None:
             self.npoints = int(npoints)
         if initial_indicies is not None:
-            self.initial_indicies = np.array(initial_indicies, dtype=int)
+            self.initial_indicies = array(initial_indicies, dtype=int)
         if include_last is not None:
             self.include_last = int(abs(include_last))
         if random_fraction is not None:
@@ -577,7 +651,7 @@ class DatabaseHybrid(DatabaseReduction):
         indicies = self.get_last_indicies(indicies, not_indicies)
         # Get a random index if no fixed index exist
         if len(indicies) == 0:
-            indicies = [np.random.choice(all_indicies)]
+            indicies = [choice(all_indicies)]
         # Get all the features
         features = self.get_all_feature_vectors()
         fdim = len(features[0])
@@ -586,9 +660,9 @@ class DatabaseHybrid(DatabaseReduction):
             not_indicies = self.get_not_indicies(indicies, all_indicies)
             if i % self.random_fraction == 0:
                 # Get a random index
-                indicies = np.append(
+                indicies = append(
                     indicies,
-                    [np.random.choice(not_indicies)],
+                    [choice(not_indicies)],
                 )
             else:
                 # Calculate the distances to the points already used
@@ -597,9 +671,9 @@ class DatabaseHybrid(DatabaseReduction):
                     features[not_indicies].reshape(-1, fdim),
                 )
                 # Choose the point furthest from the points already used
-                i_max = np.argmax(np.nanmin(dist, axis=0))
-                indicies = np.append(indicies, [not_indicies[i_max]])
-        return np.array(indicies, dtype=int)
+                i_max = argmax(nanmin(dist, axis=0))
+                indicies = append(indicies, [not_indicies[i_max]])
+        return array(indicies, dtype=int)
 
     def get_arguments(self):
         "Get the arguments of the class itself."
@@ -609,6 +683,8 @@ class DatabaseHybrid(DatabaseReduction):
             reduce_dimensions=self.reduce_dimensions,
             use_derivatives=self.use_derivatives,
             use_fingerprint=self.use_fingerprint,
+            round_targets=self.round_targets,
+            dtype=self.dtype,
             npoints=self.npoints,
             initial_indicies=self.initial_indicies,
             include_last=self.include_last,
@@ -633,6 +709,8 @@ class DatabaseMin(DatabaseReduction):
         reduce_dimensions=True,
         use_derivatives=True,
         use_fingerprint=True,
+        round_targets=None,
+        dtype=None,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -656,6 +734,11 @@ class DatabaseMin(DatabaseReduction):
             use_fingerprint : bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
+            round_targets: int (optional)
+                The number of decimals to round the targets to.
+                If None, the targets are not rounded.
+            dtype: type
+                The data type of the arrays.
             npoints : int
                 Number of points that are used from the database.
             initial_indicies : list
@@ -672,6 +755,8 @@ class DatabaseMin(DatabaseReduction):
             reduce_dimensions=reduce_dimensions,
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
+            round_targets=round_targets,
+            dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
             include_last=include_last,
@@ -685,6 +770,8 @@ class DatabaseMin(DatabaseReduction):
         reduce_dimensions=None,
         use_derivatives=None,
         use_fingerprint=None,
+        round_targets=None,
+        dtype=None,
         npoints=None,
         initial_indicies=None,
         include_last=None,
@@ -706,6 +793,11 @@ class DatabaseMin(DatabaseReduction):
             use_fingerprint : bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
+            round_targets: int (optional)
+                The number of decimals to round the targets to.
+                If None, the targets are not rounded.
+            dtype: type
+                The data type of the arrays.
             npoints : int
                 Number of points that are used from the database.
             initial_indicies : list
@@ -734,10 +826,14 @@ class DatabaseMin(DatabaseReduction):
         if use_fingerprint is not None:
             self.use_fingerprint = use_fingerprint
             reset_database = True
+        if round_targets is not None or not hasattr(self, "round_targets"):
+            self.round_targets = round_targets
+        if dtype is not None or not hasattr(self, "dtype"):
+            self.dtype = dtype
         if npoints is not None:
             self.npoints = int(npoints)
         if initial_indicies is not None:
-            self.initial_indicies = np.array(initial_indicies, dtype=int)
+            self.initial_indicies = array(initial_indicies, dtype=int)
         if include_last is not None:
             self.include_last = int(abs(include_last))
         if force_targets is not None:
@@ -764,22 +860,23 @@ class DatabaseMin(DatabaseReduction):
         # Include the last point
         indicies = self.get_last_indicies(indicies, not_indicies)
         # Get the indicies for the system not already included
-        not_indicies = np.array(self.get_not_indicies(indicies, all_indicies))
+        not_indicies = array(self.get_not_indicies(indicies, all_indicies))
         # Get the targets
         targets = self.get_all_targets()[not_indicies]
         # Get sorting of the targets
         if self.force_targets:
             # Get the points with the lowest norm of the targets
-            i_sort = np.argsort(np.linalg.norm(targets, axis=1))
+            targets_norm = sqrt(einsum("ij,ij->i", targets, targets))
+            i_sort = argsort(targets_norm)
         else:
             # Get the points with the lowest energies
-            i_sort = np.argsort(targets[:, 0])
+            i_sort = argsort(targets[:, 0])
         # Get the number of missing points
         npoints = int(self.npoints - len(indicies))
         # Get the indicies for the system not already included
         i_sort = i_sort[:npoints]
-        indicies = np.append(indicies, not_indicies[i_sort])
-        return np.array(indicies, dtype=int)
+        indicies = append(indicies, not_indicies[i_sort])
+        return array(indicies, dtype=int)
 
     def get_arguments(self):
         "Get the arguments of the class itself."
@@ -789,6 +886,8 @@ class DatabaseMin(DatabaseReduction):
             reduce_dimensions=self.reduce_dimensions,
             use_derivatives=self.use_derivatives,
             use_fingerprint=self.use_fingerprint,
+            round_targets=self.round_targets,
+            dtype=self.dtype,
             npoints=self.npoints,
             initial_indicies=self.initial_indicies,
             include_last=self.include_last,
@@ -813,6 +912,8 @@ class DatabaseLast(DatabaseReduction):
         reduce_dimensions=True,
         use_derivatives=True,
         use_fingerprint=True,
+        round_targets=None,
+        dtype=None,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -835,6 +936,11 @@ class DatabaseLast(DatabaseReduction):
             use_fingerprint : bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
+            round_targets: int (optional)
+                The number of decimals to round the targets to.
+                If None, the targets are not rounded.
+            dtype: type
+                The data type of the arrays.
             npoints : int
                 Number of points that are used from the database.
             initial_indicies : list
@@ -848,6 +954,8 @@ class DatabaseLast(DatabaseReduction):
             reduce_dimensions=reduce_dimensions,
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
+            round_targets=round_targets,
+            dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
             include_last=include_last,
@@ -864,8 +972,8 @@ class DatabaseLast(DatabaseReduction):
         npoints = int(self.npoints - len(indicies))
         # Get the last points in the database
         if npoints > 0:
-            indicies = np.append(indicies, not_indicies[-npoints:])
-        return np.array(indicies, dtype=int)
+            indicies = append(indicies, not_indicies[-npoints:])
+        return array(indicies, dtype=int)
 
 
 class DatabaseRestart(DatabaseReduction):
@@ -875,6 +983,8 @@ class DatabaseRestart(DatabaseReduction):
         reduce_dimensions=True,
         use_derivatives=True,
         use_fingerprint=True,
+        round_targets=None,
+        dtype=None,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -898,6 +1008,11 @@ class DatabaseRestart(DatabaseReduction):
             use_fingerprint : bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
+            round_targets: int (optional)
+                The number of decimals to round the targets to.
+                If None, the targets are not rounded.
+            dtype: type
+                The data type of the arrays.
             npoints : int
                 Number of points that are used from the database.
             initial_indicies : list
@@ -911,6 +1026,8 @@ class DatabaseRestart(DatabaseReduction):
             reduce_dimensions=reduce_dimensions,
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
+            round_targets=round_targets,
+            dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
             include_last=include_last,
@@ -940,8 +1057,8 @@ class DatabaseRestart(DatabaseReduction):
         # Get the indicies for the system not already included
         not_indicies = self.get_not_indicies(indicies, all_indicies)
         # Include the indicies
-        indicies = np.append(indicies, not_indicies[-(n_extra + lasts) :])
-        return np.array(indicies, dtype=int)
+        indicies = append(indicies, not_indicies[-(n_extra + lasts) :])
+        return array(indicies, dtype=int)
 
 
 class DatabasePointsInterest(DatabaseLast):
@@ -951,6 +1068,8 @@ class DatabasePointsInterest(DatabaseLast):
         reduce_dimensions=True,
         use_derivatives=True,
         use_fingerprint=True,
+        round_targets=None,
+        dtype=None,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -978,6 +1097,11 @@ class DatabasePointsInterest(DatabaseLast):
             use_fingerprint : bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
+            round_targets: int (optional)
+                The number of decimals to round the targets to.
+                If None, the targets are not rounded.
+            dtype: type
+                The data type of the arrays.
             npoints : int
                 Number of points that are used from the database.
             initial_indicies : list
@@ -996,6 +1120,8 @@ class DatabasePointsInterest(DatabaseLast):
             reduce_dimensions=reduce_dimensions,
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
+            round_targets=round_targets,
+            dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
             include_last=include_last,
@@ -1013,10 +1139,11 @@ class DatabasePointsInterest(DatabaseLast):
                 the points of interest.
         """
         if self.use_fingerprint:
-            return np.array(
-                [feature.get_vector() for feature in self.fp_interest]
+            return array(
+                [feature.get_vector() for feature in self.fp_interest],
+                dtype=self.dtype,
             )
-        return np.array(self.fp_interest)
+        return array(self.fp_interest, dtype=self.dtype)
 
     def get_positions(self, atoms_list, **kwargs):
         """
@@ -1029,8 +1156,9 @@ class DatabasePointsInterest(DatabaseLast):
          Returns:
              list: A list of the positions of the atoms for each system.
         """
-        return np.array(
-            [atoms.get_positions().reshape(-1) for atoms in atoms_list]
+        return array(
+            [atoms.get_positions().reshape(-1) for atoms in atoms_list],
+            dtype=self.dtype,
         )
 
     def get_positions_interest(self, **kwargs):
@@ -1087,6 +1215,8 @@ class DatabasePointsInterest(DatabaseLast):
         reduce_dimensions=None,
         use_derivatives=None,
         use_fingerprint=None,
+        round_targets=None,
+        dtype=None,
         npoints=None,
         initial_indicies=None,
         include_last=None,
@@ -1109,6 +1239,11 @@ class DatabasePointsInterest(DatabaseLast):
             use_fingerprint : bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
+            round_targets: int (optional)
+                The number of decimals to round the targets to.
+                If None, the targets are not rounded.
+            dtype: type
+                The data type of the arrays.
             npoints : int
                 Number of points that are used from the database.
             initial_indicies : list
@@ -1139,10 +1274,14 @@ class DatabasePointsInterest(DatabaseLast):
         if use_fingerprint is not None:
             self.use_fingerprint = use_fingerprint
             reset_database = True
+        if round_targets is not None or not hasattr(self, "round_targets"):
+            self.round_targets = round_targets
+        if dtype is not None or not hasattr(self, "dtype"):
+            self.dtype = dtype
         if npoints is not None:
             self.npoints = int(npoints)
         if initial_indicies is not None:
-            self.initial_indicies = np.array(initial_indicies, dtype=int)
+            self.initial_indicies = array(initial_indicies, dtype=int)
         if include_last is not None:
             self.include_last = int(abs(include_last))
         if feature_distance is not None:
@@ -1180,17 +1319,17 @@ class DatabasePointsInterest(DatabaseLast):
         # Include the last point
         indicies = self.get_last_indicies(indicies, not_indicies)
         # Get the indicies for the system not already included
-        not_indicies = np.array(self.get_not_indicies(indicies, all_indicies))
+        not_indicies = array(self.get_not_indicies(indicies, all_indicies))
         # Get the number of missing points
         npoints = int(self.npoints - len(indicies))
         # Calculate the distances to the points of interest
         dist = self.get_distances(not_indicies)
         # Get the minimum distances to the points of interest
-        dist = np.min(dist, axis=0)
-        i_min = np.argsort(dist)[:npoints]
+        dist = dist.min(axis=0)
+        i_min = argsort(dist)[:npoints]
         # Get the indicies
-        indicies = np.append(indicies, [not_indicies[i_min]])
-        return np.array(indicies, dtype=int)
+        indicies = append(indicies, [not_indicies[i_min]])
+        return array(indicies, dtype=int)
 
     def get_arguments(self):
         "Get the arguments of the class itself."
@@ -1200,6 +1339,8 @@ class DatabasePointsInterest(DatabaseLast):
             reduce_dimensions=self.reduce_dimensions,
             use_derivatives=self.use_derivatives,
             use_fingerprint=self.use_fingerprint,
+            round_targets=self.round_targets,
+            dtype=self.dtype,
             npoints=self.npoints,
             initial_indicies=self.initial_indicies,
             include_last=self.include_last,
@@ -1225,6 +1366,8 @@ class DatabasePointsInterestEach(DatabasePointsInterest):
         reduce_dimensions=True,
         use_derivatives=True,
         use_fingerprint=True,
+        round_targets=None,
+        dtype=None,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -1252,6 +1395,11 @@ class DatabasePointsInterestEach(DatabasePointsInterest):
             use_fingerprint : bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
+            round_targets: int (optional)
+                The number of decimals to round the targets to.
+                If None, the targets are not rounded.
+            dtype: type
+                The data type of the arrays.
             npoints : int
                 Number of points that are used from the database.
             initial_indicies : list
@@ -1270,6 +1418,8 @@ class DatabasePointsInterestEach(DatabasePointsInterest):
             reduce_dimensions=reduce_dimensions,
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
+            round_targets=round_targets,
+            dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
             include_last=include_last,
@@ -1293,7 +1443,7 @@ class DatabasePointsInterestEach(DatabasePointsInterest):
         # Include the last point
         indicies = self.get_last_indicies(indicies, not_indicies)
         # Get the indicies for the system not already included
-        not_indicies = np.array(self.get_not_indicies(indicies, all_indicies))
+        not_indicies = array(self.get_not_indicies(indicies, all_indicies))
         # Calculate the distances to the points of interest
         dist = self.get_distances(not_indicies)
         # Get the number of points of interest
@@ -1302,14 +1452,14 @@ class DatabasePointsInterestEach(DatabasePointsInterest):
         p = 0
         while len(indicies) < self.npoints:
             # Get the point with the minimum distance
-            i_min = np.argmin(dist[p])
+            i_min = argmin(dist[p])
             # Get and append the index
-            indicies = np.append(indicies, [not_indicies[i_min]])
+            indicies = append(indicies, [not_indicies[i_min]])
             # Remove the index
-            not_indicies = np.delete(not_indicies, i_min)
-            dist = np.delete(dist, i_min, axis=1)
+            not_indicies = delete(not_indicies, i_min)
+            dist = delete(dist, i_min, axis=1)
             # Use the next point
             p += 1
             if p >= n_points_interest:
                 p = 0
-        return np.array(indicies, dtype=int)
+        return array(indicies, dtype=int)
