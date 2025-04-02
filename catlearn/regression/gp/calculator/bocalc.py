@@ -24,6 +24,7 @@ class BOCalculator(MLCalculator):
         calc_force_unc=False,
         calc_unc_deriv=True,
         calc_kwargs={},
+        round_pred=None,
         kappa=2.0,
         **kwargs,
     ):
@@ -50,6 +51,9 @@ class BOCalculator(MLCalculator):
             calc_kwargs: dict
                 A dictionary with kwargs for
                 the parent calculator class object.
+            round_pred: int (optional)
+                The number of decimals to round the preditions to.
+                If None, the predictions are not rounded.
             kappa: float
                 The weight of the uncertainty relative to the energy.
                 If kappa>0, the uncertainty is added to the predicted energy.
@@ -61,6 +65,7 @@ class BOCalculator(MLCalculator):
             calc_force_unc=calc_force_unc,
             calc_unc_deriv=calc_unc_deriv,
             calc_kwargs=calc_kwargs,
+            round_pred=round_pred,
             kappa=kappa,
             **kwargs,
         )
@@ -135,21 +140,31 @@ class BOCalculator(MLCalculator):
             get_unc_derivatives=get_unc_derivatives,
         )
         # Store the properties that are implemented
-        for key, value in results.items():
-            if key in self.implemented_properties:
-                self.results[key] = value
+        self.store_properties(results)
         # Save the predicted properties
-        self.results["predicted energy"] = results["energy"]
+        self.modify_results_bo(
+            get_forces=get_forces,
+        )
+        return self.results
+
+    def modify_results_bo(
+        self,
+        get_forces,
+        **kwargs,
+    ):
+        """
+        Modify the results of the Bayesian optimization calculator.
+        """
+        # Save the predicted properties
+        self.results["predicted energy"] = self.results["energy"]
         if get_forces:
-            self.results["predicted forces"] = results["forces"].copy()
+            self.results["predicted forces"] = self.results["forces"].copy()
         # Calculate the acquisition function and its derivative
         if self.kappa != 0.0:
-            self.results["energy"] = (
-                results["energy"] + self.kappa * results["uncertainty"]
-            )
+            self.results["energy"] += self.kappa * self.results["uncertainty"]
             if get_forces:
-                self.results["forces"] = results["forces"] - (
-                    self.kappa * results["uncertainty derivatives"]
+                self.results["forces"] -= (
+                    self.kappa * self.results["uncertainty derivatives"]
                 )
         return self.results
 
@@ -161,6 +176,7 @@ class BOCalculator(MLCalculator):
         calc_force_unc=None,
         calc_unc_deriv=None,
         calc_kwargs=None,
+        round_pred=None,
         kappa=None,
         **kwargs,
     ):
@@ -187,6 +203,9 @@ class BOCalculator(MLCalculator):
             calc_kwargs: dict
                 A dictionary with kwargs for
                 the parent calculator class object.
+            round_pred: int (optional)
+                The number of decimals to round the preditions to.
+                If None, the predictions are not rounded.
             kappa: float
                 The weight of the uncertainty relative to the energy.
 
@@ -205,6 +224,8 @@ class BOCalculator(MLCalculator):
             self.calc_unc_deriv = calc_unc_deriv
         if calc_kwargs is not None:
             self.calc_kwargs = calc_kwargs.copy()
+        if round_pred is not None or not hasattr(self, "round_pred"):
+            self.round_pred = round_pred
         if kappa is not None:
             self.kappa = float(kappa)
         # Empty the results
@@ -257,6 +278,7 @@ class BOCalculator(MLCalculator):
             calc_force_unc=self.calc_force_unc,
             calc_unc_deriv=self.calc_unc_deriv,
             calc_kwargs=self.calc_kwargs,
+            round_pred=self.round_pred,
             kappa=self.kappa,
         )
         # Get the constants made within the class

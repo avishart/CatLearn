@@ -1,4 +1,5 @@
-import numpy as np
+from numpy import asarray, ndarray, sqrt, zeros
+import warnings
 
 
 class MLModel:
@@ -12,6 +13,7 @@ class MLModel:
         pdis=None,
         include_noise=False,
         verbose=False,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -38,6 +40,8 @@ class MLModel:
                 Whether to include noise in the uncertainty from the model.
             verbose: bool
                 Whether to print statements in the optimization.
+            dtype: type
+                The data type of the arrays.
         """
         # Make default model if it is not given
         if model is None:
@@ -55,6 +59,7 @@ class MLModel:
             pdis=pdis,
             include_noise=include_noise,
             verbose=verbose,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -70,7 +75,7 @@ class MLModel:
         Returns:
             self: The updated object itself.
         """
-        if not isinstance(atoms_list, (list, np.ndarray)):
+        if not isinstance(atoms_list, (list, ndarray)):
             atoms_list = [atoms_list]
         self.database.add_set(atoms_list)
         self.store_baseline_targets(atoms_list)
@@ -248,6 +253,7 @@ class MLModel:
         pdis=None,
         include_noise=None,
         verbose=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -275,6 +281,8 @@ class MLModel:
                 Whether to include noise in the uncertainty from the model.
             verbose: bool
                 Whether to print statements in the optimization.
+            dtype: type
+                The data type of the arrays.
 
         Returns:
             self: The updated object itself.
@@ -301,6 +309,8 @@ class MLModel:
             self.include_noise = include_noise
         if verbose is not None:
             self.verbose = verbose
+        if dtype is not None or not hasattr(self, "dtype"):
+            self.dtype = dtype
         # Check if the baseline is used
         if self.baseline is None:
             self.use_baseline = False
@@ -349,7 +359,7 @@ class MLModel:
         fp = self.database.make_atoms_feature(atoms)
         # Calculate energy, forces, and uncertainty
         y, var, var_deriv = self.model.predict(
-            np.array([fp]),
+            asarray([fp], dtype=self.dtype),
             get_derivatives=get_forces,
             get_variance=get_uncertainty,
             include_noise=self.include_noise,
@@ -371,10 +381,10 @@ class MLModel:
             forces = None
         # Get the uncertainties if they are requested
         if get_uncertainty:
-            unc = np.sqrt(var[0][0])
+            unc = sqrt(var[0][0])
             # Get the uncertainty of the forces if they are requested
             if get_force_uncertainties and get_forces:
-                unc_forces = np.sqrt(unc[0][1:])
+                unc_forces = sqrt(unc[0][1:])
             else:
                 unc_forces = None
             # Get the derivatives of the predicted uncertainty
@@ -417,22 +427,22 @@ class MLModel:
         if forces is not None:
             results["forces"] = self.not_masked_reshape(
                 forces,
-                not_masked,
-                natoms,
+                not_masked=not_masked,
+                natoms=natoms,
             )
         # Make the full matrix of force uncertainties and save it
         if unc_forces is not None:
             results["force uncertainties"] = self.not_masked_reshape(
                 unc_forces,
-                not_masked,
-                natoms,
+                not_masked=not_masked,
+                natoms=natoms,
             )
         # Make the full matrix of derivatives of uncertainty and save it
         if unc_deriv is not None:
             results["uncertainty derivatives"] = self.not_masked_reshape(
                 unc_deriv,
-                not_masked,
-                natoms,
+                not_masked=not_masked,
+                natoms=natoms,
             )
         return results
 
@@ -448,7 +458,7 @@ class MLModel:
                 **kwargs,
             )
             # Add baseline correction to the targets
-            return targets + np.array(y_base)[0]
+            return targets + asarray(y_base, dtype=self.dtype)[0]
         return targets
 
     def get_baseline_corrected_targets(self, targets, **kwargs):
@@ -457,7 +467,7 @@ class MLModel:
         The baseline correction is subtracted from training targets.
         """
         if self.use_baseline:
-            return targets - np.array(self.baseline_targets)
+            return targets - asarray(self.baseline_targets, dtype=self.dtype)
         return targets
 
     def store_baseline_targets(self, atoms_list, **kwargs):
@@ -483,13 +493,13 @@ class MLModel:
             )
         return y_base
 
-    def not_masked_reshape(self, array, not_masked, natoms, **kwargs):
+    def not_masked_reshape(self, nm_array, not_masked, natoms, **kwargs):
         """
         Reshape an array so that it works for all atom coordinates and
         set constrained indicies to 0.
         """
-        full_array = np.zeros((natoms, 3))
-        full_array[not_masked] = array.reshape(-1, 3)
+        full_array = zeros((natoms, 3), dtype=self.dtype)
+        full_array[not_masked] = nm_array.reshape(-1, 3)
         return full_array
 
     def get_data(self, **kwargs):
@@ -567,6 +577,7 @@ class MLModel:
             pdis=self.pdis,
             include_noise=self.include_noise,
             verbose=self.verbose,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()
@@ -707,8 +718,6 @@ def get_default_model(
             tol=1e-12,
         )
         if parallel:
-            import warnings
-
             warnings.warn(
                 "Parallel optimization is not implemented"
                 "with local optimization!"
@@ -778,6 +787,8 @@ def get_default_database(
     use_derivatives=True,
     database_reduction=False,
     database_reduction_kwargs={},
+    round_targets=None,
+    dtype=None,
     **kwargs,
 ):
     """
@@ -815,9 +826,12 @@ def get_default_database(
             reduce_dimensions=True,
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
+            round_targets=round_targets,
+            dtype=dtype,
             npoints=50,
             initial_indicies=[0, 1],
             include_last=1,
+            **kwargs,
         )
         data_kwargs.update(database_reduction_kwargs)
         if database_reduction.lower() == "distance":
@@ -862,6 +876,8 @@ def get_default_database(
             reduce_dimensions=True,
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
+            round_targets=round_targets,
+            dtype=dtype,
         )
     return database
 
@@ -879,7 +895,9 @@ def get_default_mlmodel(
     n_reduced=None,
     database_reduction=False,
     database_reduction_kwargs={},
+    round_targets=None,
     verbose=False,
+    dtype=None,
     **kwargs,
 ):
     """
@@ -948,6 +966,8 @@ def get_default_mlmodel(
         use_derivatives=use_derivatives,
         database_reduction=database_reduction,
         database_reduction_kwargs=database_reduction_kwargs,
+        round_targets=round_targets,
+        dtype=dtype,
     )
     # Make prior distributions for the hyperparameters if specified
     if use_pdis:
@@ -967,4 +987,5 @@ def get_default_mlmodel(
         optimize=optimize_hp,
         pdis=pdis,
         verbose=verbose,
+        dtype=dtype,
     )

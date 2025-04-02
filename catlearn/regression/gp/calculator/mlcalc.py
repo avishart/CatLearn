@@ -1,3 +1,4 @@
+from numpy import round as round_
 from ase.calculators.calculator import Calculator, all_changes
 
 
@@ -21,6 +22,7 @@ class MLCalculator(Calculator):
         calc_force_unc=False,
         calc_unc_deriv=False,
         calc_kwargs={},
+        round_pred=None,
         **kwargs,
     ):
         """
@@ -45,6 +47,9 @@ class MLCalculator(Calculator):
             calc_kwargs: dict
                 A dictionary with kwargs for
                 the parent calculator class object.
+            round_pred: int (optional)
+                The number of decimals to round the predictions to.
+                If None, the predictions are not rounded.
         """
         # Inherit from the Calculator object
         Calculator.__init__(self, **calc_kwargs)
@@ -66,6 +71,7 @@ class MLCalculator(Calculator):
             calc_force_unc=calc_force_unc,
             calc_unc_deriv=calc_unc_deriv,
             calc_kwargs=calc_kwargs,
+            round_pred=round_pred,
             **kwargs,
         )
 
@@ -301,9 +307,7 @@ class MLCalculator(Calculator):
             get_unc_derivatives=get_unc_derivatives,
         )
         # Store the properties that are implemented
-        for key, value in results.items():
-            if key in self.implemented_properties:
-                self.results[key] = value
+        self.store_properties(results)
         return self.results
 
     def save_mlcalc(self, filename="mlcalc.pkl", **kwargs):
@@ -348,6 +352,7 @@ class MLCalculator(Calculator):
         calc_force_unc=None,
         calc_unc_deriv=None,
         calc_kwargs=None,
+        round_pred=None,
         **kwargs,
     ):
         """
@@ -373,6 +378,9 @@ class MLCalculator(Calculator):
             calc_kwargs: dict
                 A dictionary with kwargs for
                 the parent calculator class object.
+            round_pred: int (optional)
+                The number of decimals to round the predictions to.
+                If None, the predictions are not rounded.
 
         Returns:
             self: The updated object itself.
@@ -389,6 +397,8 @@ class MLCalculator(Calculator):
             self.calc_unc_deriv = calc_unc_deriv
         if calc_kwargs is not None:
             self.calc_kwargs = calc_kwargs.copy()
+        if round_pred is not None or not hasattr(self, "round_pred"):
+            self.round_pred = round_pred
         # Empty the results
         self.reset()
         return self
@@ -447,6 +457,17 @@ class MLCalculator(Calculator):
         )
         return results
 
+    def store_properties(self, results, **kwargs):
+        "Store the properties that are implemented."
+        for key, value in results.items():
+            if key in self.implemented_properties:
+                # Round the predictions if needed
+                if self.round_pred is not None:
+                    value = round_(value, self.round_pred)
+                # Save the properties in the results
+                self.results[key] = value
+        return self.results
+
     def get_arguments(self):
         "Get the arguments of the class itself."
         # Get the arguments given to the class in the initialization
@@ -457,6 +478,7 @@ class MLCalculator(Calculator):
             calc_force_unc=self.calc_force_unc,
             calc_unc_deriv=self.calc_unc_deriv,
             calc_kwargs=self.calc_kwargs,
+            round_pred=self.round_pred,
         )
         # Get the constants made within the class
         constant_kwargs = dict()
