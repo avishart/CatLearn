@@ -1,24 +1,27 @@
-import numpy as np
+from numpy import array, isscalar, ndarray
 from ase.calculators.calculator import Calculator, PropertyNotImplementedError
 
 
-def copy_atoms(atoms, **kwargs):
+def copy_atoms(atoms, results={}, **kwargs):
     """
     Copy the atoms object together with the calculated properties.
 
     Parameters:
         atoms : ASE Atoms
             The ASE Atoms object with a calculator that is copied.
+        results : dict (optional)
+            The properties to be saved in the calculator.
+            If not given, the properties are taken from the calculator.
 
     Returns:
         atoms0 : ASE Atoms
             The copy of the Atoms object with saved data in the calculator.
     """
-    # Save the properties calculated
-    if atoms.calc is not None:
-        results = atoms.calc.results.copy()
-    else:
-        results = {}
+    # Check if results are given
+    if not isinstance(results, dict) or len(results) == 0:
+        # Save the properties calculated
+        if atoms.calc is not None:
+            results = atoms.calc.results.copy()
     # Copy the ASE Atoms object
     atoms0 = atoms.copy()
     # Store the properties in a calculator
@@ -38,6 +41,7 @@ class StoredDataCalculator(Calculator):
     def __init__(
         self,
         atoms,
+        dtype=float,
         **results,
     ):
         """Save the properties for the given configuration."""
@@ -50,14 +54,14 @@ class StoredDataCalculator(Calculator):
             elif isinstance(value, (float, int)):
                 self.results[property] = value
             else:
-                self.results[property] = np.array(value, dtype=float)
+                self.results[property] = array(value, dtype=dtype)
         # Save the configuration
         self.atoms = atoms.copy()
 
     def __str__(self):
         tokens = []
         for key, val in sorted(self.results.items()):
-            if np.isscalar(val):
+            if isscalar(val):
                 txt = "{}={}".format(key, val)
             else:
                 txt = "{}=...".format(key)
@@ -76,7 +80,7 @@ class StoredDataCalculator(Calculator):
             return None
         # Return the property
         result = self.results[name]
-        if isinstance(result, (np.ndarray, list)):
+        if isinstance(result, (ndarray, list)):
             result = result.copy()
         return result
 
