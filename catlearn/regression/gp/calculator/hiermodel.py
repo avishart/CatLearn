@@ -1,4 +1,4 @@
-import numpy as np
+from numpy import ndarray
 from .mlmodel import MLModel
 from .mlcalc import MLCalculator
 
@@ -16,6 +16,7 @@ class HierarchicalMLModel(MLModel):
         verbose=False,
         npoints=25,
         initial_indicies=[0],
+        dtype=None,
         **kwargs,
     ):
         """
@@ -51,6 +52,8 @@ class HierarchicalMLModel(MLModel):
             initial_indicies: list
                 The indicies of the data points that must be included in
                 the used data base for every model.
+            dtype: type
+                The data type of the arrays.
         """
         super().__init__(
             model=model,
@@ -63,6 +66,7 @@ class HierarchicalMLModel(MLModel):
             verbose=verbose,
             npoints=npoints,
             initial_indicies=initial_indicies,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -79,7 +83,7 @@ class HierarchicalMLModel(MLModel):
             self: The updated object itself.
         """
         data_len = self.get_training_set_size()
-        if not isinstance(atoms_list, (list, np.ndarray)):
+        if not isinstance(atoms_list, (list, ndarray)):
             atoms_list = [atoms_list]
         # Store the data
         if data_len + len(atoms_list) <= self.npoints:
@@ -117,6 +121,7 @@ class HierarchicalMLModel(MLModel):
         verbose=None,
         npoints=None,
         initial_indicies=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -149,6 +154,8 @@ class HierarchicalMLModel(MLModel):
             initial_indicies: list
                 The indicies of the data points that must be included in
                 the used data base for every model.
+            dtype: type
+                The data type of the arrays.
 
         Returns:
             self: The updated object itself.
@@ -175,6 +182,8 @@ class HierarchicalMLModel(MLModel):
             self.include_noise = include_noise
         if verbose is not None:
             self.verbose = verbose
+        if dtype is not None or not hasattr(self, "dtype"):
+            self.dtype = dtype
         if npoints is not None:
             self.npoints = int(npoints)
         if initial_indicies is not None:
@@ -205,6 +214,7 @@ class HierarchicalMLModel(MLModel):
             verbose=self.verbose,
             npoints=self.npoints,
             initial_indicies=self.initial_indicies,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()
