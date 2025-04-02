@@ -1,4 +1,4 @@
-import numpy as np
+from numpy import inf
 from scipy.optimize import OptimizeResult
 from .hpfitter import HyperparameterFitter
 
@@ -12,6 +12,7 @@ class ReducedHyperparameterFitter(HyperparameterFitter):
         use_update_pdis=False,
         get_prior_mean=False,
         use_stored_sols=False,
+        round_hp=None,
         opt_tr_size=50,
         **kwargs,
     ):
@@ -22,24 +23,27 @@ class ReducedHyperparameterFitter(HyperparameterFitter):
         the training set size is below a number.
 
         Parameters:
-            func : ObjectiveFunction class
+            func: ObjectiveFunction class
                 A class with the objective function used
                 to optimize the hyperparameters.
-            optimizer : Optimizer class
+            optimizer: Optimizer class
                 A class with the used optimization method.
-            bounds : HPBoundaries class
+            bounds: HPBoundaries class
                 A class of the boundary conditions of the hyperparameters.
                 Most of the global optimizers are using boundary conditions.
                 The bounds in this class will be used
                 for the optimizer and func.
-            use_update_pdis : bool
+            use_update_pdis: bool
                 Whether to update the prior distributions of
                 the hyperparameters with the given boundary conditions.
-            get_prior_mean : bool
+            get_prior_mean: bool
                 Whether to get the parameters of the prior mean
                 in the solution.
-            use_stored_sols : bool
+            use_stored_sols: bool
                 Whether to store the solutions.
+            round_hp: int (optional)
+                The number of decimals to round the hyperparameters to.
+                If None, the hyperparameters are not rounded.
             opt_tr_size: int
                 The maximum size of the training set before
                 the hyperparameters are not optimized.
@@ -51,6 +55,7 @@ class ReducedHyperparameterFitter(HyperparameterFitter):
             use_update_pdis=use_update_pdis,
             get_prior_mean=get_prior_mean,
             use_stored_sols=use_stored_sols,
+            round_hp=round_hp,
             opt_tr_size=opt_tr_size,
             **kwargs,
         )
@@ -64,7 +69,7 @@ class ReducedHyperparameterFitter(HyperparameterFitter):
         hp, theta, parameters = self.get_hyperparams(hp, model)
         # Do not optimize hyperparameters
         sol = {
-            "fun": np.inf,
+            "fun": inf,
             "x": theta,
             "hp": hp,
             "success": False,
@@ -85,6 +90,7 @@ class ReducedHyperparameterFitter(HyperparameterFitter):
         use_update_pdis=None,
         get_prior_mean=None,
         use_stored_sols=None,
+        round_hp=None,
         opt_tr_size=None,
         **kwargs,
     ):
@@ -93,24 +99,27 @@ class ReducedHyperparameterFitter(HyperparameterFitter):
         The existing arguments are used if they are not given.
 
         Parameters:
-            func : ObjectiveFunction class
+            func: ObjectiveFunction class
                 A class with the objective function used
                 to optimize the hyperparameters.
-            optimizer : Optimizer class
+            optimizer: Optimizer class
                 A class with the used optimization method.
-            bounds : HPBoundaries class
+            bounds: HPBoundaries class
                 A class of the boundary conditions of the hyperparameters.
                 Most of the global optimizers are using boundary conditions.
                 The bounds in this class will be used
                 for the optimizer and func.
-            use_update_pdis : bool
+            use_update_pdis: bool
                 Whether to update the prior distributions of
                 the hyperparameters with the given boundary conditions.
-            get_prior_mean : bool
+            get_prior_mean: bool
                 Whether to get the parameters of the prior mean
                 in the solution.
-            use_stored_sols : bool
+            use_stored_sols: bool
                 Whether to store the solutions.
+            round_hp: int (optional)
+                The number of decimals to round the hyperparameters to.
+                If None, the hyperparameters are not rounded.
             opt_tr_size: int
                 The maximum size of the training set before
                 the hyperparameters are not optimized.
@@ -130,6 +139,8 @@ class ReducedHyperparameterFitter(HyperparameterFitter):
             self.get_prior_mean = get_prior_mean
         if use_stored_sols is not None:
             self.use_stored_sols = use_stored_sols
+        if round_hp is not None or not hasattr(self, "round_hp"):
+            self.round_hp = round_hp
         if opt_tr_size is not None:
             self.opt_tr_size = opt_tr_size
         # Empty the stored solutions
@@ -148,6 +159,7 @@ class ReducedHyperparameterFitter(HyperparameterFitter):
             use_update_pdis=self.use_update_pdis,
             get_prior_mean=self.get_prior_mean,
             use_stored_sols=self.use_stored_sols,
+            round_hp=self.round_hp,
             opt_tr_size=self.opt_tr_size,
         )
         # Get the constants made within the class

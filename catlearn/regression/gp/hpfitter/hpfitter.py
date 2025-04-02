@@ -1,4 +1,4 @@
-import numpy as np
+from numpy import asarray, round as round_
 
 
 class HyperparameterFitter:
@@ -10,6 +10,7 @@ class HyperparameterFitter:
         use_update_pdis=False,
         get_prior_mean=False,
         use_stored_sols=False,
+        round_hp=None,
         **kwargs,
     ):
         """
@@ -17,24 +18,27 @@ class HyperparameterFitter:
         the hyperparameters on different given objective functions.
 
         Parameters:
-            func : ObjectiveFunction class
+            func: ObjectiveFunction class
                 A class with the objective function used
                 to optimize the hyperparameters.
-            optimizer : Optimizer class
+            optimizer: Optimizer class
                 A class with the used optimization method.
-            bounds : HPBoundaries class
+            bounds: HPBoundaries class
                 A class of the boundary conditions of the hyperparameters.
                 Most of the global optimizers are using boundary conditions.
                 The bounds in this class will be used
                 for the optimizer and func.
-            use_update_pdis : bool
+            use_update_pdis: bool
                 Whether to update the prior distributions of
                 the hyperparameters with the given boundary conditions.
-            get_prior_mean : bool
+            get_prior_mean: bool
                 Whether to get the parameters of the prior mean
                 in the solution.
-            use_stored_sols : bool
+            use_stored_sols: bool
                 Whether to store the solutions.
+            round_hp: int (optional)
+                The number of decimals to round the hyperparameters to.
+                If None, the hyperparameters are not rounded.
         """
         # Set the default optimizer
         if optimizer is None:
@@ -54,6 +58,7 @@ class HyperparameterFitter:
             use_update_pdis=use_update_pdis,
             get_prior_mean=get_prior_mean,
             use_stored_sols=use_stored_sols,
+            round_hp=round_hp,
             **kwargs,
         )
 
@@ -62,22 +67,22 @@ class HyperparameterFitter:
         Optimize the hyperparameters.
 
         Parameters:
-            X : (N,D) array
+            X: (N,D) array
                 Training features with N data points and D dimensions.
-            Y : (N,1) array or (N,D+1) array
+            Y: (N,1) array or (N,D+1) array
                 Training targets with or without derivatives with
                 N data points.
-            model : Model
+            model: Model
                 The Machine Learning Model with kernel and
                 prior that are optimized.
-            hp : dict
+            hp: dict
                 Use a set of hyperparameters to optimize from
                 else the current set is used.
-            pdis : dict
+            pdis: dict
                 A dict of prior distributions for each hyperparameter type.
 
         Returns:
-            dict : A solution dictionary with objective function value,
+            dict: A solution dictionary with objective function value,
                 optimized hyperparameters, success statement,
                 and number of used evaluations.
         """
@@ -117,6 +122,7 @@ class HyperparameterFitter:
         use_update_pdis=None,
         get_prior_mean=None,
         use_stored_sols=None,
+        round_hp=None,
         **kwargs,
     ):
         """
@@ -124,24 +130,27 @@ class HyperparameterFitter:
         The existing arguments are used if they are not given.
 
         Parameters:
-            func : ObjectiveFunction class
+            func: ObjectiveFunction class
                 A class with the objective function used
                 to optimize the hyperparameters.
-            optimizer : Optimizer class
+            optimizer: Optimizer class
                 A class with the used optimization method.
-            bounds : HPBoundaries class
+            bounds: HPBoundaries class
                 A class of the boundary conditions of the hyperparameters.
                 Most of the global optimizers are using boundary conditions.
                 The bounds in this class will be used
                 for the optimizer and func.
-            use_update_pdis : bool
+            use_update_pdis: bool
                 Whether to update the prior distributions of
                 the hyperparameters with the given boundary conditions.
-            get_prior_mean : bool
+            get_prior_mean: bool
                 Whether to get the parameters of the prior mean
                 in the solution.
-            use_stored_sols : bool
+            use_stored_sols: bool
                 Whether to store the solutions.
+            round_hp: int (optional)
+                The number of decimals to round the hyperparameters to.
+                If None, the hyperparameters are not rounded.
 
         Returns:
             self: The updated object itself.
@@ -158,6 +167,8 @@ class HyperparameterFitter:
             self.get_prior_mean = get_prior_mean
         if use_stored_sols is not None:
             self.use_stored_sols = use_stored_sols
+        if round_hp is not None or not hasattr(self, "round_hp"):
+            self.round_hp = round_hp
         # Empty the stored solutions
         self.sols = []
         # Make sure that the objective function gets the prior mean parameters
@@ -205,7 +216,7 @@ class HyperparameterFitter:
         parameters = sum(
             [[para] * len(hp[para]) for para in parameters_set], []
         )
-        return np.array(theta), parameters
+        return asarray(theta), parameters
 
     def update_bounds(self, model, X, Y, parameters, **kwargs):
         "Update the boundary condition class with the data."
@@ -244,6 +255,11 @@ class HyperparameterFitter:
         that are optimized and within the model.
         """
         sol["full hp"] = model.get_hyperparams()
+        # Round the hyperparameters if needed
+        if self.round_hp is not None:
+            for key, value in sol["hp"].items():
+                sol["hp"][key] = round_(value, self.round_hp)
+        # Update the optimized hyperparameters
         sol["full hp"].update(sol["hp"])
         return sol
 
@@ -267,6 +283,7 @@ class HyperparameterFitter:
             use_update_pdis=self.use_update_pdis,
             get_prior_mean=self.get_prior_mean,
             use_stored_sols=self.use_stored_sols,
+            round_hp=self.round_hp,
         )
         # Get the constants made within the class
         constant_kwargs = dict()
