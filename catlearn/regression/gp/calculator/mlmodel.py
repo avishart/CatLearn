@@ -731,8 +731,8 @@ def get_default_model(
             prior=prior,
             kernel=kernel,
             use_derivatives=use_derivatives,
-            a=1e-3,
-            b=1e-4,
+            a=1e-4,
+            b=2.0,
         )
         # Set objective function
         if global_optimization:
@@ -975,7 +975,7 @@ def get_default_mlmodel(
 
         pdis = dict(
             length=Normal_prior(mu=[-0.8], std=[0.2]),
-            noise=Normal_prior(mu=[-9.0], std=[1.0]),
+            noise=Normal_prior(mu=[-6.0], std=[0.2]),
         )
     else:
         pdis = None
