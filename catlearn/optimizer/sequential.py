@@ -10,6 +10,7 @@ class SequentialOptimizer(OptimizerMethod):
         parallel_run=False,
         comm=world,
         verbose=False,
+        seed=None,
         **kwargs,
     ):
         """
@@ -30,6 +31,10 @@ class SequentialOptimizer(OptimizerMethod):
             verbose: bool
                 Whether to print the full output (True) or
                 not (False).
+            seed: int (optional)
+                The random seed for the optimization.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
         """
         # Set the parameters
         self.update_arguments(
@@ -38,6 +43,7 @@ class SequentialOptimizer(OptimizerMethod):
             parallel_run=parallel_run,
             comm=comm,
             verbose=verbose,
+            seed=seed,
             **kwargs,
         )
 
@@ -142,6 +148,7 @@ class SequentialOptimizer(OptimizerMethod):
         parallel_run=None,
         comm=None,
         verbose=None,
+        seed=None,
         **kwargs,
     ):
         """
@@ -160,12 +167,23 @@ class SequentialOptimizer(OptimizerMethod):
             verbose: bool
                 Whether to print the full output (True) or
                 not (False).
+            seed: int (optional)
+                The random seed for the optimization.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
         """
         # Set the communicator
         if comm is not None:
             self.comm = comm
             self.rank = comm.rank
             self.size = comm.size
+        elif not hasattr(self, "comm"):
+            self.comm = None
+            self.rank = 0
+            self.size = 1
+        # Set the seed
+        if seed is not None or not hasattr(self, "seed"):
+            self.set_seed(seed)
         # Set the verbose
         if verbose is not None:
             self.verbose = verbose

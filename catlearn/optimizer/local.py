@@ -2,7 +2,7 @@ from .method import OptimizerMethod
 import ase
 from ase.parallel import world
 from ase.optimize import FIRE
-import numpy as np
+from numpy import isnan
 
 
 class LocalOptimizer(OptimizerMethod):
@@ -14,6 +14,7 @@ class LocalOptimizer(OptimizerMethod):
         parallel_run=False,
         comm=world,
         verbose=False,
+        seed=None,
         **kwargs,
     ):
         """
@@ -35,6 +36,10 @@ class LocalOptimizer(OptimizerMethod):
             verbose: bool
                 Whether to print the full output (True) or
                 not (False).
+            seed: int (optional)
+                The random seed for the optimization.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
         """
         # Set the parameters
         self.update_arguments(
@@ -44,6 +49,7 @@ class LocalOptimizer(OptimizerMethod):
             parallel_run=parallel_run,
             comm=comm,
             verbose=verbose,
+            seed=seed,
             **kwargs,
         )
 
@@ -138,7 +144,7 @@ class LocalOptimizer(OptimizerMethod):
                     break
             # Check if there is a problem with the calculation
             energy = self.get_potential_energy()
-            if np.isnan(energy):
+            if isnan(energy):
                 self.message("The energy is NaN.")
                 break
             # Check if the optimization is converged
@@ -183,6 +189,7 @@ class LocalOptimizer(OptimizerMethod):
         parallel_run=None,
         comm=None,
         verbose=None,
+        seed=None,
         **kwargs,
     ):
         """
@@ -203,12 +210,23 @@ class LocalOptimizer(OptimizerMethod):
             verbose: bool
                 Whether to print the full output (True) or
                 not (False).
+            seed: int (optional)
+                The random seed for the optimization.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
         """
         # Set the communicator
         if comm is not None:
             self.comm = comm
             self.rank = comm.rank
             self.size = comm.size
+        elif not hasattr(self, "comm"):
+            self.comm = None
+            self.rank = 0
+            self.size = 1
+        # Set the seed
+        if seed is not None or not hasattr(self, "seed"):
+            self.set_seed(seed)
         # Set the verbose
         if verbose is not None:
             self.verbose = verbose
@@ -247,6 +265,7 @@ class LocalOptimizer(OptimizerMethod):
             parallel_run=self.parallel_run,
             comm=self.comm,
             verbose=self.verbose,
+            seed=self.seed,
         )
         # Get the constants made within the class
         constant_kwargs = dict(steps=self.steps, _converged=self._converged)

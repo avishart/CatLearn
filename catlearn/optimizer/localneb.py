@@ -1,7 +1,7 @@
 from .local import LocalOptimizer
 from ase.parallel import world, broadcast
 from ase.optimize import FIRE
-import numpy as np
+from numpy import asarray
 
 
 class LocalNEB(LocalOptimizer):
@@ -13,6 +13,7 @@ class LocalNEB(LocalOptimizer):
         parallel_run=False,
         comm=world,
         verbose=False,
+        seed=None,
         **kwargs,
     ):
         """
@@ -33,6 +34,10 @@ class LocalNEB(LocalOptimizer):
             verbose: bool
                 Whether to print the full output (True) or
                 not (False).
+            seed: int (optional)
+                The random seed for the optimization.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
         """
         # Set the parameters
         self.update_arguments(
@@ -42,13 +47,14 @@ class LocalNEB(LocalOptimizer):
             parallel_run=parallel_run,
             comm=comm,
             verbose=verbose,
+            seed=seed,
             **kwargs,
         )
 
     def update_optimizable(self, structures, **kwargs):
         # Get the positions of the NEB images
         positions = [image.get_positions() for image in structures[1:-1]]
-        positions = np.asarray(positions).reshape(-1, 3)
+        positions = asarray(positions).reshape(-1, 3)
         # Set the positions of the NEB images
         self.optimizable.set_positions(positions)
         # Reset the optimization
@@ -72,13 +78,9 @@ class LocalNEB(LocalOptimizer):
         structures = [self.copy_atoms(self.optimizable.images[0])]
         for i, image in enumerate(self.optimizable.images[1:-1]):
             root = i % self.size
-            structures.append(
-                broadcast(
-                    self.copy_atoms(image),
-                    root=root,
-                    comm=self.comm,
-                )
-            )
+            if self.rank == root:
+                image = self.copy_atoms(image)
+            structures.append(broadcast(image, root=root, comm=self.comm))
         structures.append(self.copy_atoms(self.optimizable.images[-1]))
         return structures
 
@@ -122,6 +124,7 @@ class LocalNEB(LocalOptimizer):
         parallel_run=None,
         comm=None,
         verbose=None,
+        seed=None,
         **kwargs,
     ):
         """
@@ -142,12 +145,23 @@ class LocalNEB(LocalOptimizer):
             verbose: bool
                 Whether to print the full output (True) or
                 not (False).
+            seed: int (optional)
+                The random seed for the optimization.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
         """
         # Set the communicator
         if comm is not None:
             self.comm = comm
             self.rank = comm.rank
             self.size = comm.size
+        elif not hasattr(self, "comm"):
+            self.comm = None
+            self.rank = 0
+            self.size = 1
+        # Set the seed
+        if seed is not None or not hasattr(self, "seed"):
+            self.set_seed(seed)
         # Set the verbose
         if verbose is not None:
             self.verbose = verbose
@@ -174,6 +188,7 @@ class LocalNEB(LocalOptimizer):
             parallel_run=self.parallel_run,
             comm=self.comm,
             verbose=self.verbose,
+            seed=self.seed,
         )
         # Get the constants made within the class
         constant_kwargs = dict(steps=self.steps, _converged=self._converged)

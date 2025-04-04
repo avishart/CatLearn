@@ -23,6 +23,7 @@ class LocalCINEB(SequentialOptimizer):
         parallel_run=False,
         comm=world,
         verbose=False,
+        seed=None,
         **kwargs,
     ):
         """
@@ -79,6 +80,10 @@ class LocalCINEB(SequentialOptimizer):
             verbose: bool
                 Whether to print the full output (True) or
                 not (False).
+            seed: int (optional)
+                The random seed for the optimization.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
         """
         # Save the end points for creating the NEB
         self.setup_endpoints(start, end)
@@ -105,6 +110,7 @@ class LocalCINEB(SequentialOptimizer):
             parallel_run=parallel_run,
             comm=comm,
             verbose=verbose,
+            seed=seed,
             **kwargs,
         )
 
@@ -296,6 +302,7 @@ class LocalCINEB(SequentialOptimizer):
             parallel_run=self.parallel_run,
             comm=self.comm,
             verbose=self.verbose,
+            seed=self.seed,
         )
         # Get the constants made within the class
         constant_kwargs = dict(steps=self.steps, _converged=self._converged)
