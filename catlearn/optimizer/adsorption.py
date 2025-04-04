@@ -2,7 +2,9 @@ from .method import OptimizerMethod
 from ase.parallel import world
 from ase.constraints import FixAtoms, FixBondLengths
 import itertools
-import numpy as np
+from numpy import array, asarray, concatenate, cos, matmul, pi, sin
+from numpy.linalg import norm
+import scipy
 from scipy.optimize import dual_annealing
 
 
@@ -18,6 +20,7 @@ class AdsorptionOptimizer(OptimizerMethod):
         parallel_run=False,
         comm=world,
         verbose=False,
+        seed=None,
         **kwargs,
     ):
         """
@@ -53,6 +56,10 @@ class AdsorptionOptimizer(OptimizerMethod):
             verbose: bool
                 Whether to print the full output (True) or
                 not (False).
+            seed: int (optional)
+                The random seed for the optimization.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
         """
         # Create the atoms object from the slab and adsorbate
         self.create_slab_ads(slab, adsorbate, adsorbate2, bond_tol=bond_tol)
@@ -64,6 +71,7 @@ class AdsorptionOptimizer(OptimizerMethod):
             parallel_run=parallel_run,
             comm=comm,
             verbose=verbose,
+            seed=seed,
             **kwargs,
         )
 
@@ -135,7 +143,7 @@ class AdsorptionOptimizer(OptimizerMethod):
         self.natoms = len(optimizable)
         # Store the positions and cell
         self.positions0 = optimizable.get_positions().copy()
-        self.cell = np.array(optimizable.get_cell())
+        self.cell = array(optimizable.get_cell())
         # Store the original constraints
         self.constraints_org = [c.copy() for c in optimizable.constraints]
         # Make constraints for optimization
@@ -147,9 +155,9 @@ class AdsorptionOptimizer(OptimizerMethod):
                 range(self.n_slab, self.n_slab + self.n_ads),
                 2,
             )
-            pairs = np.array(list(pairs))
+            pairs = asarray(list(pairs))
             # Get the bond lengths
-            bondlengths = np.linalg.norm(
+            bondlengths = norm(
                 self.positions0[pairs[:, 0]] - self.positions0[pairs[:, 1]],
                 axis=1,
             )
@@ -167,9 +175,9 @@ class AdsorptionOptimizer(OptimizerMethod):
                 range(self.n_slab + self.n_ads, self.natoms),
                 2,
             )
-            pairs = np.array(list(pairs))
+            pairs = asarray(list(pairs))
             # Get the bond lengths
-            bondlengths = np.linalg.norm(
+            bondlengths = norm(
                 self.positions0[pairs[:, 0]] - self.positions0[pairs[:, 1]],
                 axis=1,
             )
@@ -206,14 +214,14 @@ class AdsorptionOptimizer(OptimizerMethod):
         # Check the bounds are given
         if bounds is None:
             # Make default bounds
-            self.bounds = np.array(
+            self.bounds = asarray(
                 [
                     [0.0, 1.0],
                     [0.0, 1.0],
                     [0.0, 1.0],
-                    [0.0, 2 * np.pi],
-                    [0.0, 2 * np.pi],
-                    [0.0, 2 * np.pi],
+                    [0.0, 2.0 * pi],
+                    [0.0, 2.0 * pi],
+                    [0.0, 2.0 * pi],
                 ]
             )
         else:
@@ -223,7 +231,7 @@ class AdsorptionOptimizer(OptimizerMethod):
             raise Exception("The bounds must have shape (6,2) or (12,2)!")
         # Check if the bounds are for two adsorbates
         if self.n_ads2 > 0 and self.bounds.shape[0] == 6:
-            self.bounds = np.concatenate([self.bounds, self.bounds], axis=0)
+            self.bounds = concatenate([self.bounds, self.bounds], axis=0)
         return self
 
     def run(
@@ -277,6 +285,7 @@ class AdsorptionOptimizer(OptimizerMethod):
         parallel_run=None,
         comm=None,
         verbose=None,
+        seed=None,
         **kwargs,
     ):
         """
@@ -308,12 +317,26 @@ class AdsorptionOptimizer(OptimizerMethod):
             verbose: bool
                 Whether to print the full output (True) or
                 not (False).
+            seed: int (optional)
+                The random seed for the optimization.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
         """
         # Set the communicator
         if comm is not None:
             self.comm = comm
             self.rank = comm.rank
             self.size = comm.size
+        elif not hasattr(self, "comm"):
+            self.comm = None
+            self.rank = 0
+            self.size = 1
+        # Set the optimizer kwargs
+        if opt_kwargs is not None:
+            self.opt_kwargs = opt_kwargs.copy()
+        # Set the seed
+        if seed is not None or not hasattr(self, "seed"):
+            self.set_seed(seed)
         # Set the verbose
         if verbose is not None:
             self.verbose = verbose
@@ -330,40 +353,49 @@ class AdsorptionOptimizer(OptimizerMethod):
         # Create the boundary conditions
         if bounds is not None:
             self.setup_bounds(bounds)
-        if opt_kwargs is not None:
-            self.opt_kwargs = opt_kwargs.copy()
         if parallel_run is not None:
             self.parallel_run = parallel_run
             self.check_parallel()
         return self
 
+    def set_seed(self, seed=None):
+        super().set_seed(seed)
+        # Set the seed for the random number generator
+        if scipy.__version__ < "1.15":
+            self.opt_kwargs["seed"] = self.seed
+        else:
+            self.opt_kwargs["rng"] = self.rng
+        return self
+
     def rotation_matrix(self, angles, positions):
         "Rotate the adsorbate"
+        # Get the angles
         theta1, theta2, theta3 = angles
-        Rz = np.array(
+        # Calculate the trigonometric functions
+        cos1 = cos(theta1)
+        sin1 = sin(theta1)
+        cos2 = cos(theta2)
+        sin2 = sin(theta2)
+        cos3 = cos(theta3)
+        sin3 = sin(theta3)
+        # Calculate the full rotation matrix
+        R = asarray(
             [
-                [np.cos(theta1), -np.sin(theta1), 0.0],
-                [np.sin(theta1), np.cos(theta1), 0.0],
-                [0.0, 0.0, 1.0],
+                [cos2 * cos3, cos2 * sin3, -sin2],
+                [
+                    sin1 * sin2 * cos3 - cos1 * sin3,
+                    sin1 * sin2 * sin3 + cos1 * cos3,
+                    sin1 * cos2,
+                ],
+                [
+                    cos1 * sin2 * cos3 + sin1 * sin3,
+                    cos1 * sin2 * sin3 - sin1 * cos3,
+                    cos1 * cos2,
+                ],
             ]
         )
-        Ry = np.array(
-            [
-                [np.cos(theta2), 0.0, np.sin(theta2)],
-                [0.0, 1.0, 0.0],
-                [-np.sin(theta2), 0.0, np.cos(theta2)],
-            ]
-        )
-        R = np.matmul(Ry, Rz)
-        Rz = np.array(
-            [
-                [np.cos(theta3), -np.sin(theta3), 0.0],
-                [np.sin(theta3), np.cos(theta3), 0.0],
-                [0.0, 0.0, 1.0],
-            ]
-        )
-        R = np.matmul(Rz, R).T
-        positions = np.matmul(positions, R)
+        # Calculate the rotation of the positions
+        positions = matmul(positions, R)
         return positions
 
     def evaluate_value(self, x, **kwargs):
@@ -373,13 +405,13 @@ class AdsorptionOptimizer(OptimizerMethod):
         # Calculate the positions of the adsorbate
         pos_ads = pos[self.n_slab : self.n_slab + self.n_ads]
         pos_ads = self.rotation_matrix(x[3:6], pos_ads)
-        pos_ads += np.sum(self.cell * x[:3].reshape(-1, 1), axis=0)
+        pos_ads += (self.cell * x[:3].reshape(-1, 1)).sum(axis=0)
         pos[self.n_slab : self.n_slab + self.n_ads] = pos_ads
         # Calculate the positions of the second adsorbate
         if self.n_ads2 > 0:
             pos_ads2 = pos[self.n_slab + self.n_ads :]
             pos_ads2 = self.rotation_matrix(x[9:12], pos_ads2)
-            pos_ads2 += np.sum(self.cell * x[6:9].reshape(-1, 1), axis=0)
+            pos_ads2 += (self.cell * x[6:9].reshape(-1, 1)).sum(axis=0)
             pos[self.n_slab + self.n_ads :] = pos_ads2
         # Set the positions
         self.optimizable.set_positions(pos)
@@ -398,6 +430,7 @@ class AdsorptionOptimizer(OptimizerMethod):
             parallel_run=self.parallel_run,
             comm=self.comm,
             verbose=self.verbose,
+            seed=self.seed,
         )
         # Get the constants made within the class
         constant_kwargs = dict(steps=self.steps, _converged=self._converged)
