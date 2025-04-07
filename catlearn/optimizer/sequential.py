@@ -172,29 +172,22 @@ class SequentialOptimizer(OptimizerMethod):
                 The seed an also be a RandomState or Generator instance.
                 If not given, the default random number generator is used.
         """
-        # Set the communicator
-        if comm is not None:
-            self.comm = comm
-            self.rank = comm.rank
-            self.size = comm.size
-        elif not hasattr(self, "comm"):
-            self.comm = None
-            self.rank = 0
-            self.size = 1
-        # Set the seed
-        if seed is not None or not hasattr(self, "seed"):
-            self.set_seed(seed)
-        # Set the verbose
-        if verbose is not None:
-            self.verbose = verbose
-        if remove_methods is not None:
-            self.remove_methods = remove_methods
+        # Set the methods
         if methods is not None:
             self.methods = methods
             self.setup_optimizable()
-        if parallel_run is not None:
-            self.parallel_run = parallel_run
-            self.check_parallel()
+        # Set the remove methods
+        if remove_methods is not None:
+            self.remove_methods = remove_methods
+        # Set the parameters in the parent class
+        super().update_arguments(
+            optimizable=None,
+            parallel_run=parallel_run,
+            comm=comm,
+            verbose=verbose,
+            seed=seed,
+            **kwargs,
+        )
         return self
 
     def get_arguments(self):

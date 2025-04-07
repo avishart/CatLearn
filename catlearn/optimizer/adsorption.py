@@ -322,24 +322,18 @@ class AdsorptionOptimizer(OptimizerMethod):
                 The seed an also be a RandomState or Generator instance.
                 If not given, the default random number generator is used.
         """
-        # Set the communicator
-        if comm is not None:
-            self.comm = comm
-            self.rank = comm.rank
-            self.size = comm.size
-        elif not hasattr(self, "comm"):
-            self.comm = None
-            self.rank = 0
-            self.size = 1
+        # Set the parameters in the parent class
+        super().update_arguments(
+            optimizable=None,
+            parallel_run=parallel_run,
+            comm=comm,
+            verbose=verbose,
+            seed=seed,
+            **kwargs,
+        )
         # Set the optimizer kwargs
         if opt_kwargs is not None:
             self.opt_kwargs = opt_kwargs.copy()
-        # Set the seed
-        if seed is not None or not hasattr(self, "seed"):
-            self.set_seed(seed)
-        # Set the verbose
-        if verbose is not None:
-            self.verbose = verbose
         if bond_tol is not None:
             self.bond_tol = float(bond_tol)
         # Create the atoms object from the slab and adsorbate
@@ -353,9 +347,6 @@ class AdsorptionOptimizer(OptimizerMethod):
         # Create the boundary conditions
         if bounds is not None:
             self.setup_bounds(bounds)
-        if parallel_run is not None:
-            self.parallel_run = parallel_run
-            self.check_parallel()
         return self
 
     def set_seed(self, seed=None):

@@ -150,32 +150,22 @@ class LocalNEB(LocalOptimizer):
                 The seed an also be a RandomState or Generator instance.
                 If not given, the default random number generator is used.
         """
-        # Set the communicator
-        if comm is not None:
-            self.comm = comm
-            self.rank = comm.rank
-            self.size = comm.size
-        elif not hasattr(self, "comm"):
-            self.comm = None
-            self.rank = 0
-            self.size = 1
-        # Set the seed
-        if seed is not None or not hasattr(self, "seed"):
-            self.set_seed(seed)
-        # Set the verbose
-        if verbose is not None:
-            self.verbose = verbose
-        if neb is not None:
-            self.setup_optimizable(neb)
+        # Set the parameters in the parent class
+        super().update_arguments(
+            optimizable=neb,
+            parallel_run=parallel_run,
+            comm=comm,
+            verbose=verbose,
+            seed=seed,
+            **kwargs,
+        )
+        # Set the local optimizer
         if local_opt is not None and local_opt_kwargs is not None:
             self.setup_local_optimizer(local_opt, local_opt_kwargs)
         elif local_opt is not None:
             self.setup_local_optimizer(self.local_opt)
         elif local_opt_kwargs is not None:
             self.setup_local_optimizer(self.local_opt, local_opt_kwargs)
-        if parallel_run is not None:
-            self.parallel_run = parallel_run
-            self.check_parallel()
         return self
 
     def get_arguments(self):

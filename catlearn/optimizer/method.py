@@ -720,8 +720,10 @@ class OptimizerMethod:
         # Set the verbose
         if verbose is not None:
             self.verbose = verbose
+        # Set the optimizable
         if optimizable is not None:
             self.setup_optimizable(optimizable)
+        # Set and check the parallelization
         if parallel_run is not None:
             self.parallel_run = parallel_run
             self.check_parallel()
