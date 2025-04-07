@@ -1,9 +1,10 @@
-import numpy as np
+from numpy import argsort, max as max_
+from numpy.random import default_rng, Generator, RandomState
 from scipy.stats import norm
 
 
 class Acquisition:
-    def __init__(self, objective="min", **kwargs):
+    def __init__(self, objective="min", seed=None, **kwargs):
         """
         Acquisition function class.
 
@@ -14,8 +15,12 @@ class Acquisition:
                     - 'min': Sort after the smallest values.
                     - 'max': Sort after the largest values.
                     - 'random' : Sort randomly
+            seed: int (optional)
+                The random seed.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
         """
-        self.update_arguments(objective=objective, **kwargs)
+        self.update_arguments(objective=objective, seed=seed, **kwargs)
 
     def calculate(self, energy, uncertainty=None, **kwargs):
         "Calculate the acqusition function value."
@@ -24,10 +29,10 @@ class Acquisition:
     def choose(self, candidates):
         "Sort a list of acquisition function values."
         if self.objective == "min":
-            return np.argsort(candidates)
+            return argsort(candidates)
         elif self.objective == "max":
-            return np.argsort(candidates)[::-1]
-        return np.random.permutation(list(range(len(candidates))))
+            return argsort(candidates)[::-1]
+        return self.rng.permutation(list(range(len(candidates))))
 
     def objective_value(self, value):
         "Return the objective value."
@@ -35,16 +40,33 @@ class Acquisition:
             return -value
         return value
 
-    def update_arguments(self, objective=None, **kwargs):
+    def update_arguments(self, objective=None, seed=None, **kwargs):
         "Set the parameters of the Acquisition function class."
+        # Set the seed
+        if seed is not None or not hasattr(self, "seed"):
+            self.set_seed(seed)
+        # Set the objective
         if objective is not None:
             self.objective = objective.lower()
+        return self
+
+    def set_seed(self, seed=None):
+        "Set the random seed for the optimization."
+        if seed is not None:
+            self.seed = seed
+            if isinstance(seed, int):
+                self.rng = default_rng(self.seed)
+            elif isinstance(seed, Generator) or isinstance(seed, RandomState):
+                self.rng = seed
+        else:
+            self.seed = None
+            self.rng = default_rng()
         return self
 
     def get_arguments(self):
         "Get the arguments of the class itself."
         # Get the arguments given to the class in the initialization
-        arg_kwargs = dict(objective=self.objective)
+        arg_kwargs = dict(objective=self.objective, seed=self.seed)
         # Get the constants made within the class
         constant_kwargs = dict()
         # Get the objects made within the class
@@ -76,9 +98,9 @@ class Acquisition:
 
 
 class AcqEnergy(Acquisition):
-    def __init__(self, objective="min", **kwargs):
+    def __init__(self, objective="min", seed=None, **kwargs):
         "The predicted energy as the acqusition function."
-        super().__init__(objective)
+        super().__init__(objective=objective, seed=seed, **kwargs)
 
     def calculate(self, energy, uncertainty=None, **kwargs):
         "Calculate the acqusition function value as the predicted energy."
@@ -86,9 +108,9 @@ class AcqEnergy(Acquisition):
 
 
 class AcqUncertainty(Acquisition):
-    def __init__(self, objective="min", **kwargs):
+    def __init__(self, objective="min", seed=None, **kwargs):
         "The predicted uncertainty as the acqusition function."
-        super().__init__(objective)
+        super().__init__(objective=objective, seed=seed, **kwargs)
 
     def calculate(self, energy, uncertainty=None, **kwargs):
         "Calculate the acqusition function value as the predicted uncertainty."
@@ -96,13 +118,21 @@ class AcqUncertainty(Acquisition):
 
 
 class AcqUCB(Acquisition):
-    def __init__(self, objective="max", kappa=2.0, kappamax=3.0, **kwargs):
+    def __init__(
+        self,
+        objective="max",
+        seed=None,
+        kappa=2.0,
+        kappamax=3.0,
+        **kwargs,
+    ):
         """
         The predicted upper confidence interval (ucb) as
         the acqusition function.
         """
         self.update_arguments(
             objective=objective,
+            seed=seed,
             kappa=kappa,
             kappamax=kappamax,
             **kwargs,
@@ -116,23 +146,30 @@ class AcqUCB(Acquisition):
     def get_kappa(self):
         "Get the kappa value."
         if isinstance(self.kappa, str):
-            return np.random.uniform(0, self.kappamax)
+            return self.rng.uniform(0, self.kappamax)
         return self.kappa
 
     def update_arguments(
         self,
         objective=None,
+        seed=None,
         kappa=None,
         kappamax=None,
         **kwargs,
     ):
         "Set the parameters of the Acquisition function class."
-        if objective is not None:
-            self.objective = objective.lower()
+        # Set the parameters in the parent class
+        super().update_arguments(
+            objective=objective,
+            seed=seed,
+            **kwargs,
+        )
+        # Set the kappa value
         if kappa is not None:
             if isinstance(kappa, (float, int)):
                 kappa = abs(kappa)
             self.kappa = kappa
+        # Set the kappamax value
         if kappamax is not None:
             self.kappamax = abs(kappamax)
         return self
@@ -142,8 +179,10 @@ class AcqUCB(Acquisition):
         # Get the arguments given to the class in the initialization
         arg_kwargs = dict(
             objective=self.objective,
+            seed=self.seed,
             kappa=self.kappa,
             kappamax=self.kappamax,
+            seed=self.seed,
         )
         # Get the constants made within the class
         constant_kwargs = dict()
@@ -153,13 +192,21 @@ class AcqUCB(Acquisition):
 
 
 class AcqLCB(AcqUCB):
-    def __init__(self, objective="min", kappa=2.0, kappamax=3.0, **kwargs):
+    def __init__(
+        self,
+        objective="min",
+        seed=None,
+        kappa=2.0,
+        kappamax=3.0,
+        **kwargs,
+    ):
         """
         The predicted lower confidence interval (lcb) as
         the acqusition function.
         """
         super().__init__(
             objective=objective,
+            seed=seed,
             kappa=kappa,
             kappamax=kappamax,
             **kwargs,
@@ -172,12 +219,12 @@ class AcqLCB(AcqUCB):
 
 
 class AcqIter(Acquisition):
-    def __init__(self, objective="max", niter=2, **kwargs):
+    def __init__(self, objective="max", seed=None, niter=2, **kwargs):
         """
         The predicted energy or uncertainty dependent on
         the iteration as the acqusition function.
         """
-        self.update_arguments(objective=objective, niter=niter, **kwargs)
+        super().__init__(objective=objective, seed=seed, niter=niter, **kwargs)
         self.iter = 0
 
     def calculate(self, energy, uncertainty=None, **kwargs):
@@ -190,10 +237,21 @@ class AcqIter(Acquisition):
             return energy
         return uncertainty
 
-    def update_arguments(self, objective=None, niter=None, **kwargs):
+    def update_arguments(
+        self,
+        objective=None,
+        seed=None,
+        niter=None,
+        **kwargs,
+    ):
         "Set the parameters of the Acquisition function class."
-        if objective is not None:
-            self.objective = objective.lower()
+        # Set the parameters in the parent class
+        super().update_arguments(
+            objective=objective,
+            seed=seed,
+            **kwargs,
+        )
+        # Set the number of iterations
         if niter is not None:
             self.niter = abs(niter)
         return self
@@ -203,6 +261,7 @@ class AcqIter(Acquisition):
         # Get the arguments given to the class in the initialization
         arg_kwargs = dict(
             objective=self.objective,
+            seed=self.seed,
             niter=self.niter,
         )
         # Get the constants made within the class
@@ -213,13 +272,16 @@ class AcqIter(Acquisition):
 
 
 class AcqUME(Acquisition):
-    def __init__(self, objective="max", unc_convergence=0.05, **kwargs):
+    def __init__(
+        self, objective="max", seed=None, unc_convergence=0.05, **kwargs
+    ):
         """
         The predicted uncertainty when it is larger than unc_convergence
         else predicted energy as the acqusition function.
         """
-        self.update_arguments(
+        super().__init__(
             objective=objective,
+            seed=seed,
             unc_convergence=unc_convergence,
             **kwargs,
         )
@@ -229,14 +291,19 @@ class AcqUME(Acquisition):
         Calculate the acqusition function value as the predicted uncertainty
         when it is is larger than unc_convergence else predicted energy.
         """
-        if np.max([uncertainty]) < self.unc_convergence:
+        if max_([uncertainty]) < self.unc_convergence:
             return energy
         return self.objective_value(uncertainty)
 
     def update_arguments(self, objective=None, unc_convergence=None, **kwargs):
         "Set the parameters of the Acquisition function class."
-        if objective is not None:
-            self.objective = objective.lower()
+        # Set the parameters in the parent class
+        super().update_arguments(
+            objective=objective,
+            seed=None,
+            **kwargs,
+        )
+        # Set the unc_convergence value
         if unc_convergence is not None:
             self.unc_convergence = abs(unc_convergence)
         return self
@@ -246,6 +313,7 @@ class AcqUME(Acquisition):
         # Get the arguments given to the class in the initialization
         arg_kwargs = dict(
             objective=self.objective,
+            seed=self.seed,
             unc_convergence=self.unc_convergence,
         )
         # Get the constants made within the class
@@ -259,6 +327,7 @@ class AcqUUCB(AcqUCB):
     def __init__(
         self,
         objective="max",
+        seed=None,
         kappa=2.0,
         kappamax=3.0,
         unc_convergence=0.05,
@@ -270,6 +339,7 @@ class AcqUUCB(AcqUCB):
         """
         self.update_arguments(
             objective=objective,
+            seed=seed,
             kappa=kappa,
             kappamax=kappamax,
             unc_convergence=unc_convergence,
@@ -281,7 +351,7 @@ class AcqUUCB(AcqUCB):
         Calculate the acqusition function value as the predicted uncertainty
         when it is is larger than unc_convergence else ucb.
         """
-        if np.max([uncertainty]) < self.unc_convergence:
+        if max_([uncertainty]) < self.unc_convergence:
             kappa = self.get_kappa()
             return energy + kappa * uncertainty
         return uncertainty
@@ -289,20 +359,28 @@ class AcqUUCB(AcqUCB):
     def update_arguments(
         self,
         objective=None,
+        seed=None,
         kappa=None,
         kappamax=None,
         unc_convergence=None,
         **kwargs,
     ):
         "Set the parameters of the Acquisition function class."
-        if objective is not None:
-            self.objective = objective.lower()
+        # Set the parameters in the parent class
+        super().update_arguments(
+            objective=objective,
+            seed=seed,
+            **kwargs,
+        )
+        # Set the kappa value
         if kappa is not None:
             if isinstance(kappa, (float, int)):
                 kappa = abs(kappa)
             self.kappa = kappa
+        # Set the kappamax value
         if kappamax is not None:
             self.kappamax = abs(kappamax)
+        # Set the unc_convergence value
         if unc_convergence is not None:
             self.unc_convergence = abs(unc_convergence)
         return self
@@ -312,6 +390,7 @@ class AcqUUCB(AcqUCB):
         # Get the arguments given to the class in the initialization
         arg_kwargs = dict(
             objective=self.objective,
+            seed=self.seed,
             kappa=self.kappa,
             kappamax=self.kappamax,
             unc_convergence=self.unc_convergence,
@@ -327,6 +406,7 @@ class AcqULCB(AcqUUCB):
     def __init__(
         self,
         objective="min",
+        seed=None,
         kappa=2.0,
         kappamax=3.0,
         unc_convergence=0.05,
@@ -338,6 +418,7 @@ class AcqULCB(AcqUUCB):
         """
         self.update_arguments(
             objective=objective,
+            seed=seed,
             kappa=kappa,
             kappamax=kappamax,
             unc_convergence=unc_convergence,
@@ -349,18 +430,23 @@ class AcqULCB(AcqUUCB):
         Calculate the acqusition function value as the predicted uncertainty
         when it is is larger than unc_convergence else lcb.
         """
-        if np.max([uncertainty]) < self.unc_convergence:
+        if max_([uncertainty]) < self.unc_convergence:
             kappa = self.get_kappa()
             return energy - kappa * uncertainty
         return -uncertainty
 
 
 class AcqEI(Acquisition):
-    def __init__(self, objective="max", ebest=None, **kwargs):
+    def __init__(self, objective="max", seed=None, ebest=None, **kwargs):
         """
         The predicted expected improvement as the acqusition function.
         """
-        self.update_arguments(objective=objective, ebest=ebest, **kwargs)
+        self.update_arguments(
+            objective=objective,
+            seed=seed,
+            ebest=ebest,
+            **kwargs,
+        )
 
     def calculate(self, energy, uncertainty=None, **kwargs):
         """
@@ -371,14 +457,23 @@ class AcqEI(Acquisition):
         a = (energy - self.ebest) * norm.cdf(z) + uncertainty * norm.pdf(z)
         return self.objective_value(a)
 
-    def update_arguments(self, objective=None, ebest=None, **kwargs):
+    def update_arguments(
+        self,
+        objective=None,
+        seed=None,
+        ebest=None,
+        **kwargs,
+    ):
         "Set the parameters of the Acquisition function class."
-        if objective is not None:
-            self.objective = objective.lower()
-        if ebest is not None:
+        # Set the parameters in the parent class
+        super().update_arguments(
+            objective=objective,
+            seed=seed,
+            **kwargs,
+        )
+        # Set the ebest value
+        if ebest is not None or not hasattr(self, "ebest"):
             self.ebest = ebest
-        elif not hasattr(self, "ebest"):
-            self.ebest = None
         return self
 
     def get_arguments(self):
@@ -386,6 +481,7 @@ class AcqEI(Acquisition):
         # Get the arguments given to the class in the initialization
         arg_kwargs = dict(
             objective=self.objective,
+            seed=self.seed,
             ebest=self.ebest,
         )
         # Get the constants made within the class
@@ -396,11 +492,16 @@ class AcqEI(Acquisition):
 
 
 class AcqPI(AcqEI):
-    def __init__(self, objective="max", ebest=None, **kwargs):
+    def __init__(self, objective="max", seed=None, ebest=None, **kwargs):
         """
         The predicted probability of improvement as the acqusition function.
         """
-        self.update_arguments(objective=objective, ebest=ebest, **kwargs)
+        self.update_arguments(
+            objective=objective,
+            seed=seed,
+            ebest=ebest,
+            **kwargs,
+        )
 
     def calculate(self, energy, uncertainty=None, **kwargs):
         """
