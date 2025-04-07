@@ -1433,7 +1433,7 @@ class ActiveLearning:
         return self
 
     def set_seed(self, seed=None):
-        "Set the random seed for the optimization."
+        "Set the random seed."
         if seed is not None:
             self.seed = seed
             if isinstance(seed, int):
