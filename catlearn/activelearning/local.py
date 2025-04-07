@@ -1,6 +1,6 @@
 from ase.optimize import FIRE
 from ase.parallel import world
-import numpy as np
+from numpy.linalg import norm
 from .activelearning import ActiveLearning
 from ..optimizer import LocalOptimizer
 
@@ -40,6 +40,7 @@ class LocalAL(ActiveLearning):
         tabletxt="ml_summary.txt",
         prev_calculations=None,
         restart=False,
+        seed=None,
         comm=world,
         **kwargs,
     ):
@@ -147,6 +148,10 @@ class LocalAL(ActiveLearning):
                 or Trajectory filename.
             restart: bool
                 Whether to restart the active learning.
+            seed: int (optional)
+                The random seed for the optimization.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             comm: MPI communicator.
                 The MPI communicator.
         """
@@ -191,6 +196,7 @@ class LocalAL(ActiveLearning):
             tabletxt=tabletxt,
             prev_calculations=prev_calculations,
             restart=restart,
+            seed=seed,
             comm=comm,
             **kwargs,
         )
@@ -231,7 +237,7 @@ class LocalAL(ActiveLearning):
             if "energy" in results and "forces" in results:
                 pos0 = self.atoms.get_positions()
                 pos1 = self.atoms.calc.atoms.get_positions()
-                if np.linalg.norm(pos0 - pos1) < 1e-8:
+                if norm(pos0 - pos1) < 1e-8:
                     self.use_prev_calculations([self.atoms])
                     return self
         # Calculate the initial structure
@@ -274,6 +280,7 @@ class LocalAL(ActiveLearning):
             converged_trajectory=self.converged_trajectory,
             initial_traj=self.initial_traj,
             tabletxt=self.tabletxt,
+            seed=self.seed,
             comm=self.comm,
         )
         # Get the constants made within the class

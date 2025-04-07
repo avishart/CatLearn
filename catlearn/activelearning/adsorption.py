@@ -42,6 +42,7 @@ class AdsorptionAL(ActiveLearning):
         tabletxt="ml_summary.txt",
         prev_calculations=None,
         restart=False,
+        seed=None,
         comm=world,
         **kwargs,
     ):
@@ -161,6 +162,10 @@ class AdsorptionAL(ActiveLearning):
                 or Trajectory filename.
             restart: bool
                 Whether to restart the active learning.
+            seed: int (optional)
+                The random seed for the optimization.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             comm: MPI communicator.
                 The MPI communicator.
         """
@@ -209,6 +214,7 @@ class AdsorptionAL(ActiveLearning):
             tabletxt=tabletxt,
             prev_calculations=prev_calculations,
             restart=restart,
+            seed=seed,
             comm=comm,
             **kwargs,
         )
@@ -285,9 +291,8 @@ class AdsorptionAL(ActiveLearning):
             self.extra_initial_data(**kwargs)
         return self
 
-    def setup_mlcalc(
+    def setup_default_mlcalc(
         self,
-        mlcalc=None,
         fp=None,
         atoms=None,
         baseline=RepulsionCalculator(),
@@ -296,35 +301,31 @@ class AdsorptionAL(ActiveLearning):
         kappa=-2.0,
         **kwargs,
     ):
-        if mlcalc is None:
-            from ..regression.gp.fingerprint.sorteddistances import (
-                SortedDistances,
-            )
+        from ..regression.gp.fingerprint.sorteddistances import (
+            SortedDistances,
+        )
 
-            # Setup the fingerprint
-            if fp is None:
-                # Check if the Atoms object is given
-                if atoms is None:
-                    try:
-                        atoms = self.get_structures(get_all=False)
-                    except Exception:
-                        raise Exception(
-                            "The Atoms object is not given or stored."
-                        )
-                # Can only use distances if there are more than one atom
-                if len(atoms) > 1:
-                    if atoms.pbc.any():
-                        periodic_softmax = True
-                    else:
-                        periodic_softmax = False
-                    fp = SortedDistances(
-                        reduce_dimensions=True,
-                        use_derivatives=True,
-                        periodic_softmax=periodic_softmax,
-                        wrap=False,
-                    )
-        return super().setup_mlcalc(
-            mlcalc=mlcalc,
+        # Setup the fingerprint
+        if fp is None:
+            # Check if the Atoms object is given
+            if atoms is None:
+                try:
+                    atoms = self.get_structures(get_all=False)
+                except Exception:
+                    raise Exception("The Atoms object is not given or stored.")
+            # Can only use distances if there are more than one atom
+            if len(atoms) > 1:
+                if atoms.pbc.any():
+                    periodic_softmax = True
+                else:
+                    periodic_softmax = False
+                fp = SortedDistances(
+                    reduce_dimensions=True,
+                    use_derivatives=True,
+                    periodic_softmax=periodic_softmax,
+                    wrap=False,
+                )
+        return super().setup_default_mlcalc(
             fp=fp,
             atoms=atoms,
             baseline=baseline,
@@ -370,6 +371,7 @@ class AdsorptionAL(ActiveLearning):
             converged_trajectory=self.converged_trajectory,
             initial_traj=self.initial_traj,
             tabletxt=self.tabletxt,
+            seed=self.seed,
             comm=self.comm,
         )
         # Get the constants made within the class

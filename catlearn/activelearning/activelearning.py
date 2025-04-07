@@ -1,4 +1,6 @@
-import numpy as np
+from numpy import asarray, max as max_, mean as mean_, nan, nanmax, ndarray
+from numpy.linalg import norm
+from numpy.random import default_rng, Generator, RandomState
 from ase.io import read
 from ase.parallel import world, broadcast
 from ase.io.trajectory import TrajectoryWriter
@@ -39,6 +41,7 @@ class ActiveLearning:
         tabletxt="ml_summary.txt",
         prev_calculations=None,
         restart=False,
+        seed=None,
         comm=world,
         **kwargs,
     ):
@@ -142,6 +145,10 @@ class ActiveLearning:
                 or Trajectory filename.
             restart: bool
                 Whether to restart the active learning.
+            seed: int (optional)
+                The random seed for the optimization.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             comm: MPI communicator.
                 The MPI communicator.
         """
@@ -189,6 +196,7 @@ class ActiveLearning:
             converged_trajectory=converged_trajectory,
             initial_traj=initial_traj,
             tabletxt=tabletxt,
+            seed=seed,
             comm=comm,
             **kwargs,
         )
@@ -207,7 +215,6 @@ class ActiveLearning:
         ml_steps=1000,
         max_unc=0.3,
         dtrust=None,
-        seed=None,
         **kwargs,
     ):
         """
@@ -227,16 +234,11 @@ class ActiveLearning:
                 without the maximum uncertainty.
             dtrust: float (optional)
                 The trust distance for the optimization method.
-            seed: int (optional)
-                The random seed.
 
         Returns:
             converged: bool
                 Whether the active learning is converged.
         """
-        # Set the random seed
-        if seed is not None:
-            np.random.seed(seed)
         # Check if there are any training data
         self.extra_initial_data()
         # Run the active learning
@@ -293,8 +295,8 @@ class ActiveLearning:
         # Set initial parameters
         self.steps = 0
         self._converged = False
-        self.unc = np.nan
-        self.energy_pred = np.nan
+        self.unc = nan
+        self.energy_pred = nan
         self.pred_energies = []
         self.uncertainties = []
         # Set the header for the summary table
@@ -316,6 +318,10 @@ class ActiveLearning:
         """
         # Save the method
         self.method = method
+        # Set the seed for the method
+        if hasattr(self, "seed"):
+            self.method.set_seed(self.seed)
+        # Get the structures
         self.structures = self.get_structures()
         if isinstance(self.structures, list):
             self.n_structures = len(self.structures)
@@ -340,6 +346,42 @@ class ActiveLearning:
     def setup_mlcalc(
         self,
         mlcalc=None,
+        verbose=True,
+        **kwargs,
+    ):
+        """
+        Setup the ML calculator.
+
+        Parameters:
+            mlcalc: ML-calculator instance (optional)
+                The ML-calculator instance used as surrogate surface.
+                A default ML-model is used if mlcalc is None.
+            verbose: bool
+                Whether to print on screen the full output (True) or
+                not (False).
+
+        Returns:
+            self: The object itself.
+        """
+        # Check if the ML calculator is given
+        if mlcalc is not None:
+            self.mlcalc = mlcalc
+            # Set the verbose for the ML calculator
+            if verbose is not None:
+                self.mlcalc.mlmodel.update_arguments(verbose=verbose)
+        else:
+            self.mlcalc = self.setup_default_mlcalc(
+                verbose=verbose,
+                **kwargs,
+            )
+        # Check if the seed is given
+        if hasattr(self, "seed"):
+            # Set the seed for the ML calculator
+            self.mlcalc.set_seed(self.seed)
+        return self
+
+    def setup_default_mlcalc(
+        self,
         save_memory=False,
         fp=None,
         atoms=None,
@@ -406,10 +448,6 @@ class ActiveLearning:
         Returns:
             self: The object itself.
         """
-        # Check if the ML calculator is given
-        if mlcalc is not None:
-            self.mlcalc = mlcalc
-            return self
         # Create the ML calculator
         from ..regression.gp.calculator.mlmodel import get_default_mlmodel
         from ..regression.gp.calculator.bocalc import BOCalculator
@@ -467,7 +505,7 @@ class ActiveLearning:
                 data = []
         # Setup the ML calculator
         if bayesian:
-            self.mlcalc = BOCalculator(
+            mlcalc = BOCalculator(
                 mlmodel=mlmodel,
                 calc_forces=calc_forces,
                 kappa=kappa,
@@ -481,7 +519,7 @@ class ActiveLearning:
                         "is not recommended!"
                     )
         else:
-            self.mlcalc = MLCalculator(
+            mlcalc = MLCalculator(
                 mlmodel=mlmodel,
                 calc_forces=calc_forces,
                 **calc_kwargs,
@@ -490,7 +528,7 @@ class ActiveLearning:
         if reuse_mlcalc_data:
             if len(data):
                 self.add_training(data)
-        return self
+        return mlcalc
 
     def setup_acq(
         self,
@@ -543,6 +581,9 @@ class ActiveLearning:
                     "The objective of the acquisition function "
                     "does not match the active learner."
                 )
+        # Set the seed for the acquisition function
+        if hasattr(self, "seed"):
+            self.acq.set_seed(self.seed)
         return self
 
     def get_structures(
@@ -658,6 +699,7 @@ class ActiveLearning:
         converged_trajectory=None,
         initial_traj=None,
         tabletxt=None,
+        seed=None,
         comm=None,
         **kwargs,
     ):
@@ -761,6 +803,10 @@ class ActiveLearning:
                 or Trajectory filename.
             restart: bool
                 Whether to restart the active learning.
+            seed: int (optional)
+                The random seed for the optimization.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             comm: MPI communicator.
                 The MPI communicator.
 
@@ -858,6 +904,9 @@ class ActiveLearning:
                 is_minimization=self.is_minimization,
                 unc_convergence=self.unc_convergence,
             )
+        # Set the seed
+        if seed is not None or not hasattr(self, "seed"):
+            self.set_seed(seed)
         # Check if the method and BO is compatible
         self.check_attributes()
         return self
@@ -947,7 +996,7 @@ class ActiveLearning:
         # Check fmax is lower than previous structure
         if use_tmp and (self.check_fmax or self.check_energy):
             self.update_method(self.best_structures)
-            energy_best, fmax_best = self.get_predictions()[1:]
+            _, energy_best, fmax_best = self.get_predictions()
             if self.check_fmax:
                 if fmax_tmp > fmax_best:
                     self.message_system(
@@ -983,7 +1032,7 @@ class ActiveLearning:
         if self.check_energy:
             energy = self.method.get_potential_energy()
         if self.check_fmax:
-            fmax = np.max(self.method.get_fmax())
+            fmax = max_(self.method.get_fmax())
         return uncmax, energy, fmax
 
     def get_candidate_predictions(self, **kwargs):
@@ -998,9 +1047,9 @@ class ActiveLearning:
             per_candidate=True,
             **kwargs,
         )
-        energies = np.array(results["energy"]).reshape(-1)
-        uncertainties = np.array(results["uncertainty"]).reshape(-1)
-        fmaxs = np.array(results["fmax"]).reshape(-1)
+        energies = asarray(results["energy"]).reshape(-1)
+        uncertainties = asarray(results["uncertainty"]).reshape(-1)
+        fmaxs = asarray(results["fmax"]).reshape(-1)
         return energies, uncertainties, fmaxs
 
     def parallel_setup(self, comm, **kwargs):
@@ -1076,7 +1125,7 @@ class ActiveLearning:
     def evaluate_candidates(self, candidates, **kwargs):
         "Evaluate the candidates."
         # Check if the candidates are a list
-        if not isinstance(candidates, (list, np.ndarray)):
+        if not isinstance(candidates, (list, ndarray)):
             candidates = [candidates]
         # Evaluate the candidates
         for candidate in candidates:
@@ -1105,7 +1154,7 @@ class ActiveLearning:
         self.steps += 1
         self.message_system("Single-point calculation finished.")
         # Store the data
-        self.true_fmax = np.nanmax(np.linalg.norm(forces, axis=1))
+        self.true_fmax = nanmax(norm(forces, axis=1))
         self.add_training([self.candidate])
         self.save_data()
         # Make a reference energy
@@ -1130,7 +1179,7 @@ class ActiveLearning:
         # Set cell
         cell_old = self.candidate.get_cell()
         cell_new = candidate.get_cell()
-        if np.linalg.norm(cell_old - cell_new) > dtol:
+        if norm(cell_old - cell_new) > dtol:
             self.candidate.set_cell(cell_new)
         # Set pbc
         pbc_old = self.candidate.get_pbc()
@@ -1140,22 +1189,22 @@ class ActiveLearning:
         # Set initial charges
         ini_charge_old = self.candidate.get_initial_charges()
         ini_charge_new = candidate.get_initial_charges()
-        if np.linalg.norm(ini_charge_old - ini_charge_new) > dtol:
+        if norm(ini_charge_old - ini_charge_new) > dtol:
             self.candidate.set_initial_charges(ini_charge_new)
         # Set initial magmoms
         ini_magmom_old = self.candidate.get_initial_magnetic_moments()
         ini_magmom_new = candidate.get_initial_magnetic_moments()
-        if np.linalg.norm(ini_magmom_old - ini_magmom_new) > dtol:
+        if norm(ini_magmom_old - ini_magmom_new) > dtol:
             self.candidate.set_initial_magnetic_moments(ini_magmom_new)
         # Set momenta
         momenta_old = self.candidate.get_momenta()
         momenta_new = candidate.get_momenta()
-        if np.linalg.norm(momenta_old - momenta_new) > dtol:
+        if norm(momenta_old - momenta_new) > dtol:
             self.candidate.set_momenta(momenta_new)
         # Set velocities
         velocities_old = self.candidate.get_velocities()
         velocities_new = candidate.get_velocities()
-        if np.linalg.norm(velocities_old - velocities_new) > dtol:
+        if norm(velocities_old - velocities_new) > dtol:
             self.candidate.set_velocities(velocities_new)
         return candidate
 
@@ -1214,7 +1263,7 @@ class ActiveLearning:
             # Get positions
             pos = atoms.get_positions()
             # Rattle the positions
-            pos += np.random.uniform(
+            pos += self.rng.uniform(
                 low=-perturb,
                 high=perturb,
                 size=pos.shape,
@@ -1250,8 +1299,8 @@ class ActiveLearning:
         # Get the energies and uncertainties
         energies, uncertainties, fmaxs = self.get_candidate_predictions()
         # Store the uncertainty predictions
-        self.umax = np.max(uncertainties)
-        self.umean = np.mean(uncertainties)
+        self.umax = max_(uncertainties)
+        self.umean = mean_(uncertainties)
         # Calculate the acquisition function for each candidate
         acq_values = self.acq.calculate(
             energy=energies,
@@ -1381,6 +1430,25 @@ class ActiveLearning:
                 "Active learner and Optimization method does "
                 "not agree whether to run in parallel!"
             )
+        return self
+
+    def set_seed(self, seed=None):
+        "Set the random seed for the optimization."
+        if seed is not None:
+            self.seed = seed
+            if isinstance(seed, int):
+                self.rng = default_rng(self.seed)
+            elif isinstance(seed, Generator) or isinstance(seed, RandomState):
+                self.rng = seed
+        else:
+            self.seed = None
+            self.rng = default_rng()
+        # Set the random seed for the optimization method
+        self.method.set_seed(self.seed)
+        # Set the random seed for the acquisition function
+        self.acq.set_seed(self.seed)
+        # Set the random seed for the ML calculator
+        self.mlcalc.set_seed(self.seed)
         return self
 
     def message_system(self, message, obj=None, end="\n"):
@@ -1523,6 +1591,7 @@ class ActiveLearning:
             converged_trajectory=self.converged_trajectory,
             initial_traj=self.initial_traj,
             tabletxt=self.tabletxt,
+            seed=self.seed,
             comm=self.comm,
         )
         # Get the constants made within the class

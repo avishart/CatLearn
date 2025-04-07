@@ -1,7 +1,7 @@
 from ase.optimize import FIRE
 from ase.parallel import world
 from ase.io import read
-import numpy as np
+from numpy.linalg import norm
 from .activelearning import ActiveLearning
 from ..optimizer import LocalCINEB
 from ..structures.neb import ImprovedTangentNEB
@@ -48,6 +48,7 @@ class MLNEB(ActiveLearning):
         tabletxt="ml_summary.txt",
         prev_calculations=None,
         restart=False,
+        seed=None,
         comm=world,
         **kwargs,
     ):
@@ -186,6 +187,10 @@ class MLNEB(ActiveLearning):
                 or Trajectory filename.
             restart: bool
                 Whether to restart the active learning.
+            seed: int (optional)
+                The random seed for the optimization.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             comm: MPI communicator.
                 The MPI communicator.
         """
@@ -239,6 +244,7 @@ class MLNEB(ActiveLearning):
             tabletxt=tabletxt,
             prev_calculations=self.prev_calculations,
             restart=restart,
+            seed=seed,
             comm=comm,
             **kwargs,
         )
@@ -273,11 +279,11 @@ class MLNEB(ActiveLearning):
             # Check if end points are in the previous calculations
             if len(prev_calculations):
                 pos = prev_calculations[0].get_positions()
-                if np.linalg.norm(pos - self.start.get_positions()) < eps:
+                if norm(pos - self.start.get_positions()) < eps:
                     prev_calculations = prev_calculations[1:]
             if len(prev_calculations):
                 pos = prev_calculations[0].get_positions()
-                if np.linalg.norm(pos - self.end.get_positions()) < eps:
+                if norm(pos - self.end.get_positions()) < eps:
                     prev_calculations = prev_calculations[1:]
             # Save the previous calculations
             self.prev_calculations += list(prev_calculations)
@@ -407,6 +413,7 @@ class MLNEB(ActiveLearning):
             converged_trajectory=self.converged_trajectory,
             initial_traj=self.initial_traj,
             tabletxt=self.tabletxt,
+            seed=self.seed,
             comm=self.comm,
         )
         # Get the constants made within the class

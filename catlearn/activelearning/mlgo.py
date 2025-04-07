@@ -46,6 +46,7 @@ class MLGO(AdsorptionAL):
         tabletxt="ml_summary.txt",
         prev_calculations=None,
         restart=False,
+        seed=None,
         comm=world,
         **kwargs,
     ):
@@ -182,6 +183,10 @@ class MLGO(AdsorptionAL):
                 or Trajectory filename.
             restart: bool
                 Whether to restart the active learning.
+            seed: int (optional)
+                The random seed for the optimization.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             comm: MPI communicator.
                 The MPI communicator.
         """
@@ -221,6 +226,7 @@ class MLGO(AdsorptionAL):
             tabletxt=tabletxt,
             prev_calculations=prev_calculations,
             restart=restart,
+            seed=seed,
             comm=comm,
             **kwargs,
         )
@@ -262,6 +268,7 @@ class MLGO(AdsorptionAL):
             parallel_run=False,
             comm=self.comm,
             verbose=self.verbose,
+            seed=self.seed,
         )
         return self.local_method
 
@@ -280,7 +287,6 @@ class MLGO(AdsorptionAL):
         ml_steps_local=1000,
         max_unc=0.3,
         dtrust=None,
-        seed=None,
         **kwargs,
     ):
         """
@@ -316,7 +322,6 @@ class MLGO(AdsorptionAL):
             ml_steps=ml_steps,
             max_unc=max_unc,
             dtrust=dtrust,
-            seed=seed,
             **kwargs,
         )
         # Check if the active learning is converged
@@ -335,7 +340,6 @@ class MLGO(AdsorptionAL):
             ml_steps=ml_steps_local,
             max_unc=max_unc,
             dtrust=dtrust,
-            seed=seed,
             **kwargs,
         )
         return self.converged()
@@ -422,6 +426,7 @@ class MLGO(AdsorptionAL):
             converged_trajectory=self.converged_trajectory,
             initial_traj=self.initial_traj,
             tabletxt=self.tabletxt,
+            seed=self.seed,
             comm=self.comm,
         )
         # Get the constants made within the class
