@@ -1,5 +1,6 @@
 from numpy import array, asarray, concatenate
 from numpy import round as round_
+from numpy.random import default_rng, Generator, RandomState
 from scipy.spatial.distance import cdist
 from ase.constraints import FixAtoms
 from ase.io.trajectory import TrajectoryWriter
@@ -14,6 +15,7 @@ class Database:
         use_derivatives=True,
         use_fingerprint=True,
         round_targets=None,
+        seed=None,
         dtype=None,
         **kwargs,
     ):
@@ -35,6 +37,10 @@ class Database:
             round_targets: int (optional)
                 The number of decimals to round the targets to.
                 If None, the targets are not rounded.
+            seed: int (optional)
+                The random seed.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
         """
@@ -42,9 +48,7 @@ class Database:
         self.use_negative_forces = True
         # Use default fingerprint if it is not given
         if fingerprint is None:
-            from ..fingerprint.cartesian import Cartesian
-
-            fingerprint = Cartesian(
+            self.set_default_fp(
                 reduce_dimensions=reduce_dimensions,
                 use_derivatives=use_derivatives,
             )
@@ -55,6 +59,7 @@ class Database:
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
             round_targets=round_targets,
+            seed=seed,
             dtype=dtype,
             **kwargs,
         )
@@ -355,6 +360,7 @@ class Database:
         use_derivatives=None,
         use_fingerprint=None,
         round_targets=None,
+        seed=None,
         dtype=None,
         **kwargs,
     ):
@@ -398,13 +404,60 @@ class Database:
             reset_database = True
         if round_targets is not None or not hasattr(self, "round_targets"):
             self.round_targets = round_targets
+        # Set the seed
+        if seed is not None or not hasattr(self, "seed"):
+            self.set_seed(seed)
+        # Set the data type
         if dtype is not None or not hasattr(self, "dtype"):
-            self.dtype = dtype
+            self.set_dtype(dtype)
         # Check that the database and the fingerprint have the same attributes
         self.check_attributes()
         # Reset the database if an argument has been changed
         if reset_database:
             self.reset_database()
+        return self
+
+    def set_seed(self, seed=None):
+        "Set the random seed."
+        if seed is not None:
+            self.seed = seed
+            if isinstance(seed, int):
+                self.rng = default_rng(self.seed)
+            elif isinstance(seed, Generator) or isinstance(seed, RandomState):
+                self.rng = seed
+        else:
+            self.seed = None
+            self.rng = default_rng()
+        return self
+
+    def set_default_fp(
+        self,
+        reduce_dimensions=True,
+        use_derivatives=True,
+        **kwargs,
+    ):
+        "Use default fingerprint if it is not given."
+        from ..fingerprint.cartesian import Cartesian
+
+        return Cartesian(
+            reduce_dimensions=reduce_dimensions,
+            use_derivatives=use_derivatives,
+            **kwargs,
+        )
+
+    def set_dtype(self, dtype, **kwargs):
+        """
+        Set the data type of the arrays.
+
+        Parameters:
+            dtype: type
+                The data type of the arrays.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Set the data type
+        self.dtype = dtype
         return self
 
     def check_attributes(self):
@@ -429,6 +482,7 @@ class Database:
             use_derivatives=self.use_derivatives,
             use_fingerprint=self.use_fingerprint,
             round_targets=self.round_targets,
+            seed=self.seed,
             dtype=self.dtype,
         )
         # Get the constants made within the class

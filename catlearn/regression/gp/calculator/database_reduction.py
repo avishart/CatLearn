@@ -25,6 +25,7 @@ class DatabaseReduction(Database):
         use_derivatives=True,
         use_fingerprint=True,
         round_targets=None,
+        seed=None,
         dtype=None,
         npoints=25,
         initial_indicies=[0],
@@ -51,6 +52,10 @@ class DatabaseReduction(Database):
             round_targets: int (optional)
                 The number of decimals to round the targets to.
                 If None, the targets are not rounded.
+            seed: int (optional)
+                The random seed.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
             npoints : int
@@ -67,9 +72,7 @@ class DatabaseReduction(Database):
         self.indicies = []
         # Use default fingerprint if it is not given
         if fingerprint is None:
-            from ..fingerprint.cartesian import Cartesian
-
-            fingerprint = Cartesian(
+            self.set_default_fp(
                 reduce_dimensions=reduce_dimensions,
                 use_derivatives=use_derivatives,
             )
@@ -80,6 +83,7 @@ class DatabaseReduction(Database):
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
             round_targets=round_targets,
+            seed=seed,
             dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
@@ -94,6 +98,7 @@ class DatabaseReduction(Database):
         use_derivatives=None,
         use_fingerprint=None,
         round_targets=None,
+        seed=None,
         dtype=None,
         npoints=None,
         initial_indicies=None,
@@ -118,6 +123,10 @@ class DatabaseReduction(Database):
             round_targets: int (optional)
                 The number of decimals to round the targets to.
                 If None, the targets are not rounded.
+            seed: int (optional)
+                The random seed.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
             npoints : int
@@ -131,39 +140,30 @@ class DatabaseReduction(Database):
         Returns:
             self: The updated object itself.
         """
-        # Control if the database has to be reset
-        reset_database = False
-        if fingerprint is not None:
-            self.fingerprint = fingerprint.copy()
-            reset_database = True
-        if reduce_dimensions is not None:
-            self.reduce_dimensions = reduce_dimensions
-            reset_database = True
-        if use_derivatives is not None:
-            self.use_derivatives = use_derivatives
-            reset_database = True
-        if use_fingerprint is not None:
-            self.use_fingerprint = use_fingerprint
-            reset_database = True
-        if round_targets is not None or not hasattr(self, "round_targets"):
-            self.round_targets = round_targets
-        if dtype is not None or not hasattr(self, "dtype"):
-            self.dtype = dtype
+        # Set the parameters in the parent class
+        super().update_arguments(
+            fingerprint=fingerprint,
+            reduce_dimensions=reduce_dimensions,
+            use_derivatives=use_derivatives,
+            use_fingerprint=use_fingerprint,
+            round_targets=round_targets,
+            seed=seed,
+            dtype=dtype,
+            **kwargs,
+        )
+        # Set the number of points to use
         if npoints is not None:
             self.npoints = int(npoints)
+        # Set the initial indicies to keep fixed
         if initial_indicies is not None:
             self.initial_indicies = array(initial_indicies, dtype=int)
+        # Set the number of last points to include
         if include_last is not None:
             self.include_last = int(abs(include_last))
         # Check that too many last points are not included
         n_extra = self.npoints - len(self.initial_indicies)
         if self.include_last > n_extra:
             self.include_last = n_extra if n_extra >= 0 else 0
-        # Check that the database and the fingerprint have the same attributes
-        self.check_attributes()
-        # Reset the database if an argument has been changed
-        if reset_database:
-            self.reset_database()
         # Store that the data base has changed
         self.update_indicies = True
         return self
@@ -309,6 +309,7 @@ class DatabaseReduction(Database):
             use_derivatives=self.use_derivatives,
             use_fingerprint=self.use_fingerprint,
             round_targets=self.round_targets,
+            seed=self.seed,
             dtype=self.dtype,
             npoints=self.npoints,
             initial_indicies=self.initial_indicies,
@@ -334,6 +335,7 @@ class DatabaseDistance(DatabaseReduction):
         use_derivatives=True,
         use_fingerprint=True,
         round_targets=None,
+        seed=None,
         dtype=None,
         npoints=25,
         initial_indicies=[0],
@@ -360,6 +362,10 @@ class DatabaseDistance(DatabaseReduction):
             round_targets: int (optional)
                 The number of decimals to round the targets to.
                 If None, the targets are not rounded.
+            seed: int (optional)
+                The random seed.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
             npoints : int
@@ -376,6 +382,7 @@ class DatabaseDistance(DatabaseReduction):
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
             round_targets=round_targets,
+            seed=seed,
             dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
@@ -419,6 +426,7 @@ class DatabaseRandom(DatabaseReduction):
         use_derivatives=True,
         use_fingerprint=True,
         round_targets=None,
+        seed=None,
         dtype=None,
         npoints=25,
         initial_indicies=[0],
@@ -445,6 +453,10 @@ class DatabaseRandom(DatabaseReduction):
             round_targets: int (optional)
                 The number of decimals to round the targets to.
                 If None, the targets are not rounded.
+            seed: int (optional)
+                The random seed.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
             npoints : int
@@ -461,6 +473,7 @@ class DatabaseRandom(DatabaseReduction):
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
             round_targets=round_targets,
+            seed=seed,
             dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
@@ -496,6 +509,7 @@ class DatabaseHybrid(DatabaseReduction):
         use_derivatives=True,
         use_fingerprint=True,
         round_targets=None,
+        seed=None,
         dtype=None,
         npoints=25,
         initial_indicies=[0],
@@ -524,6 +538,10 @@ class DatabaseHybrid(DatabaseReduction):
             round_targets: int (optional)
                 The number of decimals to round the targets to.
                 If None, the targets are not rounded.
+            seed: int (optional)
+                The random seed.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
             npoints : int
@@ -542,6 +560,7 @@ class DatabaseHybrid(DatabaseReduction):
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
             round_targets=round_targets,
+            seed=seed,
             dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
@@ -557,6 +576,7 @@ class DatabaseHybrid(DatabaseReduction):
         use_derivatives=None,
         use_fingerprint=None,
         round_targets=None,
+        seed=None,
         dtype=None,
         npoints=None,
         initial_indicies=None,
@@ -582,6 +602,10 @@ class DatabaseHybrid(DatabaseReduction):
             round_targets: int (optional)
                 The number of decimals to round the targets to.
                 If None, the targets are not rounded.
+            seed: int (optional)
+                The random seed.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
             npoints : int
@@ -597,45 +621,25 @@ class DatabaseHybrid(DatabaseReduction):
         Returns:
             self: The updated object itself.
         """
-        # Control if the database has to be reset
-        reset_database = False
-        if fingerprint is not None:
-            self.fingerprint = fingerprint.copy()
-            reset_database = True
-        if reduce_dimensions is not None:
-            self.reduce_dimensions = reduce_dimensions
-            reset_database = True
-        if use_derivatives is not None:
-            self.use_derivatives = use_derivatives
-            reset_database = True
-        if use_fingerprint is not None:
-            self.use_fingerprint = use_fingerprint
-            reset_database = True
-        if round_targets is not None or not hasattr(self, "round_targets"):
-            self.round_targets = round_targets
-        if dtype is not None or not hasattr(self, "dtype"):
-            self.dtype = dtype
-        if npoints is not None:
-            self.npoints = int(npoints)
-        if initial_indicies is not None:
-            self.initial_indicies = array(initial_indicies, dtype=int)
-        if include_last is not None:
-            self.include_last = int(abs(include_last))
+        # Set the parameters in the parent class
+        super().update_arguments(
+            fingerprint=fingerprint,
+            reduce_dimensions=reduce_dimensions,
+            use_derivatives=use_derivatives,
+            use_fingerprint=use_fingerprint,
+            round_targets=round_targets,
+            seed=seed,
+            dtype=dtype,
+            npoints=npoints,
+            initial_indicies=initial_indicies,
+            include_last=include_last,
+            **kwargs,
+        )
+        # Set the random fraction
         if random_fraction is not None:
             self.random_fraction = int(abs(random_fraction))
             if self.random_fraction == 0:
                 self.random_fraction = 1
-        # Check that too many last points are not included
-        n_extra = self.npoints - len(self.initial_indicies)
-        if self.include_last > n_extra:
-            self.include_last = n_extra if n_extra >= 0 else 0
-        # Check that the database and the fingerprint have the same attributes
-        self.check_attributes()
-        # Reset the database if an argument has been changed
-        if reset_database:
-            self.reset_database()
-        # Store that the data base has changed
-        self.update_indicies = True
         return self
 
     def make_reduction(self, all_indicies, **kwargs):
@@ -684,6 +688,7 @@ class DatabaseHybrid(DatabaseReduction):
             use_derivatives=self.use_derivatives,
             use_fingerprint=self.use_fingerprint,
             round_targets=self.round_targets,
+            seed=self.seed,
             dtype=self.dtype,
             npoints=self.npoints,
             initial_indicies=self.initial_indicies,
@@ -710,6 +715,7 @@ class DatabaseMin(DatabaseReduction):
         use_derivatives=True,
         use_fingerprint=True,
         round_targets=None,
+        seed=None,
         dtype=None,
         npoints=25,
         initial_indicies=[0],
@@ -737,6 +743,10 @@ class DatabaseMin(DatabaseReduction):
             round_targets: int (optional)
                 The number of decimals to round the targets to.
                 If None, the targets are not rounded.
+            seed: int (optional)
+                The random seed.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
             npoints : int
@@ -771,6 +781,7 @@ class DatabaseMin(DatabaseReduction):
         use_derivatives=None,
         use_fingerprint=None,
         round_targets=None,
+        seed=None,
         dtype=None,
         npoints=None,
         initial_indicies=None,
@@ -796,6 +807,10 @@ class DatabaseMin(DatabaseReduction):
             round_targets: int (optional)
                 The number of decimals to round the targets to.
                 If None, the targets are not rounded.
+            seed: int (optional)
+                The random seed.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
             npoints : int
@@ -812,43 +827,23 @@ class DatabaseMin(DatabaseReduction):
         Returns:
             self: The updated object itself.
         """
-        # Control if the database has to be reset
-        reset_database = False
-        if fingerprint is not None:
-            self.fingerprint = fingerprint.copy()
-            reset_database = True
-        if reduce_dimensions is not None:
-            self.reduce_dimensions = reduce_dimensions
-            reset_database = True
-        if use_derivatives is not None:
-            self.use_derivatives = use_derivatives
-            reset_database = True
-        if use_fingerprint is not None:
-            self.use_fingerprint = use_fingerprint
-            reset_database = True
-        if round_targets is not None or not hasattr(self, "round_targets"):
-            self.round_targets = round_targets
-        if dtype is not None or not hasattr(self, "dtype"):
-            self.dtype = dtype
-        if npoints is not None:
-            self.npoints = int(npoints)
-        if initial_indicies is not None:
-            self.initial_indicies = array(initial_indicies, dtype=int)
-        if include_last is not None:
-            self.include_last = int(abs(include_last))
+        # Set the parameters in the parent class
+        super().update_arguments(
+            fingerprint=fingerprint,
+            reduce_dimensions=reduce_dimensions,
+            use_derivatives=use_derivatives,
+            use_fingerprint=use_fingerprint,
+            round_targets=round_targets,
+            seed=seed,
+            dtype=dtype,
+            npoints=npoints,
+            initial_indicies=initial_indicies,
+            include_last=include_last,
+            **kwargs,
+        )
+        # Set the force targets
         if force_targets is not None:
             self.force_targets = force_targets
-        # Check that too many last points are not included
-        n_extra = self.npoints - len(self.initial_indicies)
-        if self.include_last > n_extra:
-            self.include_last = n_extra if n_extra >= 0 else 0
-        # Check that the database and the fingerprint have the same attributes
-        self.check_attributes()
-        # Reset the database if an argument has been changed
-        if reset_database:
-            self.reset_database()
-        # Store that the data base has changed
-        self.update_indicies = True
         return self
 
     def make_reduction(self, all_indicies, **kwargs):
@@ -887,6 +882,7 @@ class DatabaseMin(DatabaseReduction):
             use_derivatives=self.use_derivatives,
             use_fingerprint=self.use_fingerprint,
             round_targets=self.round_targets,
+            seed=self.seed,
             dtype=self.dtype,
             npoints=self.npoints,
             initial_indicies=self.initial_indicies,
@@ -913,6 +909,7 @@ class DatabaseLast(DatabaseReduction):
         use_derivatives=True,
         use_fingerprint=True,
         round_targets=None,
+        seed=None,
         dtype=None,
         npoints=25,
         initial_indicies=[0],
@@ -939,6 +936,10 @@ class DatabaseLast(DatabaseReduction):
             round_targets: int (optional)
                 The number of decimals to round the targets to.
                 If None, the targets are not rounded.
+            seed: int (optional)
+                The random seed.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
             npoints : int
@@ -955,6 +956,7 @@ class DatabaseLast(DatabaseReduction):
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
             round_targets=round_targets,
+            seed=seed,
             dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
@@ -984,6 +986,7 @@ class DatabaseRestart(DatabaseReduction):
         use_derivatives=True,
         use_fingerprint=True,
         round_targets=None,
+        seed=None,
         dtype=None,
         npoints=25,
         initial_indicies=[0],
@@ -1011,6 +1014,10 @@ class DatabaseRestart(DatabaseReduction):
             round_targets: int (optional)
                 The number of decimals to round the targets to.
                 If None, the targets are not rounded.
+            seed: int (optional)
+                The random seed.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
             npoints : int
@@ -1027,6 +1034,7 @@ class DatabaseRestart(DatabaseReduction):
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
             round_targets=round_targets,
+            seed=seed,
             dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
@@ -1069,6 +1077,7 @@ class DatabasePointsInterest(DatabaseLast):
         use_derivatives=True,
         use_fingerprint=True,
         round_targets=None,
+        seed=None,
         dtype=None,
         npoints=25,
         initial_indicies=[0],
@@ -1121,6 +1130,7 @@ class DatabasePointsInterest(DatabaseLast):
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
             round_targets=round_targets,
+            seed=seed,
             dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
@@ -1216,6 +1226,7 @@ class DatabasePointsInterest(DatabaseLast):
         use_derivatives=None,
         use_fingerprint=None,
         round_targets=None,
+        seed=None,
         dtype=None,
         npoints=None,
         initial_indicies=None,
@@ -1242,6 +1253,10 @@ class DatabasePointsInterest(DatabaseLast):
             round_targets: int (optional)
                 The number of decimals to round the targets to.
                 If None, the targets are not rounded.
+            seed: int (optional)
+                The random seed.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
             npoints : int
@@ -1260,48 +1275,29 @@ class DatabasePointsInterest(DatabaseLast):
         Returns:
             self: The updated object itself.
         """
-        # Control if the database has to be reset
-        reset_database = False
-        if fingerprint is not None:
-            self.fingerprint = fingerprint.copy()
-            reset_database = True
-        if reduce_dimensions is not None:
-            self.reduce_dimensions = reduce_dimensions
-            reset_database = True
-        if use_derivatives is not None:
-            self.use_derivatives = use_derivatives
-            reset_database = True
-        if use_fingerprint is not None:
-            self.use_fingerprint = use_fingerprint
-            reset_database = True
-        if round_targets is not None or not hasattr(self, "round_targets"):
-            self.round_targets = round_targets
-        if dtype is not None or not hasattr(self, "dtype"):
-            self.dtype = dtype
-        if npoints is not None:
-            self.npoints = int(npoints)
-        if initial_indicies is not None:
-            self.initial_indicies = array(initial_indicies, dtype=int)
-        if include_last is not None:
-            self.include_last = int(abs(include_last))
+        # Set the parameters in the parent class
+        super().update_arguments(
+            fingerprint=fingerprint,
+            reduce_dimensions=reduce_dimensions,
+            use_derivatives=use_derivatives,
+            use_fingerprint=use_fingerprint,
+            round_targets=round_targets,
+            seed=seed,
+            dtype=dtype,
+            npoints=npoints,
+            initial_indicies=initial_indicies,
+            include_last=include_last,
+            **kwargs,
+        )
+        # Set the feature distance
         if feature_distance is not None:
             self.feature_distance = feature_distance
+        # Set the points of interest
         if point_interest is not None:
             self.point_interest = [atoms.copy() for atoms in point_interest]
             self.fp_interest = [
                 self.make_atoms_feature(atoms) for atoms in self.point_interest
             ]
-        # Check that too many last points are not included
-        n_extra = self.npoints - len(self.initial_indicies)
-        if self.include_last > n_extra:
-            self.include_last = n_extra if n_extra >= 0 else 0
-        # Check that the database and the fingerprint have the same attributes
-        self.check_attributes()
-        # Reset the database if an argument has been changed
-        if reset_database:
-            self.reset_database()
-        # Store that the data base has changed
-        self.update_indicies = True
         return self
 
     def make_reduction(self, all_indicies, **kwargs):
@@ -1340,6 +1336,7 @@ class DatabasePointsInterest(DatabaseLast):
             use_derivatives=self.use_derivatives,
             use_fingerprint=self.use_fingerprint,
             round_targets=self.round_targets,
+            seed=self.seed,
             dtype=self.dtype,
             npoints=self.npoints,
             initial_indicies=self.initial_indicies,
@@ -1367,6 +1364,7 @@ class DatabasePointsInterestEach(DatabasePointsInterest):
         use_derivatives=True,
         use_fingerprint=True,
         round_targets=None,
+        seed=None,
         dtype=None,
         npoints=25,
         initial_indicies=[0],
@@ -1398,6 +1396,10 @@ class DatabasePointsInterestEach(DatabasePointsInterest):
             round_targets: int (optional)
                 The number of decimals to round the targets to.
                 If None, the targets are not rounded.
+            seed: int (optional)
+                The random seed.
+                The seed an also be a RandomState or Generator instance.
+                If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
             npoints : int
@@ -1419,6 +1421,7 @@ class DatabasePointsInterestEach(DatabasePointsInterest):
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
             round_targets=round_targets,
+            seed=seed,
             dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
