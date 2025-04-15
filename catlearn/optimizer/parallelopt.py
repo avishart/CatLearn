@@ -216,7 +216,6 @@ class ParallelOptimizer(OptimizerMethod):
             comm=comm,
             verbose=verbose,
             seed=seed,
-            **kwargs,
         )
         # Set the chains
         if chains is not None:

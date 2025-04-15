@@ -329,7 +329,6 @@ class AdsorptionOptimizer(OptimizerMethod):
             comm=comm,
             verbose=verbose,
             seed=seed,
-            **kwargs,
         )
         # Set the optimizer kwargs
         if opt_kwargs is not None:

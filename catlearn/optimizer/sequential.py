@@ -186,7 +186,6 @@ class SequentialOptimizer(OptimizerMethod):
             comm=comm,
             verbose=verbose,
             seed=seed,
-            **kwargs,
         )
         return self
 

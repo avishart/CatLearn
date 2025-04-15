@@ -222,7 +222,6 @@ class LocalOptimizer(OptimizerMethod):
             comm=comm,
             verbose=verbose,
             seed=seed,
-            **kwargs,
         )
         # Set the local optimizer
         if local_opt is not None and local_opt_kwargs is not None:

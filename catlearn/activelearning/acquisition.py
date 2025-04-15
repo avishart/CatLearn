@@ -162,7 +162,6 @@ class AcqUCB(Acquisition):
         super().update_arguments(
             objective=objective,
             seed=seed,
-            **kwargs,
         )
         # Set the kappa value
         if kappa is not None:
@@ -249,7 +248,6 @@ class AcqIter(Acquisition):
         super().update_arguments(
             objective=objective,
             seed=seed,
-            **kwargs,
         )
         # Set the number of iterations
         if niter is not None:
@@ -273,7 +271,11 @@ class AcqIter(Acquisition):
 
 class AcqUME(Acquisition):
     def __init__(
-        self, objective="max", seed=None, unc_convergence=0.05, **kwargs
+        self,
+        objective="max",
+        seed=None,
+        unc_convergence=0.05,
+        **kwargs,
     ):
         """
         The predicted uncertainty when it is larger than unc_convergence
@@ -295,13 +297,18 @@ class AcqUME(Acquisition):
             return energy
         return self.objective_value(uncertainty)
 
-    def update_arguments(self, objective=None, unc_convergence=None, **kwargs):
+    def update_arguments(
+        self,
+        objective=None,
+        seed=None,
+        unc_convergence=None,
+        **kwargs,
+    ):
         "Set the parameters of the Acquisition function class."
         # Set the parameters in the parent class
         super().update_arguments(
             objective=objective,
-            seed=None,
-            **kwargs,
+            seed=seed,
         )
         # Set the unc_convergence value
         if unc_convergence is not None:
@@ -370,7 +377,6 @@ class AcqUUCB(AcqUCB):
         super().update_arguments(
             objective=objective,
             seed=seed,
-            **kwargs,
         )
         # Set the kappa value
         if kappa is not None:
@@ -469,7 +475,6 @@ class AcqEI(Acquisition):
         super().update_arguments(
             objective=objective,
             seed=seed,
-            **kwargs,
         )
         # Set the ebest value
         if ebest is not None or not hasattr(self, "ebest"):

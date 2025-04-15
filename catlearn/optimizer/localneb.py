@@ -153,19 +153,13 @@ class LocalNEB(LocalOptimizer):
         # Set the parameters in the parent class
         super().update_arguments(
             optimizable=neb,
+            local_opt=local_opt,
+            local_opt_kwargs=local_opt_kwargs,
             parallel_run=parallel_run,
             comm=comm,
             verbose=verbose,
             seed=seed,
-            **kwargs,
         )
-        # Set the local optimizer
-        if local_opt is not None and local_opt_kwargs is not None:
-            self.setup_local_optimizer(local_opt, local_opt_kwargs)
-        elif local_opt is not None:
-            self.setup_local_optimizer(self.local_opt)
-        elif local_opt_kwargs is not None:
-            self.setup_local_optimizer(self.local_opt, local_opt_kwargs)
         return self
 
     def get_arguments(self):
