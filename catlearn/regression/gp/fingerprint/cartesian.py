@@ -1,5 +1,6 @@
-import numpy as np
+from numpy import asarray, identity
 from .fingerprint import Fingerprint
+from .geometry import get_constraints
 
 
 class Cartesian(Fingerprint):
@@ -7,6 +8,7 @@ class Cartesian(Fingerprint):
         self,
         reduce_dimensions=True,
         use_derivatives=True,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -20,19 +22,33 @@ class Cartesian(Fingerprint):
             use_derivatives : bool
                 Calculate and store derivatives of the fingerprint wrt.
                 the cartesian coordinates.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
         # Set the arguments
         super().__init__(
             reduce_dimensions=reduce_dimensions,
             use_derivatives=use_derivatives,
+            dtype=dtype,
             **kwargs,
         )
 
-    def make_fingerprint(self, atoms, not_masked, masked, **kwargs):
+    def make_fingerprint(self, atoms, **kwargs):
         "The calculation of the cartesian coordinates fingerprint"
-        vector = (atoms.get_positions()[not_masked]).reshape(-1)
+        # Get the masked and not masked atoms
+        not_masked, _ = get_constraints(
+            atoms,
+            reduce_dimensions=self.reduce_dimensions,
+        )
+        # Get the cartesian coordinates of the moved atoms
+        vector = asarray(
+            atoms.get_positions()[not_masked],
+            dtype=self.dtype,
+        ).reshape(-1)
+        # Get the derivatives if requested
         if self.use_derivatives:
-            derivative = np.identity(len(vector))
+            derivative = identity(len(vector))
         else:
             derivative = None
         return vector, derivative

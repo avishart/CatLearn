@@ -1,5 +1,6 @@
 from .fingerprint import Fingerprint
-import numpy as np
+from .geometry import get_constraints
+from numpy import asarray, concatenate, transpose
 
 
 class FingerprintWrapperGPAtom(Fingerprint):
@@ -8,6 +9,7 @@ class FingerprintWrapperGPAtom(Fingerprint):
         fingerprint,
         reduce_dimensions=True,
         use_derivatives=True,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -24,11 +26,15 @@ class FingerprintWrapperGPAtom(Fingerprint):
             use_derivatives: bool
                 Calculate and store derivatives of the fingerprint wrt.
                 the cartesian coordinates.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
         super().__init__(
             fingerprint=fingerprint,
             reduce_dimensions=reduce_dimensions,
             use_derivatives=use_derivatives,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -37,6 +43,7 @@ class FingerprintWrapperGPAtom(Fingerprint):
         fingerprint=None,
         reduce_dimensions=None,
         use_derivatives=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -51,31 +58,46 @@ class FingerprintWrapperGPAtom(Fingerprint):
             use_derivatives: bool
                 Calculate and store derivatives of the fingerprint wrt.
                 the cartesian coordinates.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated instance itself.
         """
+        super().update_arguments(
+            reduce_dimensions=reduce_dimensions,
+            use_derivatives=use_derivatives,
+            dtype=dtype,
+        )
         if fingerprint is not None:
             self.fingerprint = fingerprint
-        if reduce_dimensions is not None:
-            self.reduce_dimensions = reduce_dimensions
-        if use_derivatives is not None:
-            self.use_derivatives = use_derivatives
         return self
 
-    def make_fingerprint(self, atoms, not_masked, masked, **kwargs):
+    def make_fingerprint(self, atoms, **kwargs):
         "The calculation of the gp-atom fingerprint"
-        fp = self.fingerprint(
-            atoms, calc_gradients=self.use_derivatives, **kwargs
+        # Get the masked and not masked atoms
+        not_masked, _ = get_constraints(
+            atoms,
+            reduce_dimensions=self.reduce_dimensions,
         )
-        vector = fp.vector.copy()
+        # Get the fingerprint
+        fp = self.fingerprint(
+            atoms,
+            calc_gradients=self.use_derivatives,
+            **kwargs,
+        )
         if self.use_derivatives:
-            derivative = fp.reduce_coord_gradients().copy()
+            derivative = fp.reduce_coord_gradients()
             # enforced not_masked since it is not possible in ASE-GPATOM
-            derivative = np.concatenate(derivative[not_masked], axis=1)
+            derivative = concatenate(
+                derivative[not_masked],
+                axis=1,
+                dtype=self.dtype,
+            )
         else:
             derivative = None
-        return vector, derivative
+        return asarray(fp.vector, dtype=self.dtype), derivative
 
     def get_arguments(self):
         "Get the arguments of the class itself."
@@ -84,6 +106,7 @@ class FingerprintWrapperGPAtom(Fingerprint):
             fingerprint=self.fingerprint,
             reduce_dimensions=self.reduce_dimensions,
             use_derivatives=self.use_derivatives,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()
@@ -99,6 +122,7 @@ class FingerprintWrapperDScribe(Fingerprint):
         reduce_dimensions=True,
         use_derivatives=True,
         fingerprint_kwargs={},
+        dtype=float,
         **kwargs,
     ):
         """
@@ -117,12 +141,16 @@ class FingerprintWrapperDScribe(Fingerprint):
                 the cartesian coordinates.
             fingerprint_kwargs: dict
                 Kwargs for the fingerprint function call.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
         super().__init__(
             fingerprint=fingerprint,
             reduce_dimensions=reduce_dimensions,
             use_derivatives=use_derivatives,
             fingerprint_kwargs=fingerprint_kwargs,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -132,6 +160,7 @@ class FingerprintWrapperDScribe(Fingerprint):
         reduce_dimensions=None,
         use_derivatives=None,
         fingerprint_kwargs=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -148,22 +177,32 @@ class FingerprintWrapperDScribe(Fingerprint):
                 the cartesian coordinates.
             fingerprint_kwargs: dict
                 Kwargs for the fingerprint function call.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated instance itself.
         """
+        super().update_arguments(
+            reduce_dimensions=reduce_dimensions,
+            use_derivatives=use_derivatives,
+            dtype=dtype,
+        )
         if fingerprint is not None:
             self.fingerprint = fingerprint
-        if reduce_dimensions is not None:
-            self.reduce_dimensions = reduce_dimensions
-        if use_derivatives is not None:
-            self.use_derivatives = use_derivatives
         if fingerprint_kwargs is not None:
             self.fingerprint_kwargs = fingerprint_kwargs.copy()
         return self
 
-    def make_fingerprint(self, atoms, not_masked, masked, **kwargs):
+    def make_fingerprint(self, atoms, **kwargs):
         "The calculation of the dscribe fingerprint"
+        # Get the masked and not masked atoms
+        not_masked, _ = get_constraints(
+            atoms,
+            reduce_dimensions=self.reduce_dimensions,
+        )
+        # Get the fingerprint
         if self.use_derivatives:
             derivative, vector = self.fingerprint.derivatives(
                 atoms,
@@ -171,15 +210,16 @@ class FingerprintWrapperDScribe(Fingerprint):
                 return_descriptor=True,
                 **self.fingerprint_kwargs,
             )
+            derivative = asarray(derivative, dtype=self.dtype)
             if len(derivative.shape) == 4:
-                derivative = np.transpose(derivative, (0, 3, 1, 2))
+                derivative = transpose(derivative, (0, 3, 1, 2))
             else:
-                derivative = np.transpose(derivative, (2, 0, 1))
+                derivative = transpose(derivative, (2, 0, 1))
             derivative = derivative.reshape(-1, len(not_masked) * 3)
         else:
             vector = self.fingerprint.create(atoms, **self.fingerprint_kwargs)
             derivative = None
-        return vector.reshape(-1), derivative
+        return asarray(vector.reshape(-1), dtype=self.dtype), derivative
 
     def get_arguments(self):
         "Get the arguments of the class itself."
@@ -189,6 +229,7 @@ class FingerprintWrapperDScribe(Fingerprint):
             reduce_dimensions=self.reduce_dimensions,
             use_derivatives=self.use_derivatives,
             fingerprint_kwargs=self.fingerprint_kwargs,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()

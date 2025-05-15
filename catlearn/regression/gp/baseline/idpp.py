@@ -1,4 +1,3 @@
-import numpy as np
 from .baseline import BaselineCalculator
 from ..fingerprint.geometry import get_full_distance_matrix
 
@@ -8,7 +7,10 @@ class IDPP(BaselineCalculator):
     def __init__(
         self,
         target=[],
+        wrap=False,
         mic=False,
+        use_forces=True,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -18,26 +20,38 @@ class IDPP(BaselineCalculator):
         Parameters:
             target: array
                 The target distances for the IDPP.
-            mic : bool
+            wrap: bool
+                Whether to wrap the atoms to the unit cell or not.
+            mic: bool
                 Minimum Image Convention (Shortest distances
                 when periodic boundary conditions are used).
+            use_forces: bool
+                Calculate and store the forces.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         See:
             Improved initial guess for minimum energy path calculations.
             Søren Smidstrup, Andreas Pedersen, Kurt Stokbro and Hannes Jónsson
             Chem. Phys. 140, 214106 (2014)
         """
-        super().__init__()
-        self.update_arguments(
+        super().__init__(
+            reduce_dimensions=False,
             target=target,
+            wrap=wrap,
             mic=mic,
-            **kwargs,
+            use_forces=use_forces,
+            dtype=dtype,
         )
 
     def update_arguments(
         self,
         target=None,
+        wrap=None,
         mic=None,
+        use_forces=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -47,28 +61,38 @@ class IDPP(BaselineCalculator):
         Parameters:
             target: array
                 The target distances for the IDPP.
-            mic : bool
+            wrap: bool
+                Whether to wrap the atoms to the unit cell or not.
+            mic: bool
                 Minimum Image Convention (Shortest distances
                 when periodic boundary conditions are used).
+            use_forces: bool
+                Calculate and store the forces.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
         """
+        super().update_arguments(
+            use_forces=use_forces,
+            dtype=dtype,
+        )
         if target is not None:
             self.target = target.copy()
+        if wrap is not None:
+            self.wrap = wrap
         if mic is not None:
             self.mic = mic
         return self
 
-    def get_energy_forces(self, atoms, get_derivatives=True, **kwargs):
+    def get_energy_forces(self, atoms, use_forces=True, **kwargs):
         "Get the energy and forces."
         # Get all distances
-        dis, dis_vec = get_full_distance_matrix(
-            atoms,
-            not_masked=None,
-            mic=self.mic,
-            vector=get_derivatives,
-            wrap=False,
+        dis, dis_vec = self.get_distances(
+            atoms=atoms,
+            use_vector=use_forces,
         )
         # Get the number of atoms
         n_atoms = len(atoms)
@@ -79,22 +103,45 @@ class IDPP(BaselineCalculator):
         # Calculate the energy
         dis_t = dis - self.target
         dis_t2 = dis_t**2
-        e = 0.5 * np.sum(weights * dis_t2)
-        if get_derivatives:
+        e = 0.5 * (weights * dis_t2).sum()
+        if use_forces:
             # Calculate the forces
             finner = 2.0 * (weights / dis_non) * dis_t2
             finner -= weights * dis_t
             finner = finner / dis_non
-            f = np.sum(dis_vec * finner[:, :, None], axis=0)
+            f = (dis_vec * finner[:, :, None]).sum(axis=0)
             return e, f
-        return e
+        return e, None
+
+    def get_distances(
+        self,
+        atoms,
+        use_vector,
+        **kwargs,
+    ):
+        "Calculate the distances."
+        dist, dist_vec = get_full_distance_matrix(
+            atoms=atoms,
+            not_masked=None,
+            use_vector=use_vector,
+            wrap=self.wrap,
+            include_ncells=False,
+            all_ncells=False,
+            mic=self.mic,
+            dtype=self.dtype,
+            **kwargs,
+        )
+        return dist, dist_vec
 
     def get_arguments(self):
         "Get the arguments of the class itself."
         # Get the arguments given to the class in the initialization
         arg_kwargs = dict(
             target=self.target,
+            wrap=self.wrap,
             mic=self.mic,
+            use_forces=self.use_forces,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()

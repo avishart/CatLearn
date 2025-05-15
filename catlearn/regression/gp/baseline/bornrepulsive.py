@@ -1,8 +1,8 @@
-from numpy import einsum
+from numpy import where
 from .repulsive import RepulsionCalculator
 
 
-class MieCalculator(RepulsionCalculator):
+class BornRepulsionCalculator(RepulsionCalculator):
     implemented_properties = ["energy", "forces"]
     nolabel = True
 
@@ -14,21 +14,19 @@ class MieCalculator(RepulsionCalculator):
         include_ncells=True,
         mic=False,
         all_ncells=True,
-        cell_cutoff=4.0,
-        use_cutoff=False,
-        rs_cutoff=3.0,
-        re_cutoff=4.0,
-        r_scale=0.7,
-        denergy=0.1,
-        power_r=8,
-        power_a=6,
-        dtype=None,
+        cell_cutoff=2.0,
+        r_scale=0.8,
+        power=2,
+        rs1_cross=0.9,
+        k_scale=1.0,
+        dtype=float,
         **kwargs,
     ):
         """
         A baseline calculator for ASE atoms object.
-        It uses the Mie potential baseline.
-        The power and the scaling of the Mie potential can be selected.
+        It uses a repulsive Lennard-Jones potential baseline.
+        The power and the scaling of the repulsive Lennard-Jones potential
+        can be selected.
 
         Parameters:
             reduce_dimensions: bool
@@ -52,24 +50,18 @@ class MieCalculator(RepulsionCalculator):
             cell_cutoff: float
                 The cutoff distance for the neighboring cells.
                 It is the scaling of the maximum covalent distance.
-            use_cutoff: bool
-                Whether to use a cutoff function for the inverse distance
-                fingerprint.
-                The cutoff function is a cosine cutoff function.
-            rs_cutoff: float
-                The starting distance for the cutoff function being 1.
-            re_cutoff: float
-                The ending distance for the cutoff function being 0.
-                re_cutoff must be larger than rs_cutoff.
             r_scale: float
                 The scaling of the covalent radii.
                 A smaller value will move the repulsion to a lower distances.
-            denergy : float
-                The dispersion energy of the potential.
-            power_r : int
-                The power of the repulsive part.
-            power_a : int
-                The power of the attractive part.
+                All distances larger than r_scale is cutoff.
+            power: int
+                The power of the repulsion.
+            rs1_cross: float
+                The scaled value of the inverse distance with scaling (r_scale)
+                that crosses the energy of 1 eV.
+            k_scale: float
+                The scaling of the repulsion energy after a default scaling
+                of the energy is calculated.
             dtype: type (optional)
                 The data type of the arrays.
                 If None, the default data type is used.
@@ -82,13 +74,10 @@ class MieCalculator(RepulsionCalculator):
             mic=mic,
             all_ncells=all_ncells,
             cell_cutoff=cell_cutoff,
-            use_cutoff=use_cutoff,
-            rs_cutoff=rs_cutoff,
-            re_cutoff=re_cutoff,
             r_scale=r_scale,
-            denergy=denergy,
-            power_a=power_a,
-            power_r=power_r,
+            power=power,
+            rs1_cross=rs1_cross,
+            k_scale=k_scale,
             dtype=dtype,
             **kwargs,
         )
@@ -102,13 +91,10 @@ class MieCalculator(RepulsionCalculator):
         mic=None,
         all_ncells=None,
         cell_cutoff=None,
-        use_cutoff=None,
-        rs_cutoff=None,
-        re_cutoff=None,
         r_scale=None,
-        denergy=None,
-        power_r=None,
-        power_a=None,
+        power=None,
+        rs1_cross=None,
+        k_scale=None,
         dtype=None,
         **kwargs,
     ):
@@ -138,24 +124,18 @@ class MieCalculator(RepulsionCalculator):
             cell_cutoff: float
                 The cutoff distance for the neighboring cells.
                 It is the scaling of the maximum covalent distance.
-            use_cutoff: bool
-                Whether to use a cutoff function for the inverse distance
-                fingerprint.
-                The cutoff function is a cosine cutoff function.
-            rs_cutoff: float
-                The starting distance for the cutoff function being 1.
-            re_cutoff: float
-                The ending distance for the cutoff function being 0.
-                re_cutoff must be larger than rs_cutoff.
             r_scale: float
                 The scaling of the covalent radii.
                 A smaller value will move the repulsion to a lower distances.
-            denergy : float
-                The dispersion energy of the potential.
-            power_r : int
-                The power of the repulsive part.
-            power_a : int
-                The power of the attractive part.
+                All distances larger than r_scale is cutoff.
+            power: int
+                The power of the repulsion.
+            rs1_cross: float
+                The scaled value of the inverse distance with scaling (r_scale)
+                that crosses the energy of 1 eV.
+            k_scale: float
+                The scaling of the repulsion energy after a default scaling
+                of the energy is calculated.
             dtype: type (optional)
                 The data type of the arrays.
                 If None, the default data type is used.
@@ -163,13 +143,11 @@ class MieCalculator(RepulsionCalculator):
         Returns:
             self: The updated object itself.
         """
-        # Update the arguments of the class
-        if denergy is not None:
-            self.denergy = float(denergy)
-        if power_r is not None:
-            self.power_r = int(power_r)
-        if power_a is not None:
-            self.power_a = int(power_a)
+        # Set the arguments
+        if rs1_cross is not None:
+            self.rs1_cross = abs(float(rs1_cross))
+        if k_scale is not None:
+            self.k_scale = abs(float(k_scale))
         # Update the arguments of the parent class
         super().update_arguments(
             reduce_dimensions=reduce_dimensions,
@@ -179,82 +157,48 @@ class MieCalculator(RepulsionCalculator):
             mic=mic,
             all_ncells=all_ncells,
             cell_cutoff=cell_cutoff,
-            use_cutoff=use_cutoff,
-            rs_cutoff=rs_cutoff,
-            re_cutoff=re_cutoff,
+            use_cutoff=False,
+            rs_cutoff=None,
+            re_cutoff=None,
             r_scale=r_scale,
-            power=None,
+            power=power,
             dtype=dtype,
         )
         return self
 
     def set_normalization_constant(self, **kwargs):
         # Calculate the normalization
-        power_ar = self.power_a / (self.power_r - self.power_a)
-        c0 = self.denergy * ((self.power_r / self.power_a) ** power_ar)
-        c0 = c0 * (self.power_r / (self.power_r - self.power_a))
-        # Calculate the r_scale powers
-        self.r_scale_r = c0 * (self.r_scale**self.power_r)
-        self.r_scale_a = c0 * (self.r_scale**self.power_a)
-        self.power_ar = -self.power_a * self.r_scale_a
-        self.power_rr = -self.power_r * self.r_scale_r
+        self.c0 = self.k_scale / ((1.0 / self.rs1_cross - 1.0) ** self.power)
+        self.c0p = -self.c0 * self.power * self.r_scale
         return self
 
-    def calc_energy(
+    def get_inv_dis(
         self,
-        inv_dist,
+        atoms,
         not_masked,
         i_nm,
+        use_forces,
+        use_vector,
         use_include_ncells,
+        use_mic,
         **kwargs,
     ):
-        "Calculate the energy."
-        # Get the repulsive part
-        if use_include_ncells:
-            inv_dist_p = (inv_dist**self.power_r).sum(axis=0)
-        else:
-            inv_dist_p = inv_dist**self.power_r
-        # Take double countings into account
-        inv_dist_p[i_nm, not_masked] *= 2.0
-        inv_dist_p[:, not_masked] *= 0.5
-        energy = self.r_scale_r * inv_dist_p.sum()
-        # Get the attractive part
-        if use_include_ncells:
-            inv_dist_p = (inv_dist**self.power_a).sum(axis=0)
-        else:
-            inv_dist_p = inv_dist**self.power_a
-        # Take double countings into account
-        inv_dist_p[i_nm, not_masked] *= 2.0
-        inv_dist_p[:, not_masked] *= 0.5
-        energy -= self.r_scale_a * inv_dist_p.sum()
-        return energy
-
-    def calc_forces(
-        self,
-        inv_dist,
-        deriv,
-        not_masked,
-        i_nm,
-        use_include_ncells=False,
-        **kwargs,
-    ):
-        "Calculate the forces."
-        # Calculate the derivative of the repulsive energy
-        inv_dist_p = inv_dist ** (self.power_r - 1)
-        # Calculate the forces
-        if use_include_ncells:
-            forces = einsum("dijc,dij->ic", deriv, inv_dist_p)
-        else:
-            forces = einsum("ijc,ij->ic", deriv, inv_dist_p)
-        forces *= self.power_rr
-        # Calculate the derivative of the attractive energy
-        inv_dist_p = inv_dist ** (self.power_a - 1)
-        # Calculate the forces
-        if use_include_ncells:
-            forces -= einsum("dijc,dij->ic", deriv, inv_dist_p)
-        else:
-            forces -= self.power_ar * einsum("ijc,ij->ic", deriv, inv_dist_p)
-        return forces
+        # Calculate the inverse distances
+        inv_dist, deriv = super().get_inv_dis(
+            atoms=atoms,
+            not_masked=not_masked,
+            i_nm=i_nm,
+            use_forces=use_forces,
+            use_vector=use_vector,
+            use_include_ncells=use_include_ncells,
+            use_mic=use_mic,
+            **kwargs,
+        )
+        # Calculate the scaled inverse distances
+        inv_dist = self.r_scale * inv_dist - 1.0
+        # Use only the repulsive part
+        inv_dist = where(inv_dist < 0.0, 0.0, inv_dist)
+        return inv_dist, deriv
 
     def get_arguments(self):
         "Get the arguments of the class itself."
@@ -268,13 +212,11 @@ class MieCalculator(RepulsionCalculator):
             all_ncells=self.all_ncells,
             cell_cutoff=self.cell_cutoff,
             use_cutoff=self.use_cutoff,
-            rs_cutoff=self.rs_cutoff,
-            re_cutoff=self.re_cutoff,
             r_scale=self.r_scale,
-            denergy=self.denergy,
-            power_a=self.power_a,
-            power_r=self.power_r,
+            power=self.power,
             dtype=self.dtype,
+            rs1_cross=self.rs1_cross,
+            k_scale=self.k_scale,
         )
         # Get the constants made within the class
         constant_kwargs = dict()

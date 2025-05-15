@@ -1,3 +1,6 @@
+from numpy import asarray
+
+
 class FingerprintObject:
     def __init__(self, vector, derivative=None, **kwargs):
         """
@@ -11,23 +14,23 @@ class FingerprintObject:
             derivative: (N,D) array (optional)
                 Fingerprint derivative wrt. atoms cartesian coordinates.
         """
-        self.vector = vector.copy()
+        self.vector = asarray(vector)
         if derivative is None:
             self.derivative = None
         else:
-            self.derivative = derivative.copy()
+            self.derivative = asarray(derivative)
 
     def get_vector(self, **kwargs):
         "Get the fingerprint vector."
-        return self.vector.copy()
+        return self.vector
 
     def get_derivatives(self, d=None, **kwargs):
         "Get the derivative of the fingerprint wrt. the cartesian coordinates."
         if self.derivative is None:
             return None
         if d is None:
-            return self.derivative.copy()
-        return self.derivative[:, d].copy()
+            return self.derivative
+        return self.derivative[:, d]
 
     def get_derivative_dimension(self, **kwargs):
         """
