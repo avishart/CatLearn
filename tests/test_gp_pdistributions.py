@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 from .functions import create_func, make_train_test_set, check_minima
 
 
@@ -24,11 +23,13 @@ class TestGPPdis(unittest.TestCase):
         )
         from catlearn.regression.gp.hpboundary import StrictBoundaries
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -40,9 +41,6 @@ class TestGPPdis(unittest.TestCase):
         optimizer = ScipyOptimizer(
             maxiter=500,
             jac=True,
-            method="l-bfgs-b",
-            use_bounds=False,
-            tol=1e-12,
         )
         # Define the list of prior distribution objects that are tested
         test_pdis = [
@@ -76,7 +74,7 @@ class TestGPPdis(unittest.TestCase):
                     use_derivatives=use_derivatives,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                gp.set_seed(seed=seed)
                 # Optimize the hyperparameters
                 sol = gp.optimize(
                     x_tr,
@@ -117,11 +115,13 @@ class TestGPPdis(unittest.TestCase):
         )
         from catlearn.regression.gp.hpboundary import VariableTransformation
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -160,7 +160,7 @@ class TestGPPdis(unittest.TestCase):
             (True, Invgamma_prior(a=[1e-5], b=[1e-5])),
         ]
         # Test the prior distributions
-        for index, (use_update_pdis, pdis_d) in enumerate(test_pdis):
+        for use_update_pdis, pdis_d in test_pdis:
             with self.subTest(use_update_pdis=use_update_pdis, pdis_d=pdis_d):
                 # Construct the prior distribution objects
                 pdis = dict(length=pdis_d.copy(), noise=pdis_d.copy())
@@ -178,7 +178,7 @@ class TestGPPdis(unittest.TestCase):
                     use_derivatives=use_derivatives,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                gp.set_seed(seed=seed)
                 # Optimize the hyperparameters
                 sol = gp.optimize(
                     x_tr,

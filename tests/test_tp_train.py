@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 from .functions import create_func, make_train_test_set, calculate_rmse
 
 
@@ -22,11 +21,13 @@ class TestTPTrainPredict(unittest.TestCase):
         "Test if the TP can be trained."
         from catlearn.regression.gp.models import TProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -43,8 +44,10 @@ class TestTPTrainPredict(unittest.TestCase):
         "Test if the TP can predict one test point."
         from catlearn.regression.gp.models import TProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -60,7 +63,7 @@ class TestTPTrainPredict(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energy
-        ypred, var, var_deriv = tp.predict(
+        ypred, _, _ = tp.predict(
             x_te,
             get_variance=False,
             get_derivatives=False,
@@ -68,14 +71,16 @@ class TestTPTrainPredict(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.02650) < 1e-4)
+        self.assertTrue(abs(error - 0.00859) < 1e-4)
 
     def test_predict(self):
         "Test if the TP can predict multiple test points."
         from catlearn.regression.gp.models import TProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -91,7 +96,7 @@ class TestTPTrainPredict(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energies
-        ypred, var, var_deriv = tp.predict(
+        ypred, _, _ = tp.predict(
             x_te,
             get_variance=False,
             get_derivatives=False,
@@ -99,14 +104,16 @@ class TestTPTrainPredict(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 1.75102) < 1e-4)
+        self.assertTrue(abs(error - 0.88457) < 1e-4)
 
     def test_predict_var(self):
         "Test if the TP can predict variance of multiple test point."
         from catlearn.regression.gp.models import TProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -122,7 +129,7 @@ class TestTPTrainPredict(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energies and uncertainties
-        ypred, var, var_deriv = tp.predict(
+        ypred, _, _ = tp.predict(
             x_te,
             get_variance=True,
             get_derivatives=False,
@@ -130,7 +137,7 @@ class TestTPTrainPredict(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 1.75102) < 1e-4)
+        self.assertTrue(abs(error - 0.88457) < 1e-4)
 
     def test_predict_var_n(self):
         """
@@ -139,8 +146,10 @@ class TestTPTrainPredict(unittest.TestCase):
         """
         from catlearn.regression.gp.models import TProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -156,7 +165,7 @@ class TestTPTrainPredict(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energies and uncertainties
-        ypred, var, var_deriv = tp.predict(
+        ypred, _, _ = tp.predict(
             x_te,
             get_variance=True,
             get_derivatives=False,
@@ -164,14 +173,16 @@ class TestTPTrainPredict(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 1.75102) < 1e-4)
+        self.assertTrue(abs(error - 0.88457) < 1e-4)
 
     def test_predict_derivatives(self):
         "Test if the TP can predict derivatives of multiple test points."
         from catlearn.regression.gp.models import TProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -187,17 +198,17 @@ class TestTPTrainPredict(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energies, derivatives, and uncertainties
-        ypred, var, var_deriv = tp.predict(
+        ypred, _, _ = tp.predict(
             x_te,
             get_variance=True,
             get_derivatives=True,
             include_noise=False,
         )
         # Check that the derivatives are predicted
-        self.assertTrue(np.shape(ypred)[1] == 2)
+        self.assertTrue(ypred.shape[1] == 2)
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 1.75102) < 1e-4)
+        self.assertTrue(abs(error - 0.88457) < 1e-4)
 
 
 class TestTPTrainPredictDerivatives(unittest.TestCase):
@@ -210,8 +221,10 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         "Test if the TP can be trained."
         from catlearn.regression.gp.models import TProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -231,8 +244,10 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         "Test if the TP can predict one test point."
         from catlearn.regression.gp.models import TProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -248,7 +263,7 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energy
-        ypred, var, var_deriv = tp.predict(
+        ypred, _, _ = tp.predict(
             x_te,
             get_variance=False,
             get_derivatives=False,
@@ -256,14 +271,16 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.00218) < 1e-4)
+        self.assertTrue(abs(error - 0.00038) < 1e-4)
 
     def test_predict(self):
         "Test if the TP can predict multiple test points."
         from catlearn.regression.gp.models import TProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -279,7 +296,7 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energies
-        ypred, var, var_deriv = tp.predict(
+        ypred, _, _ = tp.predict(
             x_te,
             get_variance=False,
             get_derivatives=False,
@@ -287,14 +304,16 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.13723) < 1e-4)
+        self.assertTrue(abs(error - 0.20550) < 1e-4)
 
     def test_predict_var(self):
         "Test if the TP can predict variance of multiple test points."
         from catlearn.regression.gp.models import TProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -310,7 +329,7 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energies and uncertainties
-        ypred, var, var_deriv = tp.predict(
+        ypred, _, _ = tp.predict(
             x_te,
             get_variance=True,
             get_derivatives=False,
@@ -318,7 +337,7 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.13723) < 1e-4)
+        self.assertTrue(abs(error - 0.20550) < 1e-4)
 
     def test_predict_var_n(self):
         """
@@ -327,8 +346,10 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         """
         from catlearn.regression.gp.models import TProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -344,7 +365,7 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energies and uncertainties
-        ypred, var, var_deriv = tp.predict(
+        ypred, _, _ = tp.predict(
             x_te,
             get_variance=True,
             get_derivatives=False,
@@ -352,14 +373,16 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.13723) < 1e-4)
+        self.assertTrue(abs(error - 0.20550) < 1e-4)
 
     def test_predict_derivatives(self):
         "Test if the TP can predict derivatives of multiple test points."
         from catlearn.regression.gp.models import TProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -375,17 +398,17 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energies, derivatives, and uncertainties
-        ypred, var, var_deriv = tp.predict(
+        ypred, _, _ = tp.predict(
             x_te,
             get_variance=True,
             get_derivatives=True,
             include_noise=False,
         )
         # Check that the derivatives are predicted
-        self.assertTrue(np.shape(ypred)[1] == 2)
+        self.assertTrue(ypred.shape[1] == 2)
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.13723) < 1e-4)
+        self.assertTrue(abs(error - 0.20550) < 1e-4)
 
 
 if __name__ == "__main__":

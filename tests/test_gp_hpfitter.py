@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 from .functions import create_func, make_train_test_set, check_minima
 
 
@@ -23,11 +22,13 @@ class TestGPHpfitter(unittest.TestCase):
             FBPMGP,
         )
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -38,10 +39,6 @@ class TestGPHpfitter(unittest.TestCase):
         # Make the optimizer
         optimizer = ScipyOptimizer(
             maxiter=500,
-            jac=True,
-            method="l-bfgs-b",
-            use_bounds=False,
-            tol=1e-12,
         )
         # Define the list of hyperparameter fitter objects that are tested
         hpfitter_list = [
@@ -61,7 +58,7 @@ class TestGPHpfitter(unittest.TestCase):
                 opt_tr_size=10,
                 optimizer=optimizer,
             ),
-            FBPMGP(Q=None, n_test=50, ngrid=80, bounds=None),
+            FBPMGP(Q=None, n_test=50, ngrid=80),
         ]
         # Test the hyperparameter fitter objects
         for index, hpfitter in enumerate(hpfitter_list):
@@ -73,7 +70,7 @@ class TestGPHpfitter(unittest.TestCase):
                     use_derivatives=use_derivatives,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                gp.set_seed(seed)
                 # Optimize the hyperparameters
                 sol = gp.optimize(
                     x_tr,
@@ -109,11 +106,13 @@ class TestGPHpfitter(unittest.TestCase):
             FBPMGP,
         )
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -124,10 +123,6 @@ class TestGPHpfitter(unittest.TestCase):
         # Make the optimizer
         optimizer = ScipyOptimizer(
             maxiter=500,
-            jac=True,
-            method="l-bfgs-b",
-            use_bounds=False,
-            tol=1e-12,
         )
         # Define the list of hyperparameter fitter objects that are tested
         hpfitter_list = [
@@ -147,7 +142,7 @@ class TestGPHpfitter(unittest.TestCase):
                 opt_tr_size=10,
                 optimizer=optimizer,
             ),
-            FBPMGP(Q=None, n_test=50, ngrid=80, bounds=None),
+            FBPMGP(Q=None, n_test=50, ngrid=80),
         ]
         # Test the hyperparameter fitter objects
         for index, hpfitter in enumerate(hpfitter_list):
@@ -159,7 +154,7 @@ class TestGPHpfitter(unittest.TestCase):
                     use_derivatives=use_derivatives,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                gp.set_seed(seed)
                 # Optimize the hyperparameters
                 sol = gp.optimize(
                     x_tr,

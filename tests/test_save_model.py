@@ -14,8 +14,10 @@ class TestSaveModel(unittest.TestCase):
         """
         from catlearn.regression.gp.models import GaussianProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -42,7 +44,7 @@ class TestSaveModel(unittest.TestCase):
         )
         gp2 = gp2.load_model("test_model.pkl")
         # Predict the energy
-        ypred, var, var_deriv = gp2.predict(
+        ypred, _, _ = gp2.predict(
             x_te,
             get_variance=False,
             get_derivatives=False,
@@ -50,7 +52,7 @@ class TestSaveModel(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.02650) < 1e-4)
+        self.assertTrue(abs(error - 0.00859) < 1e-4)
 
 
 if __name__ == "__main__":

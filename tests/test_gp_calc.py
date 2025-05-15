@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 from .functions import create_h2_atoms, make_train_test_set
 
 
@@ -30,20 +29,23 @@ class TestGPCalc(unittest.TestCase):
         )
         from catlearn.regression.gp.calculator import MLModel, MLCalculator
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_h2_atoms(gridsize=50, seed=1)
+        x, f, g = create_h2_atoms(gridsize=50, seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
-            x, f, g, tr=10, te=1, use_derivatives=use_derivatives
+        x_tr, _, x_te, f_te = make_train_test_set(
+            x,
+            f,
+            g,
+            tr=10,
+            te=1,
+            use_derivatives=use_derivatives,
         )
         # Make the hyperparameter fitter
         optimizer = ScipyOptimizer(
             maxiter=500,
-            jac=True,
-            method="l-bfgs-b",
-            use_bounds=False,
-            tol=1e-8,
         )
         hpfitter = HyperparameterFitter(
             func=LogLikelihood(),
@@ -122,24 +124,24 @@ class TestGPCalc(unittest.TestCase):
         ]
         # Make a list of the error values that the test compares to
         error_list = [
-            0.00166,
-            0.00166,
-            0.00359,
-            0.00359,
-            0.00003,
-            0.00003,
-            0.000002,
-            0.000002,
-            0.000018,
-            0.00003,
-            0.01270,
-            0.02064,
-            0.00655,
-            0.00102,
-            0.000002,
-            0.000002,
-            0.000002,
-            0.000002,
+            2.12101,
+            2.12101,
+            0.34274,
+            0.34274,
+            1.96252,
+            0.34274,
+            0.71961,
+            0.71964,
+            0.89345,
+            0.35748,
+            5.04941,
+            6.25126,
+            7.38147,
+            9.47098,
+            1.76462,
+            1.76442,
+            1.76462,
+            1.76442,
         ]
         # Test the database objects
         for index, (data, use_fingerprint, data_kwarg) in enumerate(
@@ -162,15 +164,12 @@ class TestGPCalc(unittest.TestCase):
                 )
                 # Make the fingerprint
                 fp = Cartesian(
-                    reduce_dimensions=True,
                     use_derivatives=use_derivatives,
                 )
                 # Set up the database
                 database = data(
                     fingerprint=fp,
-                    reduce_dimensions=True,
                     use_derivatives=use_derivatives,
-                    negative_forces=True,
                     use_fingerprint=use_fingerprint,
                     **data_kwarg
                 )
@@ -180,16 +179,14 @@ class TestGPCalc(unittest.TestCase):
                     database=database,
                     optimize=True,
                     baseline=None,
-                    verbose=False,
                 )
-                # Set random seed to give the same results every time
-                np.random.seed(1)
-                # Construct the machine learning calculator and add the data
+                # Construct the machine learning calculator
                 mlcalc = MLCalculator(
                     mlmodel=mlmodel,
-                    calculate_uncertainty=True,
-                    calculate_forces=True,
                 )
+                # Set the random seed for the calculator
+                mlcalc.set_seed(seed=seed)
+                # Add the training data to the calculator
                 mlcalc.add_training(x_tr)
                 # Test if the right number of training points is added
                 if index in [0, 1]:

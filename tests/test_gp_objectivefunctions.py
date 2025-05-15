@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 from .functions import create_func, make_train_test_set, check_minima
 
 
@@ -25,11 +24,13 @@ class TestGPObjectiveFunctions(unittest.TestCase):
             GPE,
         )
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -51,9 +52,6 @@ class TestGPObjectiveFunctions(unittest.TestCase):
         optimizer = ScipyOptimizer(
             maxiter=500,
             jac=True,
-            method="l-bfgs-b",
-            use_bounds=False,
-            tol=1e-12,
         )
         # Test the objective function objects
         for obj_func in obj_list:
@@ -70,7 +68,7 @@ class TestGPObjectiveFunctions(unittest.TestCase):
                     use_derivatives=use_derivatives,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                gp.set_seed(seed)
                 # Optimize the hyperparameters
                 sol = gp.optimize(
                     x_tr,
@@ -112,13 +110,18 @@ class TestGPObjectiveFunctions(unittest.TestCase):
             FactorizedLogLikelihoodSVD,
             FactorizedGPP,
         )
-        from catlearn.regression.gp.hpboundary import HPBoundaries
+        from catlearn.regression.gp.hpboundary import (
+            HPBoundaries,
+            VariableTransformation,
+        )
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -126,6 +129,8 @@ class TestGPObjectiveFunctions(unittest.TestCase):
             te=1,
             use_derivatives=use_derivatives,
         )
+        # Make the default boundaries for the hyperparameters
+        default_bounds = VariableTransformation()
         # Make fixed boundary conditions for one of the tests
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
@@ -137,7 +142,11 @@ class TestGPObjectiveFunctions(unittest.TestCase):
         )
         # Make the optimizers
         line_optimizer = FineGridSearch(
-            tol=1e-5, loops=3, ngrid=80, optimize=True, multiple_min=False
+            tol=1e-5,
+            loops=3,
+            ngrid=80,
+            optimize=True,
+            multiple_min=False,
         )
         optimizer = FactorizedOptimizer(
             line_optimizer=line_optimizer,
@@ -148,7 +157,7 @@ class TestGPObjectiveFunctions(unittest.TestCase):
         # Define the list of objective function objects that are tested
         obj_list = [
             (
-                None,
+                default_bounds,
                 FactorizedLogLikelihood(
                     modification=False,
                     ngrid=250,
@@ -156,7 +165,7 @@ class TestGPObjectiveFunctions(unittest.TestCase):
                 ),
             ),
             (
-                None,
+                default_bounds,
                 FactorizedLogLikelihood(
                     modification=True,
                     ngrid=250,
@@ -164,7 +173,7 @@ class TestGPObjectiveFunctions(unittest.TestCase):
                 ),
             ),
             (
-                None,
+                default_bounds,
                 FactorizedLogLikelihood(
                     modification=False,
                     ngrid=80,
@@ -172,7 +181,7 @@ class TestGPObjectiveFunctions(unittest.TestCase):
                 ),
             ),
             (
-                None,
+                default_bounds,
                 FactorizedLogLikelihood(
                     modification=False,
                     ngrid=80,
@@ -188,7 +197,7 @@ class TestGPObjectiveFunctions(unittest.TestCase):
                 ),
             ),
             (
-                None,
+                default_bounds,
                 FactorizedLogLikelihoodSVD(
                     modification=False,
                     ngrid=250,
@@ -196,7 +205,7 @@ class TestGPObjectiveFunctions(unittest.TestCase):
                 ),
             ),
             (
-                None,
+                default_bounds,
                 FactorizedGPP(
                     modification=False,
                     ngrid=250,
@@ -220,7 +229,7 @@ class TestGPObjectiveFunctions(unittest.TestCase):
                     use_derivatives=use_derivatives,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                gp.set_seed(seed)
                 # Optimize the hyperparameters
                 sol = gp.optimize(
                     x_tr,
