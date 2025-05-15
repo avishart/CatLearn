@@ -8,7 +8,7 @@ class Cartesian(Fingerprint):
         self,
         reduce_dimensions=True,
         use_derivatives=True,
-        dtype=None,
+        dtype=float,
         **kwargs,
     ):
         """

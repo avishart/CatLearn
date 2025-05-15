@@ -180,7 +180,7 @@ def get_ncells(
     cell_cutoff=4.0,
     atomic_numbers=None,
     remove0=False,
-    dtype=None,
+    dtype=float,
     **kwargs,
 ):
     """
@@ -251,7 +251,7 @@ def get_full_distance_matrix(
     mic=False,
     all_ncells=False,
     cell_cutoff=4.0,
-    dtype=None,
+    dtype=float,
     **kwargs,
 ):
     """
@@ -347,7 +347,7 @@ def get_all_distances(
     mic=False,
     all_ncells=False,
     cell_cutoff=4.0,
-    dtype=None,
+    dtype=float,
     **kwargs,
 ):
     """
@@ -544,7 +544,7 @@ def get_covalent_distances(
     masked,
     nmi_ind,
     nmj_ind,
-    dtype=None,
+    dtype=float,
     **kwargs,
 ):
     """
@@ -585,7 +585,7 @@ def get_covalent_distances(
     return covdis
 
 
-def mic_distance(dist_vec, cell, pbc, use_vector=False, dtype=None, **kwargs):
+def mic_distance(dist_vec, cell, pbc, use_vector=False, dtype=float, **kwargs):
     """
     Get the minimum image convention of the distances.
 
@@ -706,7 +706,7 @@ def mic_general_distance(
     cell,
     pbc_nc,
     use_vector=False,
-    dtype=None,
+    dtype=float,
     **kwargs,
 ):
     """

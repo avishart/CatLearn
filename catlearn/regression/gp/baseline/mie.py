@@ -22,7 +22,7 @@ class MieCalculator(RepulsionCalculator):
         denergy=0.1,
         power_r=8,
         power_a=6,
-        dtype=None,
+        dtype=float,
         **kwargs,
     ):
         """

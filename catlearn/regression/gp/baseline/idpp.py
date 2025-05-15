@@ -10,7 +10,7 @@ class IDPP(BaselineCalculator):
         wrap=False,
         mic=False,
         use_forces=True,
-        dtype=None,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -76,6 +76,7 @@ class IDPP(BaselineCalculator):
             self: The updated object itself.
         """
         super().update_arguments(
+            reduce_dimensions=False,
             use_forces=use_forces,
             dtype=dtype,
         )
