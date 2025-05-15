@@ -3,7 +3,7 @@ from ase.io import read
 from ase.optimize import FIRE
 from .localneb import LocalNEB
 from .sequential import SequentialOptimizer
-from ..structures.neb import ImprovedTangentNEB, make_interpolation
+from ..structures.neb import EWNEB, ImprovedTangentNEB, make_interpolation
 
 
 class LocalCINEB(SequentialOptimizer):
@@ -156,11 +156,9 @@ class LocalCINEB(SequentialOptimizer):
             if neb_method.lower() == "improvedtangentneb":
                 neb_method = ImprovedTangentNEB
             elif neb_method.lower() == "ewneb":
-                from ..structures.neb.ewneb import EWNEB
-
                 neb_method = EWNEB
             else:
-                raise Exception(
+                raise ValueError(
                     "The NEB method {} is not implemented.".format(neb_method)
                 )
         self.neb_method = neb_method

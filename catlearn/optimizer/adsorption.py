@@ -4,7 +4,7 @@ from ase.constraints import FixAtoms, FixBondLengths
 import itertools
 from numpy import array, asarray, concatenate, cos, matmul, pi, sin
 from numpy.linalg import norm
-import scipy
+from scipy import __version__ as scipy_version
 from scipy.optimize import dual_annealing
 
 
@@ -351,7 +351,7 @@ class AdsorptionOptimizer(OptimizerMethod):
     def set_seed(self, seed=None):
         super().set_seed(seed)
         # Set the seed for the random number generator
-        if scipy.__version__ < "1.15":
+        if scipy_version < "1.15":
             self.opt_kwargs["seed"] = self.seed
         else:
             self.opt_kwargs["rng"] = self.rng
@@ -393,16 +393,18 @@ class AdsorptionOptimizer(OptimizerMethod):
         # Get the positions
         pos = self.positions0.copy()
         # Calculate the positions of the adsorbate
-        pos_ads = pos[self.n_slab : self.n_slab + self.n_ads]
+        n_slab = self.n_slab
+        n_all = self.n_slab + self.n_ads
+        pos_ads = pos[n_slab:n_all]
         pos_ads = self.rotation_matrix(x[3:6], pos_ads)
         pos_ads += (self.cell * x[:3].reshape(-1, 1)).sum(axis=0)
-        pos[self.n_slab : self.n_slab + self.n_ads] = pos_ads
+        pos[n_slab:n_all] = pos_ads
         # Calculate the positions of the second adsorbate
         if self.n_ads2 > 0:
-            pos_ads2 = pos[self.n_slab + self.n_ads :]
+            pos_ads2 = pos[n_all:]
             pos_ads2 = self.rotation_matrix(x[9:12], pos_ads2)
             pos_ads2 += (self.cell * x[6:9].reshape(-1, 1)).sum(axis=0)
-            pos[self.n_slab + self.n_ads :] = pos_ads2
+            pos[n_all:] = pos_ads2
         # Set the positions
         self.optimizable.set_positions(pos)
         # Get the potential energy

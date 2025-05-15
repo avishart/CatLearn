@@ -1,5 +1,5 @@
 from .method import OptimizerMethod
-import ase
+from ase import __version__ as ase_version
 from ase.parallel import world
 from ase.optimize import FIRE
 from numpy import isnan
@@ -237,7 +237,7 @@ class LocalOptimizer(OptimizerMethod):
         Run a local optimization step.
         The ASE optimizer is dependent on the ASE version.
         """
-        if ase.__version__ >= "3.23":
+        if ase_version >= "3.23":
             optimizer.run(fmax=fmax, steps=1, **kwargs)
         else:
             optimizer.run(fmax=fmax, steps=self.steps + 1, **kwargs)

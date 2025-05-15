@@ -36,7 +36,7 @@ class OptimizerMethod:
                 not (False).
             seed: int (optional)
                 The random seed for the optimization.
-                The seed an also be a RandomState or Generator instance.
+                The seed can also be a RandomState or Generator instance.
                 If not given, the default random number generator is used.
         """
         # Set the parameters
@@ -702,7 +702,7 @@ class OptimizerMethod:
                 not (False).
             seed: int (optional)
                 The random seed for the optimization.
-                The seed an also be a RandomState or Generator instance.
+                The seed can also be a RandomState or Generator instance.
                 If not given, the default random number generator is used.
         """
         # Set the communicator
@@ -729,8 +729,19 @@ class OptimizerMethod:
             self.check_parallel()
         return self
 
-    def set_seed(self, seed=None):
-        "Set the random seed."
+    def set_seed(self, seed=None, **kwargs):
+        """
+        Set the random seed.
+
+        Parameters:
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+
+        Returns:
+            self: The instance itself.
+        """
         if seed is not None:
             self.seed = seed
             if isinstance(seed, int):

@@ -102,10 +102,10 @@ class OriginalNEB:
         Make an interpolation between the start and end structure.
 
         Parameters:
-            method : str
+            method: str
                 The method used for performing the interpolation.
                 The optional methods is {linear, idpp, ends}.
-            mic : bool
+            mic: bool
                 Whether to use the minimum-image convention.
 
         Returns:
@@ -142,14 +142,14 @@ class OriginalNEB:
         Set the positions of all the images in one array.
 
         Parameters:
-            positions : ((Nimg-2)*Natoms,3) array
+            positions: ((Nimg-2)*Natoms,3) array
                 Coordinates of all atoms in all the moving images.
         """
         self.reset()
         for i, image in enumerate(self.images[1:-1]):
-            image.set_positions(
-                positions[i * self.natoms : (i + 1) * self.natoms]
-            )
+            posi = i * self.natoms
+            posip = (i + 1) * self.natoms
+            image.set_positions(positions[posi:posip])
         pass
 
     def get_potential_energy(self, **kwargs):
@@ -335,7 +335,7 @@ class OriginalNEB:
         Set the calculators for all the images.
 
         Parameters:
-            calculators : List of ASE Calculators or ASE Calculator
+            calculators: List of ASE Calculators or ASE Calculator
                 The calculator used for all the images if a list is given.
                 If a single calculator is given, it is used for all images.
         """
