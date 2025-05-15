@@ -502,7 +502,10 @@ class MLCalculator(Calculator):
             if key in self.implemented_properties:
                 # Round the predictions if needed
                 if self.round_pred is not None:
-                    value = round_(value, self.round_pred)
+                    if isinstance(value, float):
+                        value = round(value, self.round_pred)
+                    else:
+                        value = round_(value, self.round_pred)
                 # Save the properties in the results
                 self.results[key] = value
         return self.results
