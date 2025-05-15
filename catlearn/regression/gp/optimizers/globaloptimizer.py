@@ -1,13 +1,35 @@
+from numpy import (
+    append,
+    array,
+    asarray,
+    concatenate,
+    nanargmin,
+    ndarray,
+    sort,
+    sum as sum_,
+    tile,
+    unique,
+    where,
+)
+from scipy import __version__ as scipy_version
+from scipy.optimize import basinhopping, dual_annealing
+from ase.parallel import world
 from .optimizer import Optimizer
-import numpy as np
+from .linesearcher import GoldenSearch
+from .localoptimizer import ScipyOptimizer
+from ..hpboundary import EducatedBoundaries, VariableTransformation
 
 
 class GlobalOptimizer(Optimizer):
     def __init__(
         self,
         local_optimizer=None,
-        bounds=None,
+        bounds=VariableTransformation(),
         maxiter=5000,
+        jac=False,
+        parallel=False,
+        seed=None,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -17,27 +39,31 @@ class GlobalOptimizer(Optimizer):
         boundary conditions of the hyperparameters.
 
         Parameters:
-            local_optimizer : Local optimizer class
+            local_optimizer: Local optimizer class
                 A local optimization method.
-            bounds : HPBoundaries class
+            bounds: HPBoundaries class
                 A class of the boundary conditions of the hyperparameters.
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the global optimizer can use.
+            jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+                This is not implemented for this method.
+            parallel: bool
+                Whether to calculate the grid points in parallel
+                over multiple CPUs.
+                This is not implemented for this method.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
-        # This global optimizer can not be parallelized
-        self.parallel = False
-        # The gradients of the function are unused by the global optimizer
-        self.jac = False
-        # Set default bounds
-        if bounds is None:
-            from ..hpboundary.hptrans import VariableTransformation
-
-            bounds = VariableTransformation(bounds=None)
         # Set default local optimizer
         if local_optimizer is None:
-            from .localoptimizer import ScipyOptimizer
-
             local_optimizer = ScipyOptimizer(
                 maxiter=maxiter,
                 bounds=bounds,
@@ -48,17 +74,66 @@ class GlobalOptimizer(Optimizer):
             local_optimizer=local_optimizer,
             bounds=bounds,
             maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
+            seed=seed,
+            dtype=dtype,
             **kwargs,
         )
 
-    def run(self, func, theta, parameters, model, X, Y, pdis, **kwargs):
-        raise NotImplementedError()
+    def set_dtype(self, dtype, **kwargs):
+        # Set the dtype for the global optimizer
+        super().set_dtype(dtype=dtype, **kwargs)
+        # Set the data type of the bounds
+        if self.bounds is not None and hasattr(self.bounds, "set_dtype"):
+            self.bounds.set_dtype(dtype=dtype, **kwargs)
+        # Set the dtype for the local optimizer
+        if self.local_optimizer is not None and hasattr(
+            self.local_optimizer, "set_dtype"
+        ):
+            self.local_optimizer.set_dtype(dtype=dtype)
+        return self
+
+    def set_seed(self, seed=None, **kwargs):
+        # Set the seed for the global optimizer
+        super().set_seed(seed=seed, **kwargs)
+        # Set the random seed of the bounds
+        if self.bounds is not None and hasattr(self.bounds, "set_seed"):
+            self.bounds.set_seed(seed=seed, **kwargs)
+        # Set the seed for the local optimizer
+        if self.local_optimizer is not None and hasattr(
+            self.local_optimizer,
+            "set_seed",
+        ):
+            self.local_optimizer.set_seed(seed=seed, **kwargs)
+        return self
+
+    def set_maxiter(self, maxiter, **kwargs):
+        super().set_maxiter(maxiter, **kwargs)
+        # Set the maxiter for the local optimizer
+        if self.local_optimizer is not None:
+            self.local_optimizer.update_arguments(maxiter=maxiter)
+        return self
+
+    def set_jac(self, jac=True, **kwargs):
+        # The gradients of the function are unused by the global optimizer
+        self.jac = False
+        return self
+
+    def set_parallel(self, parallel=False, **kwargs):
+        # This global optimizer can not be parallelized
+        self.parallel = False
+        return self
 
     def update_arguments(
         self,
         local_optimizer=None,
         bounds=None,
         maxiter=None,
+        jac=None,
+        parallel=None,
+        seed=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -66,25 +141,52 @@ class GlobalOptimizer(Optimizer):
         The existing arguments are used if they are not given.
 
         Parameters:
-            local_optimizer : Local optimizer class
+            local_optimizer: Local optimizer class
                 A local optimization method.
-            bounds : HPBoundaries class
+            bounds: HPBoundaries class
                 A class of the boundary conditions of the hyperparameters.
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the global optimizer can use.
+            jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+                This is not implemented for this method.
+            parallel: bool
+                Whether to calculate the grid points in parallel
+                over multiple CPUs.
+                This is not implemented for this method.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
         """
+        # Set the local optimizer
         if local_optimizer is not None:
             self.local_optimizer = local_optimizer.copy()
+        elif not hasattr(self, "local_optimizer"):
+            self.local_optimizer = None
+        # Set the bounds
         if bounds is not None:
             self.bounds = bounds.copy()
             # Use the same boundary conditions in the local optimizer
             self.local_optimizer.update_arguments(bounds=self.bounds)
-        if maxiter is not None:
-            self.maxiter = int(maxiter)
+        elif not hasattr(self, "bounds"):
+            self.bounds = None
+        # Set the arguments for the parent class
+        super().update_arguments(
+            maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
+            seed=seed,
+            dtype=dtype,
+        )
         return self
 
     def run_local_opt(
@@ -118,11 +220,11 @@ class GlobalOptimizer(Optimizer):
             **kwargs,
         )
 
-    def make_bounds(self, parameters, array=True, **kwargs):
+    def make_bounds(self, parameters, use_array=True, **kwargs):
         "Make the boundary conditions of the hyperparameters."
         return self.bounds.get_bounds(
             parameters=parameters,
-            array=array,
+            use_array=use_array,
             **kwargs,
         )
 
@@ -148,6 +250,10 @@ class GlobalOptimizer(Optimizer):
             local_optimizer=self.local_optimizer,
             bounds=self.bounds,
             maxiter=self.maxiter,
+            jac=self.jac,
+            parallel=self.parallel,
+            seed=self.seed,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()
@@ -160,10 +266,13 @@ class RandomSamplingOptimizer(GlobalOptimizer):
     def __init__(
         self,
         local_optimizer=None,
-        bounds=None,
+        bounds=VariableTransformation(),
         maxiter=5000,
-        npoints=40,
+        jac=False,
         parallel=False,
+        npoints=40,
+        seed=None,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -174,31 +283,33 @@ class RandomSamplingOptimizer(GlobalOptimizer):
         and optimize all samples with the local optimizer.
 
         Parameters:
-            local_optimizer : Local optimizer class
+            local_optimizer: Local optimizer class
                 A local optimization method.
-            bounds : HPBoundaries class
+            bounds: HPBoundaries class
                 A class of the boundary conditions of the hyperparameters.
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the global optimizer can use.
-            npoints : int
-                The number of hyperparameter points samled from
-                the boundary conditions.
-            parallel : bool
+            jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+                This is not implemented for this method.
+            parallel: bool
                 Whether to calculate the grid points in parallel
                 over multiple CPUs.
+            npoints: int
+                The number of hyperparameter points samled from
+                the boundary conditions.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
-        # The gradients of the function are unused by the global optimizer
-        self.jac = False
-        # Set default bounds
-        if bounds is None:
-            from ..hpboundary.hptrans import VariableTransformation
-
-            bounds = VariableTransformation(bounds=None)
         # Set default local optimizer
         if local_optimizer is None:
-            from .localoptimizer import ScipyOptimizer
-
             local_optimizer = ScipyOptimizer(
                 maxiter=int(maxiter / npoints),
                 bounds=bounds,
@@ -209,20 +320,23 @@ class RandomSamplingOptimizer(GlobalOptimizer):
             local_optimizer=local_optimizer,
             bounds=bounds,
             maxiter=maxiter,
-            npoints=npoints,
+            jac=jac,
             parallel=parallel,
+            npoints=npoints,
+            seed=seed,
+            dtype=dtype,
             **kwargs,
         )
 
     def run(self, func, theta, parameters, model, X, Y, pdis, **kwargs):
         # Draw random hyperparameter samples
-        thetas = np.array([theta])
+        thetas = array([theta], dtype=self.dtype)
         if self.npoints > 1:
             thetas = self.sample_thetas(
                 parameters,
                 npoints=int(self.npoints - 1),
             )
-            thetas = np.append(thetas, thetas, axis=0)
+            thetas = append(thetas, thetas, axis=0)
         # Make empty solution and lists
         sol = self.get_empty_solution()
         # Perform the local optimization for random samples
@@ -239,13 +353,20 @@ class RandomSamplingOptimizer(GlobalOptimizer):
         )
         return sol
 
+    def set_parallel(self, parallel=False, **kwargs):
+        self.parallel = parallel
+        return self
+
     def update_arguments(
         self,
         local_optimizer=None,
         bounds=None,
         maxiter=None,
-        npoints=None,
+        jac=None,
         parallel=None,
+        npoints=None,
+        seed=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -253,37 +374,47 @@ class RandomSamplingOptimizer(GlobalOptimizer):
         The existing arguments are used if they are not given.
 
         Parameters:
-            local_optimizer : Local optimizer class
+            local_optimizer: Local optimizer class
                 A local optimization method.
-            bounds : HPBoundaries class
+            bounds: HPBoundaries class
                 A class of the boundary conditions of the hyperparameters.
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the global optimizer can use.
-            npoints : int
-                The number of hyperparameter points samled from
-                the boundary conditions.
-            parallel : bool
+            jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+                This is not implemented for this method.
+            parallel: bool
                 Whether to calculate the grid points in parallel
                 over multiple CPUs.
+            npoints: int
+                The number of hyperparameter points samled from
+                the boundary conditions.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
         """
-        if local_optimizer is not None:
-            self.local_optimizer = local_optimizer.copy()
-        if bounds is not None:
-            self.bounds = bounds.copy()
-            # Use the same boundary conditions in the local optimizer
-            self.local_optimizer.update_arguments(bounds=self.bounds)
-        if maxiter is not None:
-            self.maxiter = int(maxiter)
-        if parallel is not None:
-            self.parallel = parallel
+        # Set the arguments for the parent class
+        super().update_arguments(
+            local_optimizer=local_optimizer,
+            bounds=bounds,
+            maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
+            seed=seed,
+            dtype=dtype,
+        )
+        # Set the number of points
         if npoints is not None:
             if self.parallel:
-                from ase.parallel import world
-
                 self.npoints = self.get_optimal_npoints(npoints, world.size)
             else:
                 self.npoints = int(npoints)
@@ -358,8 +489,6 @@ class RandomSamplingOptimizer(GlobalOptimizer):
         **kwargs,
     ):
         "Perform the local optimization of the random samples in parallel."
-        from ase.parallel import world
-
         rank, size = world.rank, world.size
         for t, theta in enumerate(thetas):
             if rank == t % size:
@@ -399,7 +528,11 @@ class RandomSamplingOptimizer(GlobalOptimizer):
             local_optimizer=self.local_optimizer,
             bounds=self.bounds,
             maxiter=self.maxiter,
+            jac=self.jac,
+            parallel=self.parallel,
             npoints=self.npoints,
+            seed=self.seed,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()
@@ -412,11 +545,14 @@ class GridOptimizer(GlobalOptimizer):
     def __init__(
         self,
         local_optimizer=None,
-        bounds=None,
+        bounds=VariableTransformation(),
         maxiter=5000,
+        jac=False,
+        parallel=False,
         n_each_dim=None,
         optimize=True,
-        parallel=False,
+        seed=None,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -428,49 +564,52 @@ class GridOptimizer(GlobalOptimizer):
         with the local optimizer.
 
         Parameters:
-            local_optimizer : Local optimizer class
+            local_optimizer: Local optimizer class
                 A local optimization method.
-            bounds : HPBoundaries class
+            bounds: HPBoundaries class
                 A class of the boundary conditions of the hyperparameters.
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the global optimizer can use.
-            n_each_dim : int or (H) list
-                An integer or a list with number of grid points
-                in each dimension of the hyperparameters.
-            optimize : bool
-                Whether to perform a local optimization on the best
-                found solution.
-            parallel : bool
+            jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+                This is not implemented for this method.
+            parallel: bool
                 Whether to calculate the grid points in parallel
                 over multiple CPUs.
+            n_each_dim: int or (H) list
+                An integer or a list with number of grid points
+                in each dimension of the hyperparameters.
+            optimize: bool
+                Whether to perform a local optimization on the best
+                found solution.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
-        # The gradients of the function are unused by the global optimizer
-        self.jac = False
-        # Set default bounds
-        if bounds is None:
-            from ..hpboundary.hptrans import VariableTransformation
-
-            bounds = VariableTransformation(bounds=None)
         # Set default local optimizer
         if local_optimizer is None:
-            from .localoptimizer import ScipyOptimizer
-
             local_optimizer = ScipyOptimizer(
                 maxiter=maxiter,
                 bounds=bounds,
                 use_bounds=False,
             )
-        # Set n_each_dim as default
-        self.n_each_dim = None
         # Set all the arguments
         self.update_arguments(
             local_optimizer=local_optimizer,
             bounds=bounds,
             maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
             n_each_dim=n_each_dim,
             optimize=optimize,
-            parallel=parallel,
+            seed=seed,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -479,7 +618,7 @@ class GridOptimizer(GlobalOptimizer):
         n_each_dim = self.get_n_each_dim(len(theta))
         # Make grid either with the same or different numbers in each dimension
         lines = self.make_lines(parameters, ngrid=n_each_dim)
-        thetas = np.append(
+        thetas = append(
             [theta],
             self.make_grid(lines, maxiter=int(self.maxiter - 1)),
             axis=0,
@@ -516,14 +655,21 @@ class GridOptimizer(GlobalOptimizer):
         )
         return sol
 
+    def set_parallel(self, parallel=False, **kwargs):
+        self.parallel = parallel
+        return self
+
     def update_arguments(
         self,
         local_optimizer=None,
         bounds=None,
         maxiter=None,
+        jac=None,
+        parallel=None,
         n_each_dim=None,
         optimize=None,
-        parallel=None,
+        seed=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -531,43 +677,56 @@ class GridOptimizer(GlobalOptimizer):
         The existing arguments are used if they are not given.
 
         Parameters:
-            local_optimizer : Local optimizer class
+            local_optimizer: Local optimizer class
                 A local optimization method.
-            bounds : HPBoundaries class
+            bounds: HPBoundaries class
                 A class of the boundary conditions of the hyperparameters.
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the global optimizer can use.
-            n_each_dim : int or (H) list
-                An integer or a list with number of grid points
-                in each dimension of the hyperparameters.
-            optimize : bool
-                Whether to perform a local optimization on the best
-                found solution.
-            parallel : bool
+            jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+                This is not implemented for this method.
+            parallel: bool
                 Whether to calculate the grid points in parallel
                 over multiple CPUs.
+            n_each_dim: int or (H) list
+                An integer or a list with number of grid points
+                in each dimension of the hyperparameters.
+            optimize: bool
+                Whether to perform a local optimization on the best
+                found solution.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
         """
-        if local_optimizer is not None:
-            self.local_optimizer = local_optimizer.copy()
-        if bounds is not None:
-            self.bounds = bounds.copy()
-            # Use the same boundary conditions in the local optimizer
-            self.local_optimizer.update_arguments(bounds=self.bounds)
-        if maxiter is not None:
-            self.maxiter = int(maxiter)
-        if parallel is not None:
-            self.parallel = parallel
         if n_each_dim is not None:
-            if isinstance(n_each_dim, (list, np.ndarray)):
+            if isinstance(n_each_dim, (list, ndarray)):
                 self.n_each_dim = n_each_dim.copy()
             else:
                 self.n_each_dim = n_each_dim
+        elif not hasattr(self, "n_each_dim"):
+            self.n_each_dim = None
         if optimize is not None:
             self.optimize = optimize
+        # Set the arguments for the parent class
+        super().update_arguments(
+            local_optimizer=local_optimizer,
+            bounds=bounds,
+            maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
+            seed=seed,
+            dtype=dtype,
+        )
         return self
 
     def make_grid(self, lines, maxiter=5000):
@@ -575,7 +734,7 @@ class GridOptimizer(GlobalOptimizer):
         Make a grid in multi-dimensions from a list of 1D grids
         in each dimension.
         """
-        lines = np.array(lines)
+        lines = array(lines, dtype=self.dtype)
         if len(lines.shape) < 2:
             lines = lines.reshape(1, -1)
         # Number of combinations
@@ -591,26 +750,30 @@ class GridOptimizer(GlobalOptimizer):
             lines = lines[1:]
             for line in lines:
                 dim_X = len(X)
-                X = np.concatenate([X] * len(line), axis=0)
-                X = np.concatenate(
+                X = tile(X, (len(line), 1))
+                X = concatenate(
                     [
                         X,
-                        np.sort(
-                            np.concatenate([line.reshape(-1)] * dim_X, axis=0)
+                        sort(
+                            concatenate([line.reshape(-1)] * dim_X, axis=0)
                         ).reshape(-1, 1),
                     ],
                     axis=1,
                 )
-            return np.random.permutation(X)[:maxiter]
+            return self.rng.permutation(X)[:maxiter]
         # Randomly sample the grid points
-        X = np.array(
-            [np.random.choice(line, size=maxiter) for line in lines]
+        X = asarray(
+            [self.rng.choice(line, size=maxiter) for line in lines],
+            dtype=self.dtype,
         ).T
-        X = np.unique(X, axis=0)
+        X = unique(X, axis=0)
         while len(X) < maxiter:
-            x = np.array([np.random.choice(line, size=1) for line in lines]).T
-            X = np.append(X, x, axis=0)
-            X = np.unique(X, axis=0)
+            x = asarray(
+                [self.rng.choice(line, size=1) for line in lines],
+                dtype=self.dtype,
+            ).T
+            X = append(X, x, axis=0)
+            X = unique(X, axis=0)
         return X[:maxiter]
 
     def optimize_minimum(
@@ -668,8 +831,6 @@ class GridOptimizer(GlobalOptimizer):
     def check_npoints(self, thetas, **kwargs):
         "Check if the number of points is well parallized if it is used."
         if self.parallel:
-            from ase.parallel import world
-
             npoints = self.get_optimal_npoints(len(thetas), world.size)
             return thetas[:npoints]
         return thetas
@@ -677,7 +838,7 @@ class GridOptimizer(GlobalOptimizer):
     def get_minimum(self, sol, thetas, f_list, **kwargs):
         "Find the minimum function value and update the solution."
         # Find the minimum function value
-        i_min = np.nanargmin(f_list)
+        i_min = nanargmin(f_list)
         # Get the number of used iterations
         thetas_len = len(thetas)
         # Update the number of used iterations
@@ -699,9 +860,12 @@ class GridOptimizer(GlobalOptimizer):
             local_optimizer=self.local_optimizer,
             bounds=self.bounds,
             maxiter=self.maxiter,
+            jac=self.jac,
+            parallel=self.parallel,
             n_each_dim=self.n_each_dim,
             optimize=self.optimize,
-            parallel=self.parallel,
+            seed=self.seed,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()
@@ -714,13 +878,16 @@ class IterativeLineOptimizer(GridOptimizer):
     def __init__(
         self,
         local_optimizer=None,
-        bounds=None,
+        bounds=VariableTransformation(),
         maxiter=5000,
+        jac=False,
+        parallel=False,
         n_each_dim=None,
         loops=3,
         calculate_init=False,
         optimize=True,
-        parallel=False,
+        seed=None,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -735,38 +902,52 @@ class IterativeLineOptimizer(GridOptimizer):
         with the local optimizer.
 
         Parameters:
-            local_optimizer : Local optimizer class
+            local_optimizer: Local optimizer class
                 A local optimization method.
-            bounds : HPBoundaries class
+            bounds: HPBoundaries class
                 A class of the boundary conditions of the hyperparameters.
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the global optimizer can use.
-            n_each_dim : int or (H) list
-                An integer or a list with number of grid points
-                in each dimension of the hyperparameters.
-            loops : int
-                The number of times all the hyperparameter dimensions
-                have been searched.
-            calculate_init : bool
-                Whether to calculate the initial given hyperparameters.
-                If it is parallelized, all CPUs will calculate this point.
-            optimize : bool
-                Whether to perform a local optimization on the best
-                found solution.
-            parallel : bool
+            jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+                This is not implemented for this method.
+            parallel: bool
                 Whether to calculate the grid points in parallel
                 over multiple CPUs.
+            n_each_dim: int or (H) list
+                An integer or a list with number of grid points
+                in each dimension of the hyperparameters.
+            loops: int
+                The number of times all the hyperparameter dimensions
+                have been searched.
+            calculate_init: bool
+                Whether to calculate the initial given hyperparameters.
+                If it is parallelized, all CPUs will calculate this point.
+            optimize: bool
+                Whether to perform a local optimization on the best
+                found solution.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
         super().__init__(
             local_optimizer=local_optimizer,
             bounds=bounds,
             maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
             n_each_dim=n_each_dim,
             loops=loops,
             calculate_init=calculate_init,
             optimize=optimize,
-            parallel=parallel,
+            seed=seed,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -806,11 +987,14 @@ class IterativeLineOptimizer(GridOptimizer):
         local_optimizer=None,
         bounds=None,
         maxiter=None,
+        jac=None,
+        parallel=None,
         n_each_dim=None,
         loops=None,
         calculate_init=None,
         optimize=None,
-        parallel=None,
+        seed=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -818,56 +1002,67 @@ class IterativeLineOptimizer(GridOptimizer):
         The existing arguments are used if they are not given.
 
         Parameters:
-            local_optimizer : Local optimizer class
+            local_optimizer: Local optimizer class
                 A local optimization method.
-            bounds : HPBoundaries class
+            bounds: HPBoundaries class
                 A class of the boundary conditions of the hyperparameters.
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the global optimizer can use.
-            n_each_dim : int or (H) list
-                An integer or a list with number of grid points
-                in each dimension of the hyperparameters.
-            loops : int
-                The number of times all the hyperparameter dimensions
-                have been searched.
-            calculate_init : bool
-                Whether to calculate the initial given hyperparameters.
-                If it is parallelized, all CPUs will calculate this point.
-            optimize : bool
-                Whether to perform a local optimization on the best
-                found solution.
-            parallel : bool
+            jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+                This is not implemented for this method.
+            parallel: bool
                 Whether to calculate the grid points in parallel
                 over multiple CPUs.
+            n_each_dim: int or (H) list
+                An integer or a list with number of grid points
+                in each dimension of the hyperparameters.
+            loops: int
+                The number of times all the hyperparameter dimensions
+                have been searched.
+            calculate_init: bool
+                Whether to calculate the initial given hyperparameters.
+                If it is parallelized, all CPUs will calculate this point.
+            optimize: bool
+                Whether to perform a local optimization on the best
+                found solution.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
         """
-        if local_optimizer is not None:
-            self.local_optimizer = local_optimizer.copy()
-        if bounds is not None:
-            self.bounds = bounds.copy()
-            # Use the same boundary conditions in the local optimizer
-            self.local_optimizer.update_arguments(bounds=self.bounds)
-        if maxiter is not None:
-            self.maxiter = int(maxiter)
-        if parallel is not None:
-            self.parallel = parallel
+        # Set the arguments for the parent class
+        super().update_arguments(
+            local_optimizer=local_optimizer,
+            bounds=bounds,
+            maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
+            n_each_dim=None,
+            optimize=optimize,
+            seed=seed,
+            dtype=dtype,
+        )
         if loops is not None:
             self.loops = int(loops)
         if calculate_init is not None:
             self.calculate_init = calculate_init
         if n_each_dim is not None:
-            if isinstance(n_each_dim, (list, np.ndarray)):
-                if np.sum(n_each_dim) * self.loops > self.maxiter:
+            if isinstance(n_each_dim, (list, ndarray)):
+                if sum_(n_each_dim) * self.loops > self.maxiter:
                     self.n_each_dim = self.get_n_each_dim(len(n_each_dim))
                 else:
                     self.n_each_dim = n_each_dim.copy()
             else:
                 self.n_each_dim = n_each_dim
-        if optimize is not None:
-            self.optimize = optimize
         return self
 
     def iterative_line(self, theta, lines, func, func_args=(), **kwargs):
@@ -884,13 +1079,13 @@ class IterativeLineOptimizer(GridOptimizer):
         # Perform loops
         for i in range(self.loops):
             # Permute the dimensions
-            dim_perm = np.random.permutation(dims)
+            dim_perm = self.rng.permutation(dims)
             # Make sure the same dimension is not used after each other
             if dim_perm[0] == d:
                 dim_perm = dim_perm[1:]
             for d in dim_perm:
                 # Make the hyperparameter changes to the specific dimension
-                thetas = np.tile(theta, (len(lines[d]), 1))
+                thetas = tile(theta, (len(lines[d]), 1))
                 thetas[:, d] = lines[d].copy()
                 f_list = self.calculate_values(
                     thetas,
@@ -914,9 +1109,7 @@ class IterativeLineOptimizer(GridOptimizer):
 
     def get_n_each_dim_parallel(self, n_each_dim):
         "Number of points per dimension if it is parallelized."
-        from ase.parallel import world
-
-        if isinstance(n_each_dim, (list, np.ndarray)):
+        if isinstance(n_each_dim, (list, ndarray)):
             for d, n_dim in enumerate(n_each_dim):
                 n_each_dim[d] = self.get_optimal_npoints(n_dim, world.size)
         else:
@@ -930,11 +1123,14 @@ class IterativeLineOptimizer(GridOptimizer):
             local_optimizer=self.local_optimizer,
             bounds=self.bounds,
             maxiter=self.maxiter,
+            jac=self.jac,
+            parallel=self.parallel,
             n_each_dim=self.n_each_dim,
             loops=self.loops,
             calculate_init=self.calculate_init,
             optimize=self.optimize,
-            parallel=self.parallel,
+            seed=self.seed,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()
@@ -943,13 +1139,415 @@ class IterativeLineOptimizer(GridOptimizer):
         return arg_kwargs, constant_kwargs, object_kwargs
 
 
-class BasinOptimizer(GlobalOptimizer):
+class FactorizedOptimizer(GlobalOptimizer):
+    def __init__(
+        self,
+        line_optimizer=None,
+        bounds=VariableTransformation(),
+        maxiter=5000,
+        jac=False,
+        parallel=False,
+        ngrid=80,
+        calculate_init=False,
+        seed=None,
+        dtype=float,
+        **kwargs,
+    ):
+        """
+        The factorized optimizer used for optimzing
+        the objective function wrt. the hyperparameters.
+        The factorized optimizer makes a 1D grid for each
+        hyperparameter from the boundary conditions.
+        The hyperparameters are then optimized with a line search optimizer.
+        The line search optimizer optimizes only one of the hyperparameters and
+        it therefore relies on a factorization method as
+        the objective function.
+
+        Parameters:
+            line_optimizer: Line search optimizer class
+                A line search optimization method.
+            bounds: HPBoundaries class
+                A class of the boundary conditions of the hyperparameters.
+            maxiter: int
+                The maximum number of evaluations or iterations
+                the global optimizer can use.
+            jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+                This is not implemented for this method.
+            parallel: bool
+                Whether to calculate the grid points in parallel
+                over multiple CPUs.
+            ngrid: int
+                The number of grid points of the hyperparameter
+                that is optimized.
+            calculate_init: bool
+                Whether to calculate the initial given hyperparameters.
+                If it is parallelized, all CPUs will calculate this point.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
+        """
+        # The gradients of the function are unused by the global optimizer
+        self.jac = False
+        # Set default line optimizer
+        if line_optimizer is None:
+            line_optimizer = GoldenSearch(
+                maxiter=int(maxiter),
+                parallel=parallel,
+            )
+        # Set all the arguments
+        self.update_arguments(
+            line_optimizer=line_optimizer,
+            bounds=bounds,
+            maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
+            ngrid=ngrid,
+            calculate_init=calculate_init,
+            seed=seed,
+            dtype=dtype,
+            **kwargs,
+        )
+
+    def run(self, func, theta, parameters, model, X, Y, pdis, **kwargs):
+        # Make an initial solution or use an empty solution
+        if self.calculate_init:
+            func_args = self.get_func_arguments(
+                parameters,
+                model,
+                X,
+                Y,
+                pdis,
+                jac=False,
+                **kwargs,
+            )
+            sol = self.get_initial_solution(theta, func, func_args=func_args)
+        else:
+            sol = self.get_empty_solution()
+        # Make the lines of the hyperparameters
+        lines = asarray(self.make_lines(parameters, ngrid=self.ngrid)).T
+        # Optimize the hyperparameters with the line search
+        sol_s = self.run_line_opt(
+            func,
+            lines,
+            parameters,
+            model,
+            X,
+            Y,
+            pdis,
+            **kwargs,
+        )
+        # Update the solution if it is better
+        sol = self.compare_solutions(sol, sol_s)
+        # Change the solution message
+        if sol["success"]:
+            sol["message"] = "Local optimization is converged."
+        else:
+            sol["message"] = "Local optimization is not converged."
+        return self.get_final_solution(
+            sol,
+            func,
+            parameters,
+            model,
+            X,
+            Y,
+            pdis,
+        )
+
+    def set_parallel(self, parallel=False, **kwargs):
+        self.parallel = parallel
+        return self
+
+    def update_arguments(
+        self,
+        line_optimizer=None,
+        bounds=None,
+        maxiter=None,
+        jac=None,
+        parallel=None,
+        ngrid=None,
+        calculate_init=None,
+        seed=None,
+        dtype=None,
+        **kwargs,
+    ):
+        """
+        Update the optimizer with its arguments.
+        The existing arguments are used if they are not given.
+
+        Parameters:
+            line_optimizer: Line search optimizer class
+                A line search optimization method.
+            bounds: HPBoundaries class
+                A class of the boundary conditions of the hyperparameters.
+            maxiter: int
+                The maximum number of evaluations or iterations
+                the global optimizer can use.
+            jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+                This is not implemented for this method.
+            parallel: bool
+                Whether to calculate the grid points in parallel
+                over multiple CPUs.
+            ngrid: int
+                The number of grid points of the hyperparameter
+                that is optimized.
+            calculate_init: bool
+                Whether to calculate the initial given hyperparameters.
+                If it is parallelized, all CPUs will calculate this point.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Set the arguments for the parent class
+        super().update_arguments(
+            local_optimizer=line_optimizer,
+            bounds=bounds,
+            maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
+            seed=seed,
+            dtype=dtype,
+        )
+        # Set the arguments
+        if ngrid is not None:
+            if self.parallel:
+                self.ngrid = self.get_optimal_npoints(ngrid, world.size)
+            else:
+                self.ngrid = int(ngrid)
+        if calculate_init is not None:
+            self.calculate_init = calculate_init
+        return self
+
+    def run_line_opt(
+        self,
+        func,
+        lines,
+        parameters,
+        model,
+        X,
+        Y,
+        pdis,
+        **kwargs,
+    ):
+        "Run the line search optimization."
+        return self.local_optimizer.run(
+            func,
+            lines,
+            parameters,
+            model,
+            X,
+            Y,
+            pdis,
+            **kwargs,
+        )
+
+    def get_arguments(self):
+        "Get the arguments of the class itself."
+        # Get the arguments given to the class in the initialization
+        arg_kwargs = dict(
+            line_optimizer=self.local_optimizer,
+            bounds=self.bounds,
+            maxiter=self.maxiter,
+            jac=self.jac,
+            parallel=self.parallel,
+            ngrid=self.ngrid,
+            calculate_init=self.calculate_init,
+            seed=self.seed,
+            dtype=self.dtype,
+        )
+        # Get the constants made within the class
+        constant_kwargs = dict()
+        # Get the objects made within the class
+        object_kwargs = dict()
+        return arg_kwargs, constant_kwargs, object_kwargs
+
+
+class ScipyGlobalOptimizer(Optimizer):
     def __init__(
         self,
         maxiter=5000,
         jac=True,
+        parallel=False,
         opt_kwargs={},
         local_kwargs={},
+        seed=None,
+        dtype=float,
+        **kwargs,
+    ):
+        """
+        The global optimizer used for optimzing the objective function
+        wrt. the hyperparameters.
+        The global optimizer requires a local optimization method and
+        boundary conditions of the hyperparameters.
+
+        Parameters:
+            maxiter: int
+                The maximum number of evaluations or iterations
+                the global optimizer can use.
+           jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+            parallel: bool
+                Whether to calculate the grid points in parallel
+                over multiple CPUs.
+                This is not implemented for this method.
+            opt_kwargs: dict
+                A dictionary with the arguments and keywords given
+                to SciPy's optimizer.
+            local_kwargs: dict
+                A dictionary with the arguments and keywords given
+                to SciPy's local minimizer.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
+        """
+        # Set default arguments for SciPy's global optimizer
+        self.opt_kwargs = dict()
+        # Set default arguments for SciPy's local minimizer
+        self.local_kwargs = dict(options={})
+        # Set all the arguments
+        self.update_arguments(
+            maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
+            opt_kwargs=opt_kwargs,
+            local_kwargs=local_kwargs,
+            seed=seed,
+            dtype=dtype,
+            **kwargs,
+        )
+
+    def set_seed(self, seed=None, **kwargs):
+        super().set_seed(seed=seed, **kwargs)
+        # Set the random number generator for the global optimizer
+        if scipy_version >= "1.15":
+            self.opt_kwargs["rng"] = self.rng
+        else:
+            self.opt_kwargs["seed"] = self.seed
+        return self
+
+    def set_jac(self, jac=True, **kwargs):
+        self.jac = jac
+        return self
+
+    def set_parallel(self, parallel=False, **kwargs):
+        # This global optimizer can not be parallelized
+        self.parallel = False
+        return self
+
+    def update_arguments(
+        self,
+        maxiter=None,
+        jac=None,
+        parallel=None,
+        opt_kwargs=None,
+        local_kwargs=None,
+        seed=None,
+        dtype=None,
+        **kwargs,
+    ):
+        """
+        Update the optimizer with its arguments.
+        The existing arguments are used if they are not given.
+
+        Parameters:
+            maxiter: int
+                The maximum number of evaluations or iterations
+                the global optimizer can use.
+           jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+            parallel: bool
+                Whether to calculate the grid points in parallel
+                over multiple CPUs.
+                This is not implemented for this method.
+            opt_kwargs: dict
+                A dictionary with the arguments and keywords given
+                to SciPy's optimizer.
+            local_kwargs: dict
+                A dictionary with the arguments and keywords given
+                to SciPy's local minimizer.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Set the arguments for the parent class
+        super().update_arguments(
+            maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
+            seed=seed,
+            dtype=dtype,
+        )
+        if opt_kwargs is not None:
+            self.opt_kwargs.update(opt_kwargs)
+        if local_kwargs is not None:
+            if "options" in local_kwargs:
+                local_no_options = {
+                    key: value
+                    for key, value in local_kwargs.items()
+                    if key != "options"
+                }
+                self.local_kwargs.update(local_no_options)
+                self.local_kwargs["options"].update(local_kwargs["options"])
+            else:
+                self.local_kwargs.update(local_kwargs)
+        return self
+
+    def get_arguments(self):
+        "Get the arguments of the class itself."
+        # Get the arguments given to the class in the initialization
+        arg_kwargs = dict(
+            maxiter=self.maxiter,
+            jac=self.jac,
+            parallel=self.parallel,
+            opt_kwargs=self.opt_kwargs,
+            local_kwargs=self.local_kwargs,
+            seed=self.seed,
+            dtype=self.dtype,
+        )
+        # Get the constants made within the class
+        constant_kwargs = dict()
+        # Get the objects made within the class
+        object_kwargs = dict()
+        return arg_kwargs, constant_kwargs, object_kwargs
+
+
+class BasinOptimizer(ScipyGlobalOptimizer):
+    def __init__(
+        self,
+        maxiter=5000,
+        jac=True,
+        parallel=False,
+        opt_kwargs={},
+        local_kwargs={},
+        seed=None,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -962,21 +1560,30 @@ class BasinOptimizer(GlobalOptimizer):
         it uses SciPy's minimizer.
 
         Parameters:
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the global optimizer can use.
-            jac : bool
+            jac: bool
                 Whether to use the gradient of the objective function
                 wrt. the hyperparameters.
-            opt_kwargs : dict
+            parallel: bool
+                Whether to calculate the grid points in parallel
+                over multiple CPUs.
+                This is not implemented for this method.
+            opt_kwargs: dict
                 A dictionary with the arguments and keywords given
                 to SciPy's basinhopping.
-            local_kwargs : dict
+            local_kwargs: dict
                 A dictionary with the arguments and keywords given
                 to SciPy's local minimizer.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
-        # This global optimizer can not be parallelized
-        self.parallel = False
         # Set default arguments for SciPy's basinhopping
         self.opt_kwargs = dict(
             niter=5,
@@ -993,14 +1600,15 @@ class BasinOptimizer(GlobalOptimizer):
         self.update_arguments(
             maxiter=maxiter,
             jac=jac,
+            parallel=parallel,
             opt_kwargs=opt_kwargs,
             local_kwargs=local_kwargs,
+            seed=seed,
+            dtype=dtype,
             **kwargs,
         )
 
     def run(self, func, theta, parameters, model, X, Y, pdis, **kwargs):
-        from scipy.optimize import basinhopping
-
         # Get the function arguments
         func_args = self.get_func_arguments(
             parameters,
@@ -1040,8 +1648,11 @@ class BasinOptimizer(GlobalOptimizer):
         self,
         maxiter=None,
         jac=None,
+        parallel=None,
         opt_kwargs=None,
         local_kwargs=None,
+        seed=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -1049,39 +1660,43 @@ class BasinOptimizer(GlobalOptimizer):
         The existing arguments are used if they are not given.
 
         Parameters:
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the global optimizer can use.
-            jac : bool
+            jac: bool
                 Whether to use the gradient of the objective function
                 wrt. the hyperparameters.
-            opt_kwargs : dict
+            parallel: bool
+                Whether to calculate the grid points in parallel
+                over multiple CPUs.
+                This is not implemented for this method.
+            opt_kwargs: dict
                 A dictionary with the arguments and keywords given
                 to SciPy's basinhopping.
-            local_kwargs : dict
+            local_kwargs: dict
                 A dictionary with the arguments and keywords given
                 to SciPy's local minimizer.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
         """
-        if maxiter is not None:
-            self.maxiter = int(maxiter)
-        if jac is not None:
-            self.jac = jac
-        if opt_kwargs is not None:
-            self.opt_kwargs.update(opt_kwargs)
-        if local_kwargs is not None:
-            if "options" in local_kwargs:
-                local_no_options = {
-                    key: value
-                    for key, value in local_kwargs.items()
-                    if key != "options"
-                }
-                self.local_kwargs.update(local_no_options)
-                self.local_kwargs["options"].update(local_kwargs["options"])
-            else:
-                self.local_kwargs.update(local_kwargs)
+        # Set the arguments for the parent class
+        super().update_arguments(
+            maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
+            opt_kwargs=opt_kwargs,
+            local_kwargs=local_kwargs,
+            seed=seed,
+            dtype=dtype,
+        )
         # Make sure not to many iterations are used in average
         maxiter_niter = int(self.maxiter / self.opt_kwargs["niter"])
         if maxiter_niter < self.local_kwargs["options"]["maxiter"]:
@@ -1094,8 +1709,11 @@ class BasinOptimizer(GlobalOptimizer):
         arg_kwargs = dict(
             maxiter=self.maxiter,
             jac=self.jac,
+            parallel=self.parallel,
             opt_kwargs=self.opt_kwargs,
             local_kwargs=self.local_kwargs,
+            seed=self.seed,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()
@@ -1104,14 +1722,17 @@ class BasinOptimizer(GlobalOptimizer):
         return arg_kwargs, constant_kwargs, object_kwargs
 
 
-class AnneallingOptimizer(GlobalOptimizer):
+class AnneallingOptimizer(ScipyGlobalOptimizer):
     def __init__(
         self,
-        bounds=None,
+        bounds=EducatedBoundaries(use_log=True),
         maxiter=5000,
         jac=True,
+        parallel=False,
         opt_kwargs={},
         local_kwargs={},
+        seed=None,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -1124,29 +1745,34 @@ class AnneallingOptimizer(GlobalOptimizer):
         The local optimizer is set by keywords in the local_kwargs and
         it uses SciPy's minimizer.
 
+
         Parameters:
-            bounds : HPBoundaries class
+            bounds: HPBoundaries class
                 A class of the boundary conditions of the hyperparameters.
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the global optimizer can use.
-            jac : bool
+            jac: bool
                 Whether to use the gradient of the objective function
                 wrt. the hyperparameters.
-            opt_kwargs : dict
+            parallel: bool
+                Whether to calculate the grid points in parallel
+                over multiple CPUs.
+                This is not implemented for this method.
+            opt_kwargs: dict
                 A dictionary with the arguments and keywords given
                 to SciPy's dual_annealing.
-            local_kwargs : dict
+            local_kwargs: dict
                 A dictionary with the arguments and keywords given
                 to SciPy's local minimizer.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
-        # Set default bounds
-        if bounds is None:
-            from ..hpboundary.educated import EducatedBoundaries
-
-            bounds = EducatedBoundaries(log=True)
-        # This global optimizer can not be parallelized
-        self.parallel = False
         # Set default arguments for SciPy's dual_annealing
         self.opt_kwargs = dict(
             initial_temp=5230.0,
@@ -1163,14 +1789,15 @@ class AnneallingOptimizer(GlobalOptimizer):
             bounds=bounds,
             maxiter=maxiter,
             jac=jac,
+            parallel=parallel,
             opt_kwargs=opt_kwargs,
             local_kwargs=local_kwargs,
+            seed=seed,
+            dtype=dtype,
             **kwargs,
         )
 
     def run(self, func, theta, parameters, model, X, Y, pdis, **kwargs):
-        from scipy.optimize import dual_annealing
-
         # Get the function arguments
         func_args = self.get_func_arguments(
             parameters,
@@ -1186,7 +1813,7 @@ class AnneallingOptimizer(GlobalOptimizer):
         # Set the minimizer kwargs
         minimizer_kwargs = dict(jac=False, **self.local_kwargs)
         # Make boundary conditions
-        bounds = self.make_bounds(parameters, array=True)
+        bounds = self.make_bounds(parameters, use_array=True)
         # Do the dual simulated annealing
         sol = dual_annealing(
             fun,
@@ -1208,13 +1835,32 @@ class AnneallingOptimizer(GlobalOptimizer):
             pdis,
         )
 
+    def set_seed(self, seed=None, **kwargs):
+        # Set the seed for the global optimizer
+        super().set_seed(seed=seed, **kwargs)
+        # Set the random seed of the bounds
+        if self.bounds is not None and hasattr(self.bounds, "set_seed"):
+            self.bounds.set_seed(seed=seed, **kwargs)
+        return self
+
+    def set_dtype(self, dtype, **kwargs):
+        # Set the dtype for the global optimizer
+        super().set_dtype(dtype=dtype, **kwargs)
+        # Set the data type of the bounds
+        if self.bounds is not None and hasattr(self.bounds, "set_dtype"):
+            self.bounds.set_dtype(dtype=dtype, **kwargs)
+        return self
+
     def update_arguments(
         self,
         bounds=None,
         maxiter=None,
+        parallel=None,
         jac=None,
         opt_kwargs=None,
         local_kwargs=None,
+        seed=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -1222,44 +1868,56 @@ class AnneallingOptimizer(GlobalOptimizer):
         The existing arguments are used if they are not given.
 
         Parameters:
-            bounds : HPBoundaries class
+            bounds: HPBoundaries class
                 A class of the boundary conditions of the hyperparameters.
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the global optimizer can use.
-            jac : bool
+            jac: bool
                 Whether to use the gradient of the objective function
                 wrt. the hyperparameters.
-            opt_kwargs : dict
+            parallel: bool
+                Whether to calculate the grid points in parallel
+                over multiple CPUs.
+                This is not implemented for this method.
+            opt_kwargs: dict
                 A dictionary with the arguments and keywords given
                 to SciPy's dual_annealing.
-            local_kwargs : dict
+            local_kwargs: dict
                 A dictionary with the arguments and keywords given
                 to SciPy's local minimizer.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
         """
         if bounds is not None:
             self.bounds = bounds.copy()
-        if maxiter is not None:
-            self.maxiter = int(maxiter)
-        if jac is not None:
-            self.jac = jac
-        if opt_kwargs is not None:
-            self.opt_kwargs.update(opt_kwargs)
-        if local_kwargs is not None:
-            if "options" in local_kwargs:
-                local_no_options = {
-                    key: value
-                    for key, value in local_kwargs.items()
-                    if key != "options"
-                }
-                self.local_kwargs.update(local_no_options)
-                self.local_kwargs["options"].update(local_kwargs["options"])
-            else:
-                self.local_kwargs.update(local_kwargs)
+        # Set the arguments for the parent class
+        super().update_arguments(
+            maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
+            opt_kwargs=opt_kwargs,
+            local_kwargs=local_kwargs,
+            seed=seed,
+            dtype=dtype,
+        )
         return self
+
+    def make_bounds(self, parameters, use_array=True, **kwargs):
+        "Make the boundary conditions of the hyperparameters."
+        return self.bounds.get_bounds(
+            parameters=parameters,
+            use_array=use_array,
+            **kwargs,
+        )
 
     def get_arguments(self):
         "Get the arguments of the class itself."
@@ -1268,8 +1926,11 @@ class AnneallingOptimizer(GlobalOptimizer):
             bounds=self.bounds,
             maxiter=self.maxiter,
             jac=self.jac,
+            parallel=self.parallel,
             opt_kwargs=self.opt_kwargs,
             local_kwargs=self.local_kwargs,
+            seed=self.seed,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()
@@ -1281,11 +1942,14 @@ class AnneallingOptimizer(GlobalOptimizer):
 class AnneallingTransOptimizer(AnneallingOptimizer):
     def __init__(
         self,
-        bounds=None,
+        bounds=VariableTransformation(),
         maxiter=5000,
         jac=True,
+        parallel=False,
         opt_kwargs={},
         local_kwargs={},
+        seed=None,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -1301,28 +1965,32 @@ class AnneallingTransOptimizer(AnneallingOptimizer):
         the hyperparameters to search the space.
 
         Parameters:
-            bounds : VariableTransformation class
+            bounds: VariableTransformation class
                 A class of the variable transformation of the hyperparameters.
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the global optimizer can use.
-            jac : bool
+            jac: bool
                 Whether to use the gradient of the objective function
                 wrt. the hyperparameters.
-            opt_kwargs : dict
+            parallel: bool
+                Whether to calculate the grid points in parallel
+                over multiple CPUs.
+                This is not implemented for this method.
+            opt_kwargs: dict
                 A dictionary with the arguments and keywords given to
                 SciPy's dual_annealing.
-            local_kwargs : dict
+            local_kwargs: dict
                 A dictionary with the arguments and keywords given to
                 SciPy's local minimizer.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
-        # Set default bounds
-        if bounds is None:
-            from ..hpboundary.hptrans import VariableTransformation
-
-            bounds = VariableTransformation(bounds=None)
-        # This global optimizer can not be parallelized
-        self.parallel = False
         # Set default arguments for SciPy's dual_annealing
         self.opt_kwargs = dict(
             initial_temp=5230.0,
@@ -1339,14 +2007,15 @@ class AnneallingTransOptimizer(AnneallingOptimizer):
             bounds=bounds,
             maxiter=maxiter,
             jac=jac,
+            parallel=parallel,
             opt_kwargs=opt_kwargs,
             local_kwargs=local_kwargs,
+            seed=seed,
+            dtype=dtype,
             **kwargs,
         )
 
     def run(self, func, theta, parameters, model, X, Y, pdis, **kwargs):
-        from scipy.optimize import dual_annealing
-
         # Get the function arguments for the wrappers
         func_args_w = self.get_wrapper_arguments(
             func,
@@ -1361,7 +2030,7 @@ class AnneallingTransOptimizer(AnneallingOptimizer):
         # Set the minimizer kwargs
         minimizer_kwargs = dict(jac=False, **self.local_kwargs)
         # Make boundary conditions
-        bounds = self.make_bounds(parameters, array=True, transformed=True)
+        bounds = self.make_bounds(parameters, use_array=True, transformed=True)
         # Do the dual simulated annealing
         sol = dual_annealing(
             self.func_vartrans,
@@ -1383,8 +2052,11 @@ class AnneallingTransOptimizer(AnneallingOptimizer):
         bounds=None,
         maxiter=None,
         jac=None,
+        parallel=None,
         opt_kwargs=None,
         local_kwargs=None,
+        seed=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -1392,49 +2064,50 @@ class AnneallingTransOptimizer(AnneallingOptimizer):
         The existing arguments are used if they are not given.
 
         Parameters:
-            bounds : VariableTransformation class
+            bounds: VariableTransformation class
                 A class of the variable transformation of the hyperparameters.
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the global optimizer can use.
-            jac : bool
+            jac: bool
                 Whether to use the gradient of the objective function
                 wrt. the hyperparameters.
-            opt_kwargs : dict
+            parallel: bool
+                Whether to calculate the grid points in parallel
+                over multiple CPUs.
+                This is not implemented for this method.
+            opt_kwargs: dict
                 A dictionary with the arguments and keywords given to
                 SciPy's dual_annealing.
-            local_kwargs : dict
+            local_kwargs: dict
                 A dictionary with the arguments and keywords given to
                 SciPy's local minimizer.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
         """
+        super().update_arguments(
+            bounds=bounds,
+            maxiter=maxiter,
+            jac=jac,
+            parallel=False,
+            opt_kwargs=opt_kwargs,
+            local_kwargs=local_kwargs,
+            seed=seed,
+            dtype=dtype,
+        )
         if bounds is not None:
-            from ..hpboundary.hptrans import VariableTransformation
-
             if not isinstance(bounds, VariableTransformation):
-                raise Exception(
+                raise ValueError(
                     "A variable transformation as bounds has to be used!"
                 )
-            self.bounds = bounds.copy()
-        if maxiter is not None:
-            self.maxiter = int(maxiter)
-        if jac is not None:
-            self.jac = jac
-        if opt_kwargs is not None:
-            self.opt_kwargs.update(opt_kwargs)
-        if local_kwargs is not None:
-            if "options" in local_kwargs:
-                local_no_options = {
-                    key: value
-                    for key, value in local_kwargs.items()
-                    if key != "options"
-                }
-                self.local_kwargs.update(local_no_options)
-                self.local_kwargs["options"].update(local_kwargs["options"])
-            else:
-                self.local_kwargs.update(local_kwargs)
         return self
 
     def func_vartrans(self, ti, fun, parameters, func_args=(), **kwargs):
@@ -1450,13 +2123,13 @@ class AnneallingTransOptimizer(AnneallingOptimizer):
         Transform the variable transformed hyperparameters back
         to hyperparameter log-space.
         """
-        ti = np.where(
+        ti = where(
             ti < 1.0,
-            np.where(ti > 0.0, ti, self.bounds.eps),
+            where(ti > 0.0, ti, self.bounds.eps),
             1.00 - self.bounds.eps,
         )
         t = self.make_hp(ti, parameters)
-        theta = self.bounds.reverse_trasformation(t, array=True)
+        theta = self.bounds.reverse_trasformation(t, use_array=True)
         return theta
 
     def transform_solution(self, sol, **kwargs):
@@ -1464,8 +2137,11 @@ class AnneallingTransOptimizer(AnneallingOptimizer):
         Retransform the variable transformed hyperparameters in
         the solution back to hyperparameter log-space.
         """
-        sol["x"] = self.bounds.reverse_trasformation(sol["hp"], array=True)
-        sol["hp"] = self.bounds.reverse_trasformation(sol["hp"], array=False)
+        sol["x"] = self.bounds.reverse_trasformation(sol["hp"], use_array=True)
+        sol["hp"] = self.bounds.reverse_trasformation(
+            sol["hp"],
+            use_array=False,
+        )
         return sol
 
     def get_wrapper_arguments(
@@ -1495,208 +2171,3 @@ class AnneallingTransOptimizer(AnneallingOptimizer):
         # Get the function arguments for the wrappers
         func_args_w = (fun, parameters, func_args)
         return func_args_w
-
-
-class FactorizedOptimizer(GlobalOptimizer):
-    def __init__(
-        self,
-        line_optimizer=None,
-        bounds=None,
-        maxiter=5000,
-        ngrid=80,
-        calculate_init=False,
-        parallel=False,
-        **kwargs,
-    ):
-        """
-        The factorized optimizer used for optimzing
-        the objective function wrt. the hyperparameters.
-        The factorized optimizer makes a 1D grid for each
-        hyperparameter from the boundary conditions.
-        The hyperparameters are then optimized with a line search optimizer.
-        The line search optimizer optimizes only one of the hyperparameters and
-        it therefore relies on a factorization method as
-        the objective function.
-
-        Parameters:
-            line_optimizer : Line search optimizer class
-                A line search optimization method.
-            bounds : HPBoundaries class
-                A class of the boundary conditions of the hyperparameters.
-            maxiter : int
-                The maximum number of evaluations or iterations
-                the global optimizer can use.
-            ngrid : int
-                The number of grid points of the hyperparameter
-                that is optimized.
-            calculate_init : bool
-                Whether to calculate the initial given hyperparameters.
-                If it is parallelized, all CPUs will calculate this point.
-            parallel : bool
-                Whether to calculate the grid points in parallel
-                over multiple CPUs.
-        """
-        # The gradients of the function are unused by the global optimizer
-        self.jac = False
-        # Set default bounds
-        if bounds is None:
-            from ..hpboundary.hptrans import VariableTransformation
-
-            bounds = VariableTransformation(bounds=None)
-        # Set default line optimizer
-        if line_optimizer is None:
-            from .linesearcher import GoldenSearch
-
-            line_optimizer = GoldenSearch(
-                maxiter=int(maxiter),
-                parallel=parallel,
-            )
-        # Set all the arguments
-        self.update_arguments(
-            line_optimizer=line_optimizer,
-            bounds=bounds,
-            maxiter=maxiter,
-            ngrid=ngrid,
-            calculate_init=calculate_init,
-            parallel=parallel,
-            **kwargs,
-        )
-
-    def run(self, func, theta, parameters, model, X, Y, pdis, **kwargs):
-        # Make an initial solution or use an empty solution
-        if self.calculate_init:
-            func_args = self.get_func_arguments(
-                parameters,
-                model,
-                X,
-                Y,
-                pdis,
-                jac=False,
-                **kwargs,
-            )
-            sol = self.get_initial_solution(theta, func, func_args=func_args)
-        else:
-            sol = self.get_empty_solution()
-        # Make the lines of the hyperparameters
-        lines = np.array(self.make_lines(parameters, ngrid=self.ngrid)).T
-        # Optimize the hyperparameters with the line search
-        sol_s = self.run_line_opt(
-            func,
-            lines,
-            parameters,
-            model,
-            X,
-            Y,
-            pdis,
-            **kwargs,
-        )
-        # Update the solution if it is better
-        sol = self.compare_solutions(sol, sol_s)
-        # Change the solution message
-        if sol["success"]:
-            sol["message"] = "Local optimization is converged."
-        else:
-            sol["message"] = "Local optimization is not converged."
-        return self.get_final_solution(
-            sol,
-            func,
-            parameters,
-            model,
-            X,
-            Y,
-            pdis,
-        )
-
-    def update_arguments(
-        self,
-        line_optimizer=None,
-        bounds=None,
-        maxiter=None,
-        ngrid=None,
-        calculate_init=None,
-        parallel=None,
-        **kwargs,
-    ):
-        """
-        Update the optimizer with its arguments.
-        The existing arguments are used if they are not given.
-
-        Parameters:
-            line_optimizer : Line search optimizer class
-                A line search optimization method.
-            bounds : HPBoundaries class
-                A class of the boundary conditions of the hyperparameters.
-            maxiter : int
-                The maximum number of evaluations or iterations
-                the global optimizer can use.
-            ngrid : int
-                The number of grid points of the hyperparameter
-                that is optimized.
-            calculate_init : bool
-                Whether to calculate the initial given hyperparameters.
-                If it is parallelized, all CPUs will calculate this point.
-            parallel : bool
-                Whether to calculate the grid points in parallel
-                over multiple CPUs.
-
-        Returns:
-            self: The updated object itself.
-        """
-        if line_optimizer is not None:
-            self.line_optimizer = line_optimizer.copy()
-        if bounds is not None:
-            self.bounds = bounds.copy()
-        if maxiter is not None:
-            self.maxiter = int(maxiter)
-        if parallel is not None:
-            self.parallel = parallel
-        if ngrid is not None:
-            if self.parallel:
-                from ase.parallel import world
-
-                self.ngrid = self.get_optimal_npoints(ngrid, world.size)
-            else:
-                self.ngrid = int(ngrid)
-        if calculate_init is not None:
-            self.calculate_init = calculate_init
-        return self
-
-    def run_line_opt(
-        self,
-        func,
-        lines,
-        parameters,
-        model,
-        X,
-        Y,
-        pdis,
-        **kwargs,
-    ):
-        "Run the line search optimization."
-        return self.line_optimizer.run(
-            func,
-            lines,
-            parameters,
-            model,
-            X,
-            Y,
-            pdis,
-            **kwargs,
-        )
-
-    def get_arguments(self):
-        "Get the arguments of the class itself."
-        # Get the arguments given to the class in the initialization
-        arg_kwargs = dict(
-            line_optimizer=self.line_optimizer,
-            bounds=self.bounds,
-            maxiter=self.maxiter,
-            ngrid=self.ngrid,
-            calculate_init=self.calculate_init,
-            parallel=self.parallel,
-        )
-        # Get the constants made within the class
-        constant_kwargs = dict()
-        # Get the objects made within the class
-        object_kwargs = dict()
-        return arg_kwargs, constant_kwargs, object_kwargs

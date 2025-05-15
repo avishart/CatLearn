@@ -1,5 +1,20 @@
-import numpy as np
-from .factorized_likelihood import FactorizedLogLikelihood
+from numpy import (
+    append,
+    asarray,
+    concatenate,
+    diag,
+    einsum,
+    empty,
+    exp,
+    log,
+    matmul,
+    pi,
+    zeros,
+)
+from .factorized_likelihood import (
+    FactorizedLogLikelihood,
+    VariableTransformation,
+)
 
 
 class FactorizedGPP(FactorizedLogLikelihood):
@@ -8,8 +23,9 @@ class FactorizedGPP(FactorizedLogLikelihood):
         get_prior_mean=False,
         modification=False,
         ngrid=80,
-        bounds=None,
+        bounds=VariableTransformation(),
         noise_optimizer=None,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -35,9 +51,12 @@ class FactorizedGPP(FactorizedLogLikelihood):
             bounds: Boundary_conditions class
                 A class of the boundary conditions of
                 the relative-noise hyperparameter.
-            noise_optimizer : Noise line search optimizer class
+            noise_optimizer: Noise line search optimizer class
                 A line search optimization method for
                 the relative-noise hyperparameter.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
         super().__init__(
             get_prior_mean=get_prior_mean,
@@ -45,6 +64,7 @@ class FactorizedGPP(FactorizedLogLikelihood):
             ngrid=ngrid,
             bounds=bounds,
             noise_optimizer=noise_optimizer,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -134,29 +154,27 @@ class FactorizedGPP(FactorizedLogLikelihood):
         n_data,
         **kwargs,
     ):
-        gpp_deriv = np.array([])
-        D_n = D + np.exp(2 * noise)
+        gpp_deriv = empty(0, dtype=self.dtype)
+        D_n = D + exp(2.0 * noise)
         UDn = U / D_n
-        KXX_inv = np.matmul(UDn, U.T)
-        K_inv_diag = np.diag(KXX_inv)
-        prefactor2 = np.mean(
-            (np.matmul(UDn, UTY).reshape(-1) ** 2) / K_inv_diag
-        )
-        hp["prefactor"] = np.array([0.5 * np.log(prefactor2)])
-        hp["noise"] = np.array([noise])
-        coef_re = np.matmul(KXX_inv, Y_p).reshape(-1)
+        KXX_inv = matmul(UDn, U.T)
+        K_inv_diag = diag(KXX_inv)
+        prefactor2 = ((matmul(UDn, UTY).reshape(-1) ** 2) / K_inv_diag).mean()
+        hp["prefactor"] = asarray([0.5 * log(prefactor2)])
+        hp["noise"] = asarray([noise])
+        coef_re = matmul(KXX_inv, Y_p).reshape(-1)
         co_Kinv = coef_re / K_inv_diag
         for para in parameters_set:
             if para == "prefactor":
-                gpp_d = np.zeros((len(hp[para])))
+                gpp_d = zeros((len(hp[para])), dtype=self.dtype)
             else:
                 K_deriv = self.get_K_deriv(model, para, X=X, KXX=KXX)
                 r_j, s_j = self.get_r_s_derivatives(K_deriv, KXX_inv, coef_re)
                 gpp_d = (
-                    np.mean(co_Kinv * (2.0 * r_j + co_Kinv * s_j), axis=-1)
+                    (co_Kinv * (2.0 * r_j + co_Kinv * s_j)).mean(axis=-1)
                     / prefactor2
-                ) + np.mean(s_j / K_inv_diag, axis=-1)
-            gpp_deriv = np.append(gpp_deriv, gpp_d)
+                ) + (s_j / K_inv_diag).mean(axis=-1)
+            gpp_deriv = append(gpp_deriv, gpp_d)
         gpp_deriv = gpp_deriv - self.logpriors(hp, pdis, jac=True) / n_data
         return gpp_deriv
 
@@ -165,27 +183,22 @@ class FactorizedGPP(FactorizedLogLikelihood):
         Get the r and s vector that are products of the inverse and
         derivative covariance matrix
         """
-        r_j = np.einsum("ji,di->dj", KXX_inv, np.matmul(K_deriv, -coef))
-        s_j = np.einsum("ji,dji->di", KXX_inv, np.matmul(K_deriv, KXX_inv))
+        r_j = einsum("ji,di->dj", KXX_inv, matmul(K_deriv, -coef))
+        s_j = einsum("ji,dji->di", KXX_inv, matmul(K_deriv, KXX_inv))
         return r_j, s_j
 
     def get_eig_fun(self, noise, hp, pdis, U, UTY, D, n_data, **kwargs):
         "Calculate GPP from Eigendecomposition for a noise value."
-        D_n = D + np.exp(2.0 * noise)
+        D_n = D + exp(2.0 * noise)
         UDn = U / D_n
-        K_inv_diag = np.einsum("ij,ji->i", UDn, U.T)
-        prefactor = 0.5 * np.log(
-            np.mean((np.matmul(UDn, UTY).reshape(-1) ** 2) / K_inv_diag)
+        K_inv_diag = einsum("ij,ji->i", UDn, U.T)
+        prefactor = 0.5 * log(
+            ((matmul(UDn, UTY).reshape(-1) ** 2) / K_inv_diag).mean()
         )
-        gpp_v = (
-            1
-            - np.mean(np.log(K_inv_diag))
-            + 2.0 * prefactor
-            + np.log(2.0 * np.pi)
-        )
+        gpp_v = 1.0 - log(K_inv_diag).mean() + 2.0 * prefactor + log(2.0 * pi)
         if pdis is not None:
-            hp["prefactor"] = np.array([prefactor])
-            hp["noise"] = np.array([noise]).reshape(-1)
+            hp["prefactor"] = asarray([prefactor])
+            hp["noise"] = asarray([noise]).reshape(-1)
         return gpp_v - self.logpriors(hp, pdis, jac=False) / n_data
 
     def get_all_eig_fun(self, noises, hp, pdis, U, UTY, D, n_data, **kwargs):
@@ -193,21 +206,20 @@ class FactorizedGPP(FactorizedLogLikelihood):
         Calculate GPP from Eigendecompositions for all noise values
         from the list.
         """
-        D_n = D + np.exp(2.0 * noises)
+        D_n = D + exp(2.0 * noises)
         UDn = U / D_n[:, None, :]
-        K_inv_diag = np.einsum("dij,ji->di", UDn, U.T, optimize=True)
-        prefactor = 0.5 * np.log(
-            np.mean(
-                (np.matmul(UDn, UTY).reshape((len(noises), n_data)) ** 2)
-                / K_inv_diag,
-                axis=1,
-            )
+        K_inv_diag = einsum("dij,ji->di", UDn, U.T, optimize=True)
+        prefactor = 0.5 * log(
+            (
+                (matmul(UDn, UTY).reshape((len(noises), n_data)) ** 2)
+                / K_inv_diag
+            ).mean(axis=1)
         )
         gpp_v = (
             1.0
-            - np.mean(np.log(K_inv_diag), axis=1)
+            - log(K_inv_diag).mean(axis=1)
             + 2.0 * prefactor
-            + np.log(2.0 * np.pi)
+            + log(2.0 * pi)
         )
         if pdis is not None:
             hp["prefactor"] = prefactor.reshape(-1, 1)
@@ -273,21 +285,21 @@ class FactorizedGPP(FactorizedLogLikelihood):
         and numerically, respectively.
         """
         if fun < self.sol["fun"]:
-            D_n = D + np.exp(2.0 * noise)
+            D_n = D + exp(2.0 * noise)
             UDn = U / D_n
-            K_inv_diag = np.einsum("ij,ji->i", UDn, U.T)
-            prefactor2 = np.mean(
-                (np.matmul(UDn, UTY).reshape(-1) ** 2) / K_inv_diag
-            )
+            K_inv_diag = einsum("ij,ji->i", UDn, U.T)
+            prefactor2 = (
+                (matmul(UDn, UTY).reshape(-1) ** 2) / K_inv_diag
+            ).mean()
             if self.modification:
                 prefactor2 = (
                     (n_data / (n_data - len(theta))) * prefactor2
                     if n_data - len(theta) > 0
                     else prefactor2
                 )
-            hp["prefactor"] = np.array([0.5 * np.log(prefactor2)])
-            hp["noise"] = np.array([noise])
-            self.sol["x"] = np.concatenate(
+            hp["prefactor"] = asarray([0.5 * log(prefactor2)])
+            hp["noise"] = asarray([noise])
+            self.sol["x"] = concatenate(
                 [hp[para] for para in sorted(hp.keys())]
             )
             self.sol["hp"] = hp.copy()

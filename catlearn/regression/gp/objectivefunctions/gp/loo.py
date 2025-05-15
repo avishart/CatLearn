@@ -1,5 +1,15 @@
-import numpy as np
-from scipy.linalg import cho_solve
+from numpy import (
+    append,
+    asarray,
+    concatenate,
+    diag,
+    einsum,
+    empty,
+    log,
+    matmul,
+    sqrt,
+    zeros,
+)
 from ..objectivefunction import ObjectiveFuction
 
 
@@ -8,6 +18,7 @@ class LOO(ObjectiveFuction):
         self,
         get_prior_mean=False,
         use_analytic_prefactor=True,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -20,6 +31,10 @@ class LOO(ObjectiveFuction):
                 in the solution.
             use_analytic_prefactor: bool
                 Whether to calculate the analytical prefactor value in the end.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
+
         """
         # Set descriptor of the objective function
         self.use_optimized_noise = False
@@ -27,6 +42,7 @@ class LOO(ObjectiveFuction):
         self.update_arguments(
             get_prior_mean=get_prior_mean,
             use_analytic_prefactor=use_analytic_prefactor,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -43,14 +59,14 @@ class LOO(ObjectiveFuction):
     ):
         hp, parameters_set = self.make_hp(theta, parameters)
         model = self.update_model(model, hp)
-        coef, L, low, Y_p, KXX, n_data = self.coef_cholesky(model, X, Y)
+        coef, L, low, _, KXX, n_data = self.coef_cholesky(model, X, Y)
         KXX_inv, K_inv_diag, coef_re, co_Kinv = self.get_co_Kinv(
             L,
             low,
             n_data,
             coef,
         )
-        loo_v = np.mean(co_Kinv**2)
+        loo_v = (co_Kinv**2).mean()
         loo_v = loo_v - self.logpriors(hp, pdis, jac=False) / n_data
         if jac:
             deriv = self.derivative(
@@ -106,18 +122,17 @@ class LOO(ObjectiveFuction):
         pdis,
         **kwargs,
     ):
-        loo_deriv = np.array([])
+        loo_deriv = empty(0, dtype=self.dtype)
         for para in parameters_set:
             if para == "prefactor":
-                loo_d = np.zeros((len(hp[para])))
+                loo_d = zeros((len(hp[para])), dtype=self.dtype)
             else:
                 K_deriv = self.get_K_deriv(model, para, X=X, KXX=KXX)
                 r_j, s_j = self.get_r_s_derivatives(K_deriv, KXX_inv, coef_re)
-                loo_d = 2.0 * np.mean(
-                    (co_Kinv / K_inv_diag) * (r_j + s_j * co_Kinv),
-                    axis=-1,
-                )
-            loo_deriv = np.append(loo_deriv, loo_d)
+                loo_d = 2.0 * (
+                    (co_Kinv / K_inv_diag) * (r_j + s_j * co_Kinv)
+                ).mean(axis=-1)
+            loo_deriv = append(loo_deriv, loo_d)
         loo_deriv = loo_deriv - self.logpriors(hp, pdis, jac=True) / n_data
         return loo_deriv
 
@@ -125,6 +140,7 @@ class LOO(ObjectiveFuction):
         self,
         get_prior_mean=None,
         use_analytic_prefactor=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -137,16 +153,20 @@ class LOO(ObjectiveFuction):
                 in the solution.
             use_analytic_prefactor: bool
                 Whether to calculate the analytical prefactor value in the end.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
         """
-        if get_prior_mean is not None:
-            self.get_prior_mean = get_prior_mean
         if use_analytic_prefactor is not None:
             self.use_analytic_prefactor = use_analytic_prefactor
-        # Always reset the solution when the objective function is changed
-        self.reset_solution()
+        # Set the arguments of the parent class
+        super().update_arguments(
+            get_prior_mean=get_prior_mean,
+            dtype=dtype,
+        )
         return self
 
     def update_solution(
@@ -174,11 +194,11 @@ class LOO(ObjectiveFuction):
         """
         if fun < self.sol["fun"]:
             if self.use_analytic_prefactor:
-                prefactor2 = np.mean(co_Kinv * coef_re) - (
-                    np.mean(coef_re / np.sqrt(K_inv_diag)) ** 2
+                prefactor2 = (co_Kinv * coef_re).mean() - (
+                    (coef_re / sqrt(K_inv_diag)).mean() ** 2
                 )
-                hp["prefactor"] = np.array([0.5 * np.log(prefactor2)])
-                self.sol["x"] = np.concatenate(
+                hp["prefactor"] = asarray([0.5 * log(prefactor2)])
+                self.sol["x"] = concatenate(
                     [hp[para] for para in sorted(hp.keys())]
                 )
             else:
@@ -193,8 +213,8 @@ class LOO(ObjectiveFuction):
 
     def get_co_Kinv(self, L, low, n_data, coef):
         "Get the inverse covariance matrix and diagonal products."
-        KXX_inv = cho_solve((L, low), np.identity(n_data), check_finite=False)
-        K_inv_diag = np.diag(KXX_inv)
+        KXX_inv = self.get_cinv(L=L, low=low, n_data=n_data)
+        K_inv_diag = diag(KXX_inv)
         coef_re = coef.reshape(-1)
         co_Kinv = coef_re / K_inv_diag
         return KXX_inv, K_inv_diag, coef_re, co_Kinv
@@ -204,8 +224,8 @@ class LOO(ObjectiveFuction):
         Get the r and s vector that are products of the inverse and
         derivative covariance matrix
         """
-        r_j = np.einsum("ji,di->dj", KXX_inv, np.matmul(K_deriv, -coef))
-        s_j = np.einsum("ji,dji->di", KXX_inv, np.matmul(K_deriv, KXX_inv))
+        r_j = einsum("ji,di->dj", KXX_inv, matmul(K_deriv, -coef))
+        s_j = einsum("ji,dji->di", KXX_inv, matmul(K_deriv, KXX_inv))
         return r_j, s_j
 
     def get_arguments(self):
@@ -214,6 +234,7 @@ class LOO(ObjectiveFuction):
         arg_kwargs = dict(
             get_prior_mean=self.get_prior_mean,
             use_analytic_prefactor=self.use_analytic_prefactor,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()

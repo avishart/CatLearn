@@ -12,7 +12,6 @@ from numpy import (
     nanmin,
     sqrt,
 )
-from numpy.random import choice, permutation
 from scipy.spatial.distance import cdist
 from .database import Database
 
@@ -26,7 +25,7 @@ class DatabaseReduction(Database):
         use_fingerprint=True,
         round_targets=None,
         seed=None,
-        dtype=None,
+        dtype=float,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -39,14 +38,14 @@ class DatabaseReduction(Database):
         The reduced data set is selected from a method.
 
         Parameters:
-            fingerprint : Fingerprint object
+            fingerprint: Fingerprint object
                 An object as a fingerprint class
                 that convert atoms to fingerprint.
             reduce_dimensions: bool
                 Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether to use derivatives/forces in the targets.
-            use_fingerprint : bool
+            use_fingerprint: bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
             round_targets: int (optional)
@@ -58,12 +57,12 @@ class DatabaseReduction(Database):
                 If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
-            npoints : int
+            npoints: int
                 Number of points that are used from the database.
-            initial_indicies : list
+            initial_indicies: list
                 The indicies of the data points that must be included
                 in the used data base.
-            include_last : int
+            include_last: int
                 Number of last data point to include in the used data base.
         """
         # The negative forces have to be used since the derivatives are used
@@ -75,6 +74,7 @@ class DatabaseReduction(Database):
             self.set_default_fp(
                 reduce_dimensions=reduce_dimensions,
                 use_derivatives=use_derivatives,
+                dtype=dtype,
             )
         # Set the arguments
         self.update_arguments(
@@ -110,14 +110,14 @@ class DatabaseReduction(Database):
         if they are not given.
 
         Parameters:
-            fingerprint : Fingerprint object
+            fingerprint: Fingerprint object
                 An object as a fingerprint class
                 that convert atoms to fingerprint.
             reduce_dimensions: bool
                 Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether to use derivatives/forces in the targets.
-            use_fingerprint : bool
+            use_fingerprint: bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
             round_targets: int (optional)
@@ -129,12 +129,12 @@ class DatabaseReduction(Database):
                 If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
-            npoints : int
+            npoints: int
                 Number of points that are used from the database.
-            initial_indicies : list
+            initial_indicies: list
                 The indicies of the data points that must be included
                 in the used data base.
-            include_last : int
+            include_last: int
                 Number of last data point to include in the used data base.
 
         Returns:
@@ -149,7 +149,6 @@ class DatabaseReduction(Database):
             round_targets=round_targets,
             seed=seed,
             dtype=dtype,
-            **kwargs,
         )
         # Set the number of points to use
         if npoints is not None:
@@ -199,6 +198,8 @@ class DatabaseReduction(Database):
             array: A matrix array with the saved features or fingerprints.
         """
         indicies = self.get_reduction_indicies()
+        if self.use_fingerprint:
+            return array(self.features)[indicies]
         return array(self.features, dtype=self.dtype)[indicies]
 
     def get_all_feature_vectors(self, **kwargs):
@@ -241,18 +242,19 @@ class DatabaseReduction(Database):
         Include the last indicies that are not in the used indicies list.
 
         Parameters:
-            indicies : list
+            indicies: list
                 A list of used indicies.
-            not_indicies : list
+            not_indicies: list
                 A list of indicies that not used yet.
 
         Returns:
             list: A list of the used indicies including the last indicies.
         """
         if self.include_last != 0:
+            last = -self.include_last
             indicies = append(
                 indicies,
-                [not_indicies[-self.include_last :]],
+                [not_indicies[last:]],
             )
         return indicies
 
@@ -261,9 +263,9 @@ class DatabaseReduction(Database):
         Get a list of the indicies that are not in the used indicies list.
 
         Parameters:
-            indicies : list
+            indicies: list
                 A list of indicies.
-            all_indicies : list
+            all_indicies: list
                 A list of all indicies.
 
         Returns:
@@ -336,7 +338,7 @@ class DatabaseDistance(DatabaseReduction):
         use_fingerprint=True,
         round_targets=None,
         seed=None,
-        dtype=None,
+        dtype=float,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -349,14 +351,14 @@ class DatabaseDistance(DatabaseReduction):
         The reduced data set is selected from the distances.
 
         Parameters:
-            fingerprint : Fingerprint object
+            fingerprint: Fingerprint object
                 An object as a fingerprint class
                 that convert atoms to fingerprint.
             reduce_dimensions: bool
                 Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether to use derivatives/forces in the targets.
-            use_fingerprint : bool
+            use_fingerprint: bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
             round_targets: int (optional)
@@ -368,12 +370,12 @@ class DatabaseDistance(DatabaseReduction):
                 If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
-            npoints : int
+            npoints: int
                 Number of points that are used from the database.
-            initial_indicies : list
+            initial_indicies: list
                 The indicies of the data points that must be included
                 in the used data base.
-            include_last : int
+            include_last: int
                 Number of last data point to include in the used data base.
         """
         super().__init__(
@@ -400,7 +402,7 @@ class DatabaseDistance(DatabaseReduction):
         indicies = self.get_last_indicies(indicies, not_indicies)
         # Get a random index if no fixed index exist
         if len(indicies) == 0:
-            indicies = asarray([choice(all_indicies)])
+            indicies = asarray([self.rng.choice(not_indicies)])
         # Get all the features
         features = self.get_all_feature_vectors()
         fdim = len(features[0])
@@ -427,7 +429,7 @@ class DatabaseRandom(DatabaseReduction):
         use_fingerprint=True,
         round_targets=None,
         seed=None,
-        dtype=None,
+        dtype=float,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -440,14 +442,14 @@ class DatabaseRandom(DatabaseReduction):
         The reduced data set is selected from random.
 
         Parameters:
-            fingerprint : Fingerprint object
+            fingerprint: Fingerprint object
                 An object as a fingerprint class
                 that convert atoms to fingerprint.
             reduce_dimensions: bool
                 Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether to use derivatives/forces in the targets.
-            use_fingerprint : bool
+            use_fingerprint: bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
             round_targets: int (optional)
@@ -459,12 +461,12 @@ class DatabaseRandom(DatabaseReduction):
                 If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
-            npoints : int
+            npoints: int
                 Number of points that are used from the database.
-            initial_indicies : list
+            initial_indicies: list
                 The indicies of the data points that must be included
                 in the used data base.
-            include_last : int
+            include_last: int
                 Number of last data point to include in the used data base.
         """
         super().__init__(
@@ -496,7 +498,7 @@ class DatabaseRandom(DatabaseReduction):
         # Randomly get the indicies
         indicies = append(
             indicies,
-            permutation(not_indicies)[:npoints],
+            self.rng.permutation(not_indicies)[:npoints],
         )
         return array(indicies, dtype=int)
 
@@ -510,7 +512,7 @@ class DatabaseHybrid(DatabaseReduction):
         use_fingerprint=True,
         round_targets=None,
         seed=None,
-        dtype=None,
+        dtype=float,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -525,14 +527,14 @@ class DatabaseHybrid(DatabaseReduction):
         the distances and random.
 
         Parameters:
-            fingerprint : Fingerprint object
+            fingerprint: Fingerprint object
                 An object as a fingerprint class
                 that convert atoms to fingerprint.
             reduce_dimensions: bool
                 Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether to use derivatives/forces in the targets.
-            use_fingerprint : bool
+            use_fingerprint: bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
             round_targets: int (optional)
@@ -544,14 +546,14 @@ class DatabaseHybrid(DatabaseReduction):
                 If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
-            npoints : int
+            npoints: int
                 Number of points that are used from the database.
-            initial_indicies : list
+            initial_indicies: list
                 The indicies of the data points that must be included
                 in the used data base.
-            include_last : int
+            include_last: int
                 Number of last data point to include in the used data base.
-            random_fraction : int
+            random_fraction: int
                 How often the data point is sampled randomly.
         """
         super().__init__(
@@ -589,14 +591,14 @@ class DatabaseHybrid(DatabaseReduction):
         The existing arguments are used if they are not given.
 
         Parameters:
-            fingerprint : Fingerprint object
+            fingerprint: Fingerprint object
                 An object as a fingerprint class
                 that convert atoms to fingerprint.
             reduce_dimensions: bool
                 Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether to use derivatives/forces in the targets.
-            use_fingerprint : bool
+            use_fingerprint: bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
             round_targets: int (optional)
@@ -608,14 +610,14 @@ class DatabaseHybrid(DatabaseReduction):
                 If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
-            npoints : int
+            npoints: int
                 Number of points that are used from the database.
-            initial_indicies : list
+            initial_indicies: list
                 The indicies of the data points that must be included
                 in the used data base.
-            include_last : int
+            include_last: int
                 Number of last data point to include in the used data base.
-            random_fraction : int
+            random_fraction: int
                 How often the data point is sampled randomly.
 
         Returns:
@@ -633,7 +635,6 @@ class DatabaseHybrid(DatabaseReduction):
             npoints=npoints,
             initial_indicies=initial_indicies,
             include_last=include_last,
-            **kwargs,
         )
         # Set the random fraction
         if random_fraction is not None:
@@ -655,7 +656,7 @@ class DatabaseHybrid(DatabaseReduction):
         indicies = self.get_last_indicies(indicies, not_indicies)
         # Get a random index if no fixed index exist
         if len(indicies) == 0:
-            indicies = [choice(all_indicies)]
+            indicies = [self.rng.choice(not_indicies)]
         # Get all the features
         features = self.get_all_feature_vectors()
         fdim = len(features[0])
@@ -664,10 +665,7 @@ class DatabaseHybrid(DatabaseReduction):
             not_indicies = self.get_not_indicies(indicies, all_indicies)
             if i % self.random_fraction == 0:
                 # Get a random index
-                indicies = append(
-                    indicies,
-                    [choice(not_indicies)],
-                )
+                indicies = append(indicies, [self.rng.choice(not_indicies)])
             else:
                 # Calculate the distances to the points already used
                 dist = cdist(
@@ -716,7 +714,7 @@ class DatabaseMin(DatabaseReduction):
         use_fingerprint=True,
         round_targets=None,
         seed=None,
-        dtype=None,
+        dtype=float,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -730,14 +728,14 @@ class DatabaseMin(DatabaseReduction):
         The reduced data set is selected from the smallest targets.
 
         Parameters:
-            fingerprint : Fingerprint object
+            fingerprint: Fingerprint object
                 An object as a fingerprint class
                 that convert atoms to fingerprint.
             reduce_dimensions: bool
                 Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether to use derivatives/forces in the targets.
-            use_fingerprint : bool
+            use_fingerprint: bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
             round_targets: int (optional)
@@ -749,14 +747,14 @@ class DatabaseMin(DatabaseReduction):
                 If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
-            npoints : int
+            npoints: int
                 Number of points that are used from the database.
-            initial_indicies : list
+            initial_indicies: list
                 The indicies of the data points that must be included
                 in the used data base.
-            include_last : int
+            include_last: int
                 Number of last data point to include in the used data base.
-            force_targets : bool
+            force_targets: bool
                 Whether to include the derivatives/forces in targets
                 when the smallest targets are found.
         """
@@ -794,14 +792,14 @@ class DatabaseMin(DatabaseReduction):
         The existing arguments are used if they are not given.
 
         Parameters:
-            fingerprint : Fingerprint object
+            fingerprint: Fingerprint object
                 An object as a fingerprint class
                 that convert atoms to fingerprint.
             reduce_dimensions: bool
                 Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether to use derivatives/forces in the targets.
-            use_fingerprint : bool
+            use_fingerprint: bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
             round_targets: int (optional)
@@ -813,14 +811,14 @@ class DatabaseMin(DatabaseReduction):
                 If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
-            npoints : int
+            npoints: int
                 Number of points that are used from the database.
-            initial_indicies : list
+            initial_indicies: list
                 The indicies of the data points that must be included
                 in the used data base.
-            include_last : int
+            include_last: int
                 Number of last data point to include in the used data base.
-            force_targets : bool
+            force_targets: bool
                 Whether to include the derivatives/forces in targets
                 when the smallest targets are found.
 
@@ -839,7 +837,6 @@ class DatabaseMin(DatabaseReduction):
             npoints=npoints,
             initial_indicies=initial_indicies,
             include_last=include_last,
-            **kwargs,
         )
         # Set the force targets
         if force_targets is not None:
@@ -910,7 +907,7 @@ class DatabaseLast(DatabaseReduction):
         use_fingerprint=True,
         round_targets=None,
         seed=None,
-        dtype=None,
+        dtype=float,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -923,14 +920,14 @@ class DatabaseLast(DatabaseReduction):
         The reduced data set is selected from the last data points.
 
         Parameters:
-            fingerprint : Fingerprint object
+            fingerprint: Fingerprint object
                 An object as a fingerprint class
                 that convert atoms to fingerprint.
             reduce_dimensions: bool
                 Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether to use derivatives/forces in the targets.
-            use_fingerprint : bool
+            use_fingerprint: bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
             round_targets: int (optional)
@@ -942,12 +939,12 @@ class DatabaseLast(DatabaseReduction):
                 If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
-            npoints : int
+            npoints: int
                 Number of points that are used from the database.
-            initial_indicies : list
+            initial_indicies: list
                 The indicies of the data points that must be included
                 in the used data base.
-            include_last : int
+            include_last: int
                 Number of last data point to include in the used data base.
         """
         super().__init__(
@@ -987,7 +984,7 @@ class DatabaseRestart(DatabaseReduction):
         use_fingerprint=True,
         round_targets=None,
         seed=None,
-        dtype=None,
+        dtype=float,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -1001,14 +998,14 @@ class DatabaseRestart(DatabaseReduction):
         The initial indicies and the last data point is used at each restart.
 
         Parameters:
-            fingerprint : Fingerprint object
+            fingerprint: Fingerprint object
                 An object as a fingerprint class
                 that convert atoms to fingerprint.
             reduce_dimensions: bool
                 Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether to use derivatives/forces in the targets.
-            use_fingerprint : bool
+            use_fingerprint: bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
             round_targets: int (optional)
@@ -1020,12 +1017,12 @@ class DatabaseRestart(DatabaseReduction):
                 If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
-            npoints : int
+            npoints: int
                 Number of points that are used from the database.
-            initial_indicies : list
+            initial_indicies: list
                 The indicies of the data points that must be included
                 in the used data base.
-            include_last : int
+            include_last: int
                 Number of last data point to include in the used data base.
         """
         super().__init__(
@@ -1065,7 +1062,8 @@ class DatabaseRestart(DatabaseReduction):
         # Get the indicies for the system not already included
         not_indicies = self.get_not_indicies(indicies, all_indicies)
         # Include the indicies
-        indicies = append(indicies, not_indicies[-(n_extra + lasts) :])
+        lasts_i = -(n_extra + lasts)
+        indicies = append(indicies, not_indicies[lasts_i:])
         return array(indicies, dtype=int)
 
 
@@ -1078,7 +1076,7 @@ class DatabasePointsInterest(DatabaseLast):
         use_fingerprint=True,
         round_targets=None,
         seed=None,
-        dtype=None,
+        dtype=float,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -1096,14 +1094,14 @@ class DatabasePointsInterest(DatabaseLast):
         to any of the points of interest.
 
         Parameters:
-            fingerprint : Fingerprint object
+            fingerprint: Fingerprint object
                 An object as a fingerprint class
                 that convert atoms to fingerprint.
             reduce_dimensions: bool
                 Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether to use derivatives/forces in the targets.
-            use_fingerprint : bool
+            use_fingerprint: bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
             round_targets: int (optional)
@@ -1111,17 +1109,17 @@ class DatabasePointsInterest(DatabaseLast):
                 If None, the targets are not rounded.
             dtype: type
                 The data type of the arrays.
-            npoints : int
+            npoints: int
                 Number of points that are used from the database.
-            initial_indicies : list
+            initial_indicies: list
                 The indicies of the data points that must be included
                 in the used data base.
-            include_last : int
+            include_last: int
                 Number of last data point to include in the used data base.
-            feature_distance : bool
+            feature_distance: bool
                 Whether to calculate the distance in feature space (True)
                 or Cartesian coordinate space (False).
-            point_interest : list
+            point_interest: list
                 A list of the points of interest as ASE Atoms instances.
         """
         super().__init__(
@@ -1160,7 +1158,7 @@ class DatabasePointsInterest(DatabaseLast):
          Get the Cartesian coordinates of the atoms.
 
         Parameters:
-             atoms_list : list or ASE Atoms
+             atoms_list: list or ASE Atoms
                  A list of ASE Atoms.
 
          Returns:
@@ -1196,7 +1194,7 @@ class DatabasePointsInterest(DatabaseLast):
         Calculate the distances to the points of interest.
 
         Parameters:
-            not_indicies : list
+            not_indicies: list
                 A list of indicies that not used yet.
 
         Returns:
@@ -1240,14 +1238,14 @@ class DatabasePointsInterest(DatabaseLast):
         The existing arguments are used if they are not given.
 
         Parameters:
-            fingerprint : Fingerprint object
+            fingerprint: Fingerprint object
                 An object as a fingerprint class
                 that convert atoms to fingerprint.
             reduce_dimensions: bool
                 Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether to use derivatives/forces in the targets.
-            use_fingerprint : bool
+            use_fingerprint: bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
             round_targets: int (optional)
@@ -1259,17 +1257,17 @@ class DatabasePointsInterest(DatabaseLast):
                 If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
-            npoints : int
+            npoints: int
                 Number of points that are used from the database.
-            initial_indicies : list
+            initial_indicies: list
                 The indicies of the data points that must be included
                 in the used data base.
-            include_last : int
+            include_last: int
                 Number of last data point to include in the used data base.
-            feature_distance : bool
+            feature_distance: bool
                 Whether to calculate the distance in feature space (True)
                 or Cartesian coordinate space (False).
-            point_interest : list
+            point_interest: list
                 A list of the points of interest as ASE Atoms instances.
 
         Returns:
@@ -1287,7 +1285,6 @@ class DatabasePointsInterest(DatabaseLast):
             npoints=npoints,
             initial_indicies=initial_indicies,
             include_last=include_last,
-            **kwargs,
         )
         # Set the feature distance
         if feature_distance is not None:
@@ -1365,7 +1362,7 @@ class DatabasePointsInterestEach(DatabasePointsInterest):
         use_fingerprint=True,
         round_targets=None,
         seed=None,
-        dtype=None,
+        dtype=float,
         npoints=25,
         initial_indicies=[0],
         include_last=1,
@@ -1383,14 +1380,14 @@ class DatabasePointsInterestEach(DatabasePointsInterest):
         and it is performed iteratively.
 
         Parameters:
-            fingerprint : Fingerprint object
+            fingerprint: Fingerprint object
                 An object as a fingerprint class
                 that convert atoms to fingerprint.
             reduce_dimensions: bool
                 Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether to use derivatives/forces in the targets.
-            use_fingerprint : bool
+            use_fingerprint: bool
                 Whether the kernel uses fingerprint objects (True)
                 or arrays (False).
             round_targets: int (optional)
@@ -1402,17 +1399,17 @@ class DatabasePointsInterestEach(DatabasePointsInterest):
                 If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
-            npoints : int
+            npoints: int
                 Number of points that are used from the database.
-            initial_indicies : list
+            initial_indicies: list
                 The indicies of the data points that must be included
                 in the used data base.
-            include_last : int
+            include_last: int
                 Number of last data point to include in the used data base.
-            feature_distance : bool
+            feature_distance: bool
                 Whether to calculate the distance in feature space (True)
                 or Cartesian coordinate space (False).
-            point_interest : list
+            point_interest: list
                 A list of the points of interest as ASE Atoms instances.
         """
         super().__init__(

@@ -1,6 +1,9 @@
-import numpy as np
-from .factorized_likelihood import FactorizedLogLikelihood
+from numpy import matmul
 from numpy.linalg import svd
+from .factorized_likelihood import (
+    FactorizedLogLikelihood,
+    VariableTransformation,
+)
 
 
 class FactorizedLogLikelihoodSVD(FactorizedLogLikelihood):
@@ -8,8 +11,9 @@ class FactorizedLogLikelihoodSVD(FactorizedLogLikelihood):
         self,
         get_prior_mean=False,
         ngrid=80,
-        bounds=None,
+        bounds=VariableTransformation(),
         noise_optimizer=None,
+        dtype=float,
         **kwargs
     ):
         """
@@ -29,15 +33,19 @@ class FactorizedLogLikelihoodSVD(FactorizedLogLikelihood):
             bounds: Boundary_conditions class
                 A class of the boundary conditions of
                 the relative-noise hyperparameter.
-            noise_optimizer : Noise line search optimizer class
+            noise_optimizer: Noise line search optimizer class
                 A line search optimization method for
                 the relative-noise hyperparameter.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
         super().__init__(
             get_prior_mean=get_prior_mean,
             ngrid=ngrid,
             bounds=bounds,
             noise_optimizer=noise_optimizer,
+            dtype=dtype,
             **kwargs
         )
 
@@ -49,5 +57,5 @@ class FactorizedLogLikelihoodSVD(FactorizedLogLikelihood):
         U, D, Vt = svd(KXX, hermitian=True)
         # Subtract the prior mean to the training target
         Y_p = self.y_prior(X, Y, model, D=D, U=U)
-        UTY = np.matmul(Vt, Y_p).reshape(-1) ** 2
+        UTY = matmul(Vt, Y_p).reshape(-1) ** 2
         return D, U, Y_p, UTY, KXX, n_data

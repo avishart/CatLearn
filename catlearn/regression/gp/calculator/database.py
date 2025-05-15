@@ -16,7 +16,7 @@ class Database:
         use_fingerprint=True,
         round_targets=None,
         seed=None,
-        dtype=None,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -39,7 +39,7 @@ class Database:
                 If None, the targets are not rounded.
             seed: int (optional)
                 The random seed.
-                The seed an also be a RandomState or Generator instance.
+                The seed can also be a RandomState or Generator instance.
                 If not given, the default random number generator is used.
             dtype: type
                 The data type of the arrays.
@@ -51,6 +51,7 @@ class Database:
             self.set_default_fp(
                 reduce_dimensions=reduce_dimensions,
                 use_derivatives=use_derivatives,
+                dtype=dtype,
             )
         # Set the arguments
         self.update_arguments(
@@ -135,6 +136,8 @@ class Database:
         Returns:
             array: A matrix array with the saved features or fingerprints.
         """
+        if self.use_fingerprint:
+            return asarray(self.features)
         return array(self.features, dtype=self.dtype)
 
     def get_targets(self, **kwargs):
@@ -353,6 +356,134 @@ class Database:
         "Get whether a fingerprint is used as the features."
         return self.use_fingerprint
 
+    def set_fingerprint(self, fingerprint, **kwargs):
+        """
+        Set the fingerprint instance.
+
+        Parameters:
+            fingerprint: Fingerprint object
+                An object as a fingerprint class
+                that convert atoms to fingerprint.
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.fingerprint = fingerprint.copy()
+        # Reset the database if the use fingerprint is changed
+        self.reset_database()
+        return self
+
+    def set_dtype(self, dtype, **kwargs):
+        """
+        Set the data type of the arrays.
+
+        Parameters:
+            dtype: type
+                The data type of the arrays.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Set the data type
+        self.dtype = dtype
+        # Set the data type of the fingerprint
+        self.fingerprint.set_dtype(dtype)
+        return self
+
+    def set_use_fingerprint(self, use_fingerprint, **kwargs):
+        """
+        Set whether the kernel uses fingerprint objects (True)
+        or arrays (False).
+
+        Parameters:
+            use_fingerprint: bool
+                Whether the kernel uses fingerprint objects (True)
+                or arrays (False).
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Check if the use fingerprint is already set
+        if hasattr(self, "use_fingerprint"):
+            if self.use_fingerprint == use_fingerprint:
+                return self
+        # Set the use fingerprint
+        self.use_fingerprint = use_fingerprint
+        # Reset the database if the use fingerprint is changed
+        self.reset_database()
+        return self
+
+    def set_use_derivatives(self, use_derivatives, **kwargs):
+        """
+        Set whether to use derivatives/forces in the targets.
+
+        Parameters:
+            use_derivatives: bool
+                Whether to use derivatives/forces in the targets.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Check if the use derivatives is already set
+        if hasattr(self, "use_derivatives"):
+            if self.use_derivatives == use_derivatives:
+                return self
+        # Set the use derivatives
+        self.use_derivatives = use_derivatives
+        # Set the use derivatives of the fingerprint
+        if use_derivatives:
+            self.fingerprint.set_use_derivatives(use_derivatives)
+        # Reset the database if the use derivatives is changed
+        self.reset_database()
+        return self
+
+    def set_reduce_dimensions(self, reduce_dimensions, **kwargs):
+        """
+        Set whether to reduce the fingerprint space if constrains are used.
+
+        Parameters:
+            reduce_dimensions: bool
+                Whether to reduce the fingerprint space if constrains are used.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Check if the reduce_dimensions is already set
+        if hasattr(self, "reduce_dimensions"):
+            if self.reduce_dimensions == reduce_dimensions:
+                return self
+        # Set the reduce dimensions
+        self.reduce_dimensions = reduce_dimensions
+        # Set the reduce dimensions of the fingerprint
+        self.fingerprint.set_reduce_dimensions(reduce_dimensions)
+        # Reset the database if the reduce dimensions is changed
+        self.reset_database()
+        return self
+
+    def set_seed(self, seed=None):
+        """
+        Set the random seed.
+
+        Parameters:
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+
+        Returns:
+            self: The instance itself.
+        """
+        if seed is not None:
+            self.seed = seed
+            if isinstance(seed, int):
+                self.rng = default_rng(self.seed)
+            elif isinstance(seed, Generator) or isinstance(seed, RandomState):
+                self.rng = seed
+        else:
+            self.seed = None
+            self.rng = default_rng()
+        return self
+
     def update_arguments(
         self,
         fingerprint=None,
@@ -388,20 +519,14 @@ class Database:
         Returns:
             self: The updated object itself.
         """
-        # Control if the database has to be reset
-        reset_database = False
         if fingerprint is not None:
-            self.fingerprint = fingerprint.copy()
-            reset_database = True
+            self.set_fingerprint(fingerprint)
         if reduce_dimensions is not None:
-            self.reduce_dimensions = reduce_dimensions
-            reset_database = True
+            self.set_reduce_dimensions(reduce_dimensions)
         if use_derivatives is not None:
-            self.use_derivatives = use_derivatives
-            reset_database = True
+            self.set_use_derivatives(use_derivatives)
         if use_fingerprint is not None:
-            self.use_fingerprint = use_fingerprint
-            reset_database = True
+            self.set_use_fingerprint(use_fingerprint)
         if round_targets is not None or not hasattr(self, "round_targets"):
             self.round_targets = round_targets
         # Set the seed
@@ -412,28 +537,13 @@ class Database:
             self.set_dtype(dtype)
         # Check that the database and the fingerprint have the same attributes
         self.check_attributes()
-        # Reset the database if an argument has been changed
-        if reset_database:
-            self.reset_database()
-        return self
-
-    def set_seed(self, seed=None):
-        "Set the random seed."
-        if seed is not None:
-            self.seed = seed
-            if isinstance(seed, int):
-                self.rng = default_rng(self.seed)
-            elif isinstance(seed, Generator) or isinstance(seed, RandomState):
-                self.rng = seed
-        else:
-            self.seed = None
-            self.rng = default_rng()
         return self
 
     def set_default_fp(
         self,
         reduce_dimensions=True,
         use_derivatives=True,
+        dtype=float,
         **kwargs,
     ):
         "Use default fingerprint if it is not given."
@@ -442,23 +552,9 @@ class Database:
         return Cartesian(
             reduce_dimensions=reduce_dimensions,
             use_derivatives=use_derivatives,
+            dtype=dtype,
             **kwargs,
         )
-
-    def set_dtype(self, dtype, **kwargs):
-        """
-        Set the data type of the arrays.
-
-        Parameters:
-            dtype: type
-                The data type of the arrays.
-
-        Returns:
-            self: The updated object itself.
-        """
-        # Set the data type
-        self.dtype = dtype
-        return self
 
     def check_attributes(self):
         "Check if all attributes agree between the class and subclasses."

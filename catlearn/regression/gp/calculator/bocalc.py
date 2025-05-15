@@ -212,23 +212,31 @@ class BOCalculator(MLCalculator):
         Returns:
             self: The updated object itself.
         """
-        if mlmodel is not None:
-            self.mlmodel = mlmodel.copy()
-        if calc_forces is not None:
-            self.calc_forces = calc_forces
-        if calc_unc is not None:
-            self.calc_unc = calc_unc
-        if calc_force_unc is not None:
-            self.calc_force_unc = calc_force_unc
-        if calc_unc_deriv is not None:
-            self.calc_unc_deriv = calc_unc_deriv
-        if calc_kwargs is not None:
-            self.calc_kwargs = calc_kwargs.copy()
-        if round_pred is not None or not hasattr(self, "round_pred"):
-            self.round_pred = round_pred
+        # Set the parameters in the parent class
+        super().update_arguments(
+            mlmodel=mlmodel,
+            calc_forces=calc_forces,
+            calc_unc=calc_unc,
+            calc_force_unc=calc_force_unc,
+            calc_unc_deriv=calc_unc_deriv,
+            calc_kwargs=calc_kwargs,
+            round_pred=round_pred,
+        )
+        # Set the kappa value
         if kappa is not None:
-            self.kappa = float(kappa)
-        # Empty the results
+            self.set_kappa(kappa)
+        return self
+
+    def set_kappa(self, kappa, **kwargs):
+        """
+        Set the kappa value.
+        The kappa value is used to calculate the acquisition function.
+
+        Parameters:
+            kappa: float
+                The weight of the uncertainty relative to the energy.
+        """
+        self.kappa = float(kappa)
         self.reset()
         return self
 

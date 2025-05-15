@@ -1,5 +1,17 @@
-import numpy as np
+from numpy import (
+    append,
+    asarray,
+    concatenate,
+    empty,
+    exp,
+    log,
+    matmul,
+    pi,
+    zeros,
+)
 from ..objectivefunction import ObjectiveFuction
+from ...hpboundary.hptrans import VariableTransformation
+from ...optimizers.noisesearcher import NoiseFineGridSearch
 
 
 class FactorizedLogLikelihood(ObjectiveFuction):
@@ -8,8 +20,9 @@ class FactorizedLogLikelihood(ObjectiveFuction):
         get_prior_mean=False,
         modification=False,
         ngrid=80,
-        bounds=None,
+        bounds=VariableTransformation(),
         noise_optimizer=None,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -35,22 +48,18 @@ class FactorizedLogLikelihood(ObjectiveFuction):
             bounds: Boundary_conditions class
                 A class of the boundary conditions of
                 the relative-noise hyperparameter.
-            noise_optimizer : Noise line search optimizer class
+            noise_optimizer: Noise line search optimizer class
                 A line search optimization method for
                 the relative-noise hyperparameter.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
         # Set descriptor of the objective function
         self.use_analytic_prefactor = True
         self.use_optimized_noise = True
-        # Set default bounds
-        if bounds is None:
-            from ...hpboundary.hptrans import VariableTransformation
-
-            bounds = VariableTransformation(bounds=None)
         # Set default noise line optimizer
         if noise_optimizer is None:
-            from ...optimizers.noisesearcher import NoiseFineGridSearch
-
             noise_optimizer = NoiseFineGridSearch(
                 maxiter=1000,
                 tol=1e-5,
@@ -58,6 +67,7 @@ class FactorizedLogLikelihood(ObjectiveFuction):
                 multiple_min=False,
                 ngrid=ngrid,
                 loops=2,
+                dtype=dtype,
             )
         # Set the arguments
         self.update_arguments(
@@ -66,8 +76,20 @@ class FactorizedLogLikelihood(ObjectiveFuction):
             ngrid=ngrid,
             bounds=bounds,
             noise_optimizer=noise_optimizer,
+            dtype=dtype,
             **kwargs,
         )
+
+    def set_dtype(self, dtype, **kwargs):
+        super().set_dtype(dtype=dtype, **kwargs)
+        self.bounds.set_dtype(dtype=dtype, **kwargs)
+        self.noise_optimizer.set_dtype(dtype=dtype, **kwargs)
+        return self
+
+    def set_seed(self, seed, **kwargs):
+        self.bounds.set_seed(seed, **kwargs)
+        self.noise_optimizer.set_seed(seed)
+        return self
 
     def update_arguments(
         self,
@@ -76,6 +98,7 @@ class FactorizedLogLikelihood(ObjectiveFuction):
         ngrid=None,
         bounds=None,
         noise_optimizer=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -96,15 +119,16 @@ class FactorizedLogLikelihood(ObjectiveFuction):
             bounds: Boundary_conditions class
                 A class of the boundary conditions of
                 the relative-noise hyperparameter.
-            noise_optimizer : Noise line search optimizer class
+            noise_optimizer: Noise line search optimizer class
                 A line search optimization method for
                 the relative-noise hyperparameter.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
         """
-        if get_prior_mean is not None:
-            self.get_prior_mean = get_prior_mean
         if modification is not None:
             self.modification = modification
         if ngrid is not None:
@@ -113,8 +137,11 @@ class FactorizedLogLikelihood(ObjectiveFuction):
             self.bounds = bounds.copy()
         if noise_optimizer is not None:
             self.noise_optimizer = noise_optimizer.copy()
-        # Always reset the solution when the objective function is changed
-        self.reset_solution()
+        # Set the arguments of the parent class
+        super().update_arguments(
+            get_prior_mean=get_prior_mean,
+            dtype=dtype,
+        )
         return self
 
     def function(
@@ -198,40 +225,40 @@ class FactorizedLogLikelihood(ObjectiveFuction):
         pdis,
         **kwargs,
     ):
-        nlp_deriv = np.array([])
-        D_n = D + np.exp(2.0 * noise)
-        prefactor2 = np.mean(UTY / D_n)
-        hp["prefactor"] = np.array([0.5 * np.log(prefactor2)])
-        hp["noise"] = np.array([noise])
-        KXX_inv = np.matmul(U / D_n, U.T)
-        coef = np.matmul(KXX_inv, Y_p)
+        nlp_deriv = empty(0, dtype=self.dtype)
+        D_n = D + exp(2.0 * noise)
+        prefactor2 = (UTY / D_n).mean()
+        hp["prefactor"] = asarray([0.5 * log(prefactor2)])
+        hp["noise"] = asarray([noise])
+        KXX_inv = matmul(U / D_n, U.T)
+        coef = matmul(KXX_inv, Y_p)
         for para in parameters_set:
             if para == "prefactor":
-                nlp_d = np.zeros((len(hp[para])))
+                nlp_d = zeros((len(hp[para])), dtype=self.dtype)
             else:
                 K_deriv = self.get_K_deriv(model, para, X=X, KXX=KXX)
                 K_deriv_cho = self.get_K_inv_deriv(K_deriv, KXX_inv)
                 nlp_d = (
                     (-0.5 / prefactor2)
-                    * np.matmul(coef.T, np.matmul(K_deriv, coef)).reshape(-1)
+                    * matmul(coef.T, matmul(K_deriv, coef)).reshape(-1)
                 ) + (0.5 * K_deriv_cho)
 
-            nlp_deriv = np.append(nlp_deriv, nlp_d)
+            nlp_deriv = append(nlp_deriv, nlp_d)
         nlp_deriv = nlp_deriv - self.logpriors(hp, pdis, jac=True)
         return nlp_deriv
 
     def get_eig_fun(self, noise, hp, pdis, UTY, D, n_data, **kwargs):
         "Calculate log-likelihood from Eigendecomposition for a noise value."
-        D_n = D + np.exp(2.0 * noise)
-        prefactor = 0.5 * np.log(np.mean(UTY / D_n))
+        D_n = D + exp(2.0 * noise)
+        prefactor = 0.5 * log((UTY / D_n).mean())
         nlp = (
-            0.5 * n_data * (1 + np.log(2.0 * np.pi))
+            0.5 * n_data * (1 + log(2.0 * pi))
             + (n_data * prefactor)
-            + 0.5 * np.sum(np.log(D_n))
+            + 0.5 * log(D_n).sum()
         )
         if pdis is not None:
-            hp["prefactor"] = np.array([prefactor])
-            hp["noise"] = np.array([noise]).reshape(-1)
+            hp["prefactor"] = asarray([prefactor], dtype=self.dtype)
+            hp["noise"] = asarray([noise], dtype=self.dtype).reshape(-1)
         return nlp - self.logpriors(hp, pdis, jac=False)
 
     def get_all_eig_fun(self, noises, hp, pdis, UTY, D, n_data, **kwargs):
@@ -239,10 +266,10 @@ class FactorizedLogLikelihood(ObjectiveFuction):
         Calculate log-likelihood from Eigendecompositions for
         all noise values from the list.
         """
-        D_n = D + np.exp(2.0 * noises)
-        prefactor = 0.5 * np.log(np.mean(UTY / D_n, axis=1))
-        nlp = (0.5 * n_data * (1 + np.log(2.0 * np.pi))) + (
-            (n_data * prefactor) + (0.5 * np.sum(np.log(D_n), axis=1))
+        D_n = D + exp(2.0 * noises)
+        prefactor = 0.5 * log((UTY / D_n).mean(axis=1))
+        nlp = (0.5 * n_data * (1 + log(2.0 * pi))) + (
+            (n_data * prefactor) + (0.5 * log(D_n).sum(axis=1))
         )
         if pdis is not None:
             hp["prefactor"] = prefactor.reshape(-1, 1)
@@ -252,7 +279,8 @@ class FactorizedLogLikelihood(ObjectiveFuction):
     def make_noise_list(self, model, X, Y, **kwargs):
         "Make the list of noises."
         return self.bounds.make_single_line(
-            parameter="noise", ngrid=self.ngrid
+            parameter="noise",
+            ngrid=self.ngrid,
         ).reshape(-1, 1)
 
     def maximize_noise(
@@ -274,7 +302,14 @@ class FactorizedLogLikelihood(ObjectiveFuction):
         func_args = (hp.copy(), pdis, UTY, D, n_data)
         # Calculate function values for line coordinates
         sol = self.noise_optimizer.run(
-            self, noises, ["noise"], model, X, Y, pdis, func_args=func_args
+            self,
+            noises,
+            ["noise"],
+            model,
+            X,
+            Y,
+            pdis,
+            func_args=func_args,
         )
         # Find the minimum value
         return sol["x"][0], sol["fun"]
@@ -305,14 +340,16 @@ class FactorizedLogLikelihood(ObjectiveFuction):
         and numerically, respectively.
         """
         if fun < self.sol["fun"]:
-            D_n = D + np.exp(2.0 * noise)
-            prefactor2 = np.mean(UTY / D_n)
+            D_n = D + exp(2.0 * noise)
+            prefactor2 = (UTY / D_n).mean()
             if self.modification:
                 if n_data - len(theta) > 0:
                     prefactor2 = (n_data / (n_data - len(theta))) * prefactor2
-            hp["prefactor"] = np.array([0.5 * np.log(prefactor2)])
-            hp["noise"] = np.array([noise])
-            self.sol["x"] = np.concatenate(
+            hp["prefactor"] = asarray(
+                [0.5 * log(prefactor2)],
+            )
+            hp["noise"] = asarray([noise])
+            self.sol["x"] = concatenate(
                 [hp[para] for para in sorted(hp.keys())]
             )
             self.sol["hp"] = hp.copy()
@@ -332,6 +369,7 @@ class FactorizedLogLikelihood(ObjectiveFuction):
             ngrid=self.ngrid,
             bounds=self.bounds,
             noise_optimizer=self.noise_optimizer,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()

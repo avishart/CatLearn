@@ -48,13 +48,13 @@ class StoredDataCalculator(Calculator):
         super().__init__()
         self.results = {}
         # Save the properties
-        for property, value in results.items():
+        for prop, value in results.items():
             if value is None:
                 continue
             elif isinstance(value, (float, int)):
-                self.results[property] = value
+                self.results[prop] = value
             else:
-                self.results[property] = array(value, dtype=dtype)
+                self.results[prop] = array(value, dtype=dtype)
         # Save the configuration
         self.atoms = atoms.copy()
 

@@ -1,14 +1,23 @@
-import numpy as np
+from numpy import nanargmin
 from .linesearcher import (
-    LineSearchOptimizer,
-    GoldenSearch,
     FineGridSearch,
+    GoldenSearch,
+    LineSearchOptimizer,
+    LocalOptimizer,
     TransGridSearch,
 )
 
 
 class NoiseGrid(LineSearchOptimizer):
-    def __init__(self, maxiter=5000, **kwargs):
+    def __init__(
+        self,
+        maxiter=5000,
+        jac=False,
+        parallel=False,
+        seed=None,
+        dtype=float,
+        **kwargs,
+    ):
         """
         The grid method is used as the line search optimizer.
         The grid of relative-noise hyperparameter values is calculated
@@ -22,13 +31,32 @@ class NoiseGrid(LineSearchOptimizer):
             maxiter : int
                 The maximum number of evaluations or iterations
                 the optimizer can use.
+            jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+                The line search optimizers cannot use gradients
+                of the objective function.
+            parallel: bool
+                Whether to calculate the grid points in parallel
+                over multiple CPUs.
+                This optimizer can not be parallelized.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
-        # This optimizer can not be parallelized
-        self.parallel = False
-        # Line search optimizers cannot use gradients of the objective function
-        self.jac = False
         # Set all the arguments
-        self.update_arguments(maxiter=maxiter, **kwargs)
+        self.update_arguments(
+            maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
+            seed=seed,
+            dtype=dtype,
+            **kwargs,
+        )
 
     def run(self, func, line, parameters, model, X, Y, pdis, **kwargs):
         # Get the function arguments
@@ -46,7 +74,7 @@ class NoiseGrid(LineSearchOptimizer):
         line = line.reshape(len_l, -1)
         f_list = self.calculate_values(line, func, func_args=func_args)
         # Find the optimal value
-        i_min = np.nanargmin(f_list)
+        i_min = nanargmin(f_list)
         sol = {
             "fun": f_list[i_min],
             "x": line[i_min],
@@ -56,7 +84,20 @@ class NoiseGrid(LineSearchOptimizer):
         }
         return sol
 
-    def update_arguments(self, maxiter=None, **kwargs):
+    def set_parallel(self, parallel=False, **kwargs):
+        # This optimizer can not be parallelized
+        self.parallel = False
+        return self
+
+    def update_arguments(
+        self,
+        maxiter=None,
+        jac=None,
+        parallel=None,
+        seed=None,
+        dtype=None,
+        **kwargs,
+    ):
         """
         Update the optimizer with its arguments.
         The existing arguments are used if they are not given.
@@ -65,12 +106,33 @@ class NoiseGrid(LineSearchOptimizer):
             maxiter : int
                 The maximum number of evaluations or iterations
                 the optimizer can use.
+            jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+                The line search optimizers cannot use gradients
+                of the objective function.
+            parallel: bool
+                Whether to calculate the grid points in parallel
+                over multiple CPUs.
+                This optimizer can not be parallelized.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
         """
-        if maxiter is not None:
-            self.maxiter = int(maxiter)
+        super(LocalOptimizer, self).update_arguments(
+            maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
+            seed=seed,
+            dtype=dtype,
+        )
         return self
 
     def get_func_arguments(
@@ -98,7 +160,13 @@ class NoiseGrid(LineSearchOptimizer):
     def get_arguments(self):
         "Get the arguments of the class itself."
         # Get the arguments given to the class in the initialization
-        arg_kwargs = dict(maxiter=self.maxiter)
+        arg_kwargs = dict(
+            maxiter=self.maxiter,
+            jac=self.jac,
+            parallel=self.parallel,
+            seed=self.seed,
+            dtype=self.dtype,
+        )
         # Get the constants made within the class
         constant_kwargs = dict()
         # Get the objects made within the class
@@ -110,6 +178,10 @@ class NoiseGoldenSearch(GoldenSearch):
     def __init__(
         self,
         maxiter=5000,
+        jac=False,
+        parallel=False,
+        seed=None,
+        dtype=float,
         tol=1e-5,
         optimize=True,
         multiple_min=False,
@@ -129,6 +201,22 @@ class NoiseGoldenSearch(GoldenSearch):
             maxiter : int
                 The maximum number of evaluations or iterations
                 the optimizer can use.
+            jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+                The line search optimizers cannot use gradients
+                of the objective function.
+            parallel: bool
+                Whether to calculate the grid points in parallel
+                over multiple CPUs.
+                This optimizer can not be parallelized.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
             tol : float
                 A tolerance criterion for convergence.
             optimize : bool
@@ -149,17 +237,12 @@ class NoiseGoldenSearch(GoldenSearch):
                 A tolerance criterion of the objective function
                 for convergence.
         """
-        # This optimizer can not be parallelized
-        self.parallel = False
-        # Line search optimizers cannot use gradients of the objective function
-        self.jac = False
-        # Set the default theta_index
-        self.theta_index = None
-        # Set xtol and ftol to the tolerance if they are not given.
-        xtol, ftol = self.set_tols(tol, xtol=xtol, ftol=ftol)
-        # Set all the arguments
-        self.update_arguments(
+        super().__init__(
             maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
+            seed=seed,
+            dtype=dtype,
             tol=tol,
             optimize=optimize,
             multiple_min=multiple_min,
@@ -191,11 +274,25 @@ class NoiseGoldenSearch(GoldenSearch):
         "Calculate a list of values with a function."
         return func.get_all_eig_fun(thetas, *func_args)
 
+    def set_jac(self, jac=False, **kwargs):
+        # Line search optimizers cannot use gradients of the objective function
+        self.jac = False
+        return self
+
+    def set_parallel(self, parallel=False, **kwargs):
+        # This optimizer can not be parallelized
+        self.parallel = False
+        return self
+
 
 class NoiseFineGridSearch(FineGridSearch):
     def __init__(
         self,
         maxiter=5000,
+        jac=False,
+        parallel=False,
+        seed=None,
+        dtype=float,
         tol=1e-5,
         optimize=True,
         multiple_min=False,
@@ -218,6 +315,22 @@ class NoiseFineGridSearch(FineGridSearch):
             maxiter : int
                 The maximum number of evaluations or iterations
                 the optimizer can use.
+            jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+                The line search optimizers cannot use gradients
+                of the objective function.
+            parallel: bool
+                Whether to calculate the grid points in parallel
+                over multiple CPUs.
+                This optimizer can not be parallelized.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
             tol : float
                 A tolerance criterion for convergence.
             optimize : bool
@@ -238,17 +351,12 @@ class NoiseFineGridSearch(FineGridSearch):
                 A tolerance criterion of the objective function
                 for convergence.
         """
-        # This optimizer can not be parallelized
-        self.parallel = False
-        # Line search optimizers cannot use gradients of the objective function
-        self.jac = False
-        # Set the default theta_index
-        self.theta_index = None
-        # Set xtol and ftol to the tolerance if they are not given.
-        xtol, ftol = self.set_tols(tol, xtol=xtol, ftol=ftol)
-        # Set all the arguments
-        self.update_arguments(
+        super().__init__(
             maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
+            seed=seed,
+            dtype=dtype,
             tol=tol,
             optimize=optimize,
             multiple_min=multiple_min,
@@ -282,11 +390,25 @@ class NoiseFineGridSearch(FineGridSearch):
         "Calculate a list of values with a function."
         return func.get_all_eig_fun(thetas, *func_args)
 
+    def set_jac(self, jac=False, **kwargs):
+        # Line search optimizers cannot use gradients of the objective function
+        self.jac = False
+        return self
+
+    def set_parallel(self, parallel=False, **kwargs):
+        # This optimizer can not be parallelized
+        self.parallel = False
+        return self
+
 
 class NoiseTransGridSearch(TransGridSearch):
     def __init__(
         self,
         maxiter=5000,
+        jac=False,
+        parallel=False,
+        seed=None,
+        dtype=float,
         tol=1e-5,
         optimize=True,
         multiple_min=False,
@@ -312,6 +434,22 @@ class NoiseTransGridSearch(TransGridSearch):
             maxiter : int
                 The maximum number of evaluations or iterations
                 the optimizer can use.
+            jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+                The line search optimizers cannot use gradients
+                of the objective function.
+            parallel: bool
+                Whether to calculate the grid points in parallel
+                over multiple CPUs.
+                This optimizer can not be parallelized.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
             tol : float
                 A tolerance criterion for convergence.
             optimize : bool
@@ -342,17 +480,12 @@ class NoiseTransGridSearch(TransGridSearch):
                 A tolerance criterion of the objective function
                 for convergence.
         """
-        # This optimizer can not be parallelized
-        self.parallel = False
-        # Line search optimizers cannot use gradients of the objective function
-        self.jac = False
-        # Set the default theta_index
-        self.theta_index = None
-        # Set xtol and ftol to the tolerance if they are not given.
-        xtol, ftol = self.set_tols(tol, xtol=xtol, ftol=ftol)
-        # Set all the arguments
-        self.update_arguments(
+        super().__init__(
             maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
+            seed=seed,
+            dtype=dtype,
             tol=tol,
             optimize=optimize,
             multiple_min=multiple_min,
@@ -386,3 +519,13 @@ class NoiseTransGridSearch(TransGridSearch):
     def calculate_values(self, thetas, func, func_args=(), **kwargs):
         "Calculate a list of values with a function."
         return func.get_all_eig_fun(thetas, *func_args)
+
+    def set_jac(self, jac=False, **kwargs):
+        # Line search optimizers cannot use gradients of the objective function
+        self.jac = False
+        return self
+
+    def set_parallel(self, parallel=False, **kwargs):
+        # This optimizer can not be parallelized
+        self.parallel = False
+        return self

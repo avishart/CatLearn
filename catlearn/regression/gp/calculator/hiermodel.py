@@ -16,7 +16,7 @@ class HierarchicalMLModel(MLModel):
         verbose=False,
         npoints=25,
         initial_indicies=[0],
-        dtype=None,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -103,7 +103,7 @@ class HierarchicalMLModel(MLModel):
             super().add_training(data_atoms)
             super().add_training(atoms_list)
         else:
-            raise Exception(
+            raise AttributeError(
                 "New baseline model can not be made without training. "
                 "Include one point at the time!"
             )
@@ -160,44 +160,24 @@ class HierarchicalMLModel(MLModel):
         Returns:
             self: The updated object itself.
         """
-        if model is not None:
-            self.model = model.copy()
-        if database is not None:
-            self.database = database.copy()
-        if baseline is not None:
-            self.baseline = baseline.copy()
-        elif not hasattr(self, "baseline"):
-            self.baseline = None
-        if optimize is not None:
-            self.optimize = optimize
-        if hp is not None:
-            self.hp = hp.copy()
-        elif not hasattr(self, "hp"):
-            self.hp = None
-        if pdis is not None:
-            self.pdis = pdis.copy()
-        elif not hasattr(self, "pdis"):
-            self.pdis = None
-        if include_noise is not None:
-            self.include_noise = include_noise
-        if verbose is not None:
-            self.verbose = verbose
-        if dtype is not None or not hasattr(self, "dtype"):
-            self.dtype = dtype
+        # Set the parameters in the parent class
+        super().update_arguments(
+            model=model,
+            database=database,
+            baseline=baseline,
+            optimize=optimize,
+            hp=hp,
+            pdis=pdis,
+            include_noise=include_noise,
+            verbose=verbose,
+            dtype=dtype,
+        )
+        # Set the number of points
         if npoints is not None:
             self.npoints = int(npoints)
+        # Set the initial indicies
         if initial_indicies is not None:
             self.initial_indicies = initial_indicies.copy()
-        # Check if the baseline is used
-        if self.baseline is None:
-            self.use_baseline = False
-        else:
-            self.use_baseline = True
-        # Make a list of the baseline targets
-        if baseline is not None or database is not None:
-            self.baseline_targets = []
-        # Check that the model and database have the same attributes
-        self.check_attributes()
         return self
 
     def get_arguments(self):

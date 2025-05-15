@@ -1,5 +1,6 @@
-import numpy as np
-from .ensemble import EnsembleModel
+from numpy import array, ndarray
+from .ensemble import EnsembleModel, get_default_model
+from .clustering.k_means_number import K_means_number
 
 
 class EnsembleClustering(EnsembleModel):
@@ -10,6 +11,7 @@ class EnsembleClustering(EnsembleModel):
         use_variance_ensemble=True,
         use_softmax=False,
         use_same_prior_mean=True,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -17,33 +19,31 @@ class EnsembleClustering(EnsembleModel):
         from a clustering algorithm..
 
         Parameters:
-            model : Model
+            model: Model
                 The Machine Learning Model with kernel and
                 prior that are optimized.
-            clustering : Clustering class object
+            clustering: Clustering class object
                 The clustering method used to split the data
                 to different models.
-            use_variance_ensemble : bool
+            use_variance_ensemble: bool
                 Whether to use the predicted inverse variances
                 to weight the predictions.
                 Else an average of the predictions is used.
-            use_softmax : bool
+            use_softmax: bool
                 Whether to use the softmax of the predicted inverse variances
                 as weights.
                 It is only active if use_variance_ensemble=True, too.
-            use_same_prior_mean : bool
+            use_same_prior_mean: bool
                 Whether to use the same prior mean for all models.
+            dtype: type
+                The data type of the arrays.
         """
         # Make default model if it is not given
         if model is None:
-            from ..calculator.mlmodel import get_default_model
-
-            model = get_default_model()
+            model = get_default_model(dtype=dtype)
         # Make default clustering if it is not given
         if clustering is None:
-            from .clustering.k_means_number import K_means_number
-
-            clustering = K_means_number()
+            clustering = K_means_number(dtype=dtype)
         # Set the arguments
         self.update_arguments(
             model=model,
@@ -51,6 +51,7 @@ class EnsembleClustering(EnsembleModel):
             use_variance_ensemble=use_variance_ensemble,
             use_softmax=use_softmax,
             use_same_prior_mean=use_same_prior_mean,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -124,6 +125,18 @@ class EnsembleClustering(EnsembleModel):
             self.models.append(model)
         return sols
 
+    def set_dtype(self, dtype, **kwargs):
+        super().set_dtype(dtype, **kwargs)
+        # Set the data type of the clustering
+        self.clustering.set_dtype(dtype=dtype)
+        return self
+
+    def set_seed(self, seed, **kwargs):
+        super().set_seed(seed, **kwargs)
+        # Set the random seed of the clustering
+        self.clustering.set_seed(seed=seed)
+        return self
+
     def update_arguments(
         self,
         model=None,
@@ -131,6 +144,7 @@ class EnsembleClustering(EnsembleModel):
         use_variance_ensemble=None,
         use_softmax=None,
         use_same_prior_mean=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -138,49 +152,49 @@ class EnsembleClustering(EnsembleModel):
         The existing arguments are used if they are not given.
 
         Parameters:
-            model : Model
+            model: Model
                 The Machine Learning Model with kernel and
                 prior that are optimized.
-            clustering : Clustering class object
+            clustering: Clustering class object
                 The clustering method used to split the data
                 to different models.
-            use_variance_ensemble : bool
+            use_variance_ensemble: bool
                 Whether to use the predicted inverse variances
                 to weight the predictions.
                 Else an average of the predictions is used.
-            use_softmax : bool
+            use_softmax: bool
                 Whether to use the softmax of the predicted inverse variances
                 as weights.
                 It is only active if use_variance_ensemble=True, too.
-            use_same_prior_mean : bool
+            use_same_prior_mean: bool
                 Whether to use the same prior mean for all models.
+            dtype: type
+                The data type of the arrays.
 
         Returns:
             self: The updated object itself.
         """
-        if model is not None:
-            self.model = model.copy()
-            # Set descriptor of the ensemble model
-            self.n_models = 1
-            self.models = []
-            # Get the prior mean instance
-            self.prior = self.model.prior.copy()
         if clustering is not None:
             self.clustering = clustering.copy()
-        if use_variance_ensemble is not None:
-            self.use_variance_ensemble = use_variance_ensemble
-        if use_softmax is not None:
-            self.use_softmax = use_softmax
-        if use_same_prior_mean is not None:
-            self.use_same_prior_mean = use_same_prior_mean
+        # Set the parameters for the parent class
+        super().update_arguments(
+            model=model,
+            use_variance_ensemble=use_variance_ensemble,
+            use_softmax=use_softmax,
+            use_same_prior_mean=use_same_prior_mean,
+            dtype=dtype,
+        )
         return self
 
     def cluster(self, features, targets, **kwargs):
         "Cluster the data."
-        if isinstance(features[0], (np.ndarray, list)):
-            X = features.copy()
+        if isinstance(features[0], (ndarray, list)):
+            X = array(features, dtype=self.dtype)
         else:
-            X = np.array([feature.get_vector() for feature in features])
+            X = array(
+                [feature.get_vector() for feature in features],
+                dtype=self.dtype,
+            )
         cluster_indicies = self.clustering.cluster_fit_data(X)
         return [
             (features[indicies_ki], targets[indicies_ki])
@@ -196,6 +210,7 @@ class EnsembleClustering(EnsembleModel):
             use_variance_ensemble=self.use_variance_ensemble,
             use_softmax=self.use_softmax,
             use_same_prior_mean=self.use_same_prior_mean,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict(n_models=self.n_models)

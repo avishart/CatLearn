@@ -1,19 +1,24 @@
 from numpy import inf
 from scipy.optimize import OptimizeResult
-from .hpfitter import HyperparameterFitter
+from .hpfitter import (
+    FunctionEvaluation,
+    HyperparameterFitter,
+    VariableTransformation,
+)
 
 
 class ReducedHyperparameterFitter(HyperparameterFitter):
     def __init__(
         self,
         func,
-        optimizer=None,
-        bounds=None,
+        optimizer=FunctionEvaluation(jac=False),
+        bounds=VariableTransformation(),
         use_update_pdis=False,
         get_prior_mean=False,
         use_stored_sols=False,
         round_hp=None,
         opt_tr_size=50,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -47,6 +52,9 @@ class ReducedHyperparameterFitter(HyperparameterFitter):
             opt_tr_size: int
                 The maximum size of the training set before
                 the hyperparameters are not optimized.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
         super().__init__(
             func,
@@ -57,14 +65,23 @@ class ReducedHyperparameterFitter(HyperparameterFitter):
             use_stored_sols=use_stored_sols,
             round_hp=round_hp,
             opt_tr_size=opt_tr_size,
+            dtype=dtype,
             **kwargs,
         )
 
-    def fit(self, X, Y, model, hp=None, pdis=None, **kwargs):
+    def fit(self, X, Y, model, hp=None, pdis=None, retrain=True, **kwargs):
         # Check if optimization is needed
         if len(X) <= self.opt_tr_size:
             # Optimize the hyperparameters
-            return super().fit(X, Y, model, hp=hp, pdis=pdis, **kwargs)
+            return super().fit(
+                X,
+                Y,
+                model,
+                hp=hp,
+                pdis=pdis,
+                retrain=retrain,
+                **kwargs,
+            )
         # Use existing hyperparameters
         hp, theta, parameters = self.get_hyperparams(hp, model)
         # Do not optimize hyperparameters
@@ -92,6 +109,7 @@ class ReducedHyperparameterFitter(HyperparameterFitter):
         use_stored_sols=None,
         round_hp=None,
         opt_tr_size=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -123,30 +141,25 @@ class ReducedHyperparameterFitter(HyperparameterFitter):
             opt_tr_size: int
                 The maximum size of the training set before
                 the hyperparameters are not optimized.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
         """
-        if func is not None:
-            self.func = func.copy()
-        if optimizer is not None:
-            self.optimizer = optimizer.copy()
-        if bounds is not None:
-            self.bounds = bounds.copy()
-        if use_update_pdis is not None:
-            self.use_update_pdis = use_update_pdis
-        if get_prior_mean is not None:
-            self.get_prior_mean = get_prior_mean
-        if use_stored_sols is not None:
-            self.use_stored_sols = use_stored_sols
-        if round_hp is not None or not hasattr(self, "round_hp"):
-            self.round_hp = round_hp
+        super().update_arguments(
+            func=func,
+            optimizer=optimizer,
+            bounds=bounds,
+            use_update_pdis=use_update_pdis,
+            get_prior_mean=get_prior_mean,
+            use_stored_sols=use_stored_sols,
+            round_hp=round_hp,
+            dtype=dtype,
+        )
         if opt_tr_size is not None:
             self.opt_tr_size = opt_tr_size
-        # Empty the stored solutions
-        self.sols = []
-        # Make sure that the objective function gets the prior mean parameters
-        self.func.update_arguments(get_prior_mean=self.get_prior_mean)
         return self
 
     def get_arguments(self):
@@ -161,6 +174,7 @@ class ReducedHyperparameterFitter(HyperparameterFitter):
             use_stored_sols=self.use_stored_sols,
             round_hp=self.round_hp,
             opt_tr_size=self.opt_tr_size,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()

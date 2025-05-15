@@ -1,16 +1,20 @@
 from numpy import asarray, round as round_
+from ..optimizers.optimizer import FunctionEvaluation
+from ..hpboundary.hptrans import VariableTransformation
+from ..pdistributions.update_pdis import update_pdis
 
 
 class HyperparameterFitter:
     def __init__(
         self,
         func,
-        optimizer=None,
-        bounds=None,
+        optimizer=FunctionEvaluation(jac=False),
+        bounds=VariableTransformation(),
         use_update_pdis=False,
         get_prior_mean=False,
         use_stored_sols=False,
         round_hp=None,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -39,17 +43,10 @@ class HyperparameterFitter:
             round_hp: int (optional)
                 The number of decimals to round the hyperparameters to.
                 If None, the hyperparameters are not rounded.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
-        # Set the default optimizer
-        if optimizer is None:
-            from ..optimizers.optimizer import FunctionEvaluation
-
-            optimizer = FunctionEvaluation(jac=False)
-        # Set the default boundary conditions
-        if bounds is None:
-            from ..hpboundary.hptrans import VariableTransformation
-
-            self.bounds = VariableTransformation(bounds=None)
         # Set all the arguments
         self.update_arguments(
             func=func,
@@ -59,10 +56,11 @@ class HyperparameterFitter:
             get_prior_mean=get_prior_mean,
             use_stored_sols=use_stored_sols,
             round_hp=round_hp,
+            dtype=dtype,
             **kwargs,
         )
 
-    def fit(self, X, Y, model, hp=None, pdis=None, **kwargs):
+    def fit(self, X, Y, model, hp=None, pdis=None, retrain=True, **kwargs):
         """
         Optimize the hyperparameters.
 
@@ -80,6 +78,9 @@ class HyperparameterFitter:
                 else the current set is used.
             pdis: dict
                 A dict of prior distributions for each hyperparameter type.
+            retrain: bool
+                Whether to retrain the model after the optimization.
+                The model is not copied if retrain is True.
 
         Returns:
             dict: A solution dictionary with objective function value,
@@ -87,7 +88,7 @@ class HyperparameterFitter:
                 and number of used evaluations.
         """
         # Copy the model so it is not changed outside of the optimization
-        model = self.copy_model(model)
+        model = self.copy_model(model, retrain=retrain)
         # Always reset the solution in the objective function
         self.reset_func()
         # Get hyperparameters
@@ -114,6 +115,41 @@ class HyperparameterFitter:
         self.store_sol(sol)
         return sol
 
+    def set_dtype(self, dtype, **kwargs):
+        """
+        Set the data type of the arrays.
+
+        Parameters:
+            dtype: type
+                The data type of the arrays.
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.dtype = dtype
+        self.func.set_dtype(dtype, **kwargs)
+        self.bounds.set_dtype(dtype, **kwargs)
+        self.optimizer.set_dtype(dtype, **kwargs)
+        return self
+
+    def set_seed(self, seed, **kwargs):
+        """
+        Set the random seed.
+
+        Parameters:
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+
+        Returns:
+            self: The instance itself.
+        """
+        self.func.set_seed(seed, **kwargs)
+        self.bounds.set_seed(seed, **kwargs)
+        self.optimizer.set_seed(seed, **kwargs)
+        return self
+
     def update_arguments(
         self,
         func=None,
@@ -123,6 +159,7 @@ class HyperparameterFitter:
         get_prior_mean=None,
         use_stored_sols=None,
         round_hp=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -151,6 +188,9 @@ class HyperparameterFitter:
             round_hp: int (optional)
                 The number of decimals to round the hyperparameters to.
                 If None, the hyperparameters are not rounded.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
@@ -169,14 +209,20 @@ class HyperparameterFitter:
             self.use_stored_sols = use_stored_sols
         if round_hp is not None or not hasattr(self, "round_hp"):
             self.round_hp = round_hp
+        if dtype is not None or not hasattr(self, "dtype"):
+            self.set_dtype(dtype)
         # Empty the stored solutions
         self.sols = []
         # Make sure that the objective function gets the prior mean parameters
         self.func.update_arguments(get_prior_mean=self.get_prior_mean)
         return self
 
-    def copy_model(self, model, **kwargs):
+    def copy_model(self, model, retrain=True, **kwargs):
         "Make a copy of the model, so it is not overwritten."
+        # Do not copy the model if retrain is True
+        if retrain:
+            return model
+        # Copy the model if retrain is False
         return model.copy()
 
     def reset_func(self, **kwargs):
@@ -236,17 +282,21 @@ class HyperparameterFitter:
         Update the prior distributions of the hyperparameters with
         the boundary conditions.
         """
-        if self.use_update_pdis and pdis is not None:
-            from ..pdistributions.update_pdis import update_pdis
-
-            pdis = update_pdis(
-                model,
-                parameters,
-                X,
-                Y,
-                bounds=self.bounds,
-                pdis=pdis,
-            )
+        if pdis is not None:
+            pdis = {
+                para: pdis_p.set_dtype(self.dtype)
+                for para, pdis_p in pdis.items()
+            }
+            if self.use_update_pdis:
+                pdis = update_pdis(
+                    model,
+                    parameters,
+                    X,
+                    Y,
+                    bounds=self.bounds,
+                    pdis=pdis,
+                    dtype=self.dtype,
+                )
         return pdis
 
     def get_full_hp(self, sol, model, **kwargs):
@@ -284,6 +334,7 @@ class HyperparameterFitter:
             get_prior_mean=self.get_prior_mean,
             use_stored_sols=self.use_stored_sols,
             round_hp=self.round_hp,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()

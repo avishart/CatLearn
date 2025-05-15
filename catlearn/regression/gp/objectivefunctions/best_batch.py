@@ -1,4 +1,4 @@
-import numpy as np
+from numpy import arange, inf
 from .batch import BatchFuction
 
 
@@ -10,7 +10,8 @@ class BestBatchFuction(BatchFuction):
         batch_size=25,
         equal_size=False,
         use_same_prior_mean=True,
-        seed=1,
+        seed=None,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -23,19 +24,23 @@ class BestBatchFuction(BatchFuction):
         BestBatchFuction is not recommended for gradient-based optimization!
 
         Parameters:
-            func : ObjectiveFunction class
+            func: ObjectiveFunction class
                 A class with the objective function used
                 to optimize the hyperparameters.
-            get_prior_mean : bool
+            get_prior_mean: bool
                 Whether to get the parameters of the prior mean
                 in the solution.
-            equal_size : bool
+            equal_size: bool
                 Whether the clusters are forced to have the same size.
-            use_same_prior_mean : bool
+            use_same_prior_mean: bool
                 Whether to use the same prior mean for all models.
-            seed : int (optional)
-                The random seed used to permute the indicies.
-                If seed=None or False or 0, a random seed is not used.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
         # Set the arguments
         super().__init__(
@@ -45,6 +50,7 @@ class BestBatchFuction(BatchFuction):
             equal_size=equal_size,
             use_same_prior_mean=use_same_prior_mean,
             seed=seed,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -76,17 +82,17 @@ class BestBatchFuction(BatchFuction):
             self.sol = self.func.sol
             return output
         # Update the model with hyperparameters and prior mean
-        hp, parameters_set = self.make_hp(theta, parameters)
+        hp, _ = self.make_hp(theta, parameters)
         model = self.update_model(model, hp)
         self.set_same_prior_mean(model, X, Y)
         # Calculate the number of batches
         n_batches = self.get_number_batches(n_data)
-        indicies = np.arange(n_data)
+        indicies = arange(n_data)
         i_batches = self.randomized_batches(
             indicies, n_data, n_batches, **kwargs
         )
         # Sum function values together from batches
-        fvalue = np.inf
+        fvalue = inf
         deriv = None
         for i_batch in i_batches:
             # Get the feature and target batch

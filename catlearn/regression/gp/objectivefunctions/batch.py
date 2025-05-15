@@ -1,4 +1,11 @@
-import numpy as np
+from numpy import (
+    append,
+    arange,
+    array_split,
+    concatenate,
+    tile,
+)
+from numpy.random import default_rng, Generator, RandomState
 from .objectivefunction import ObjectiveFuction
 from ..means.constant import Prior_constant
 
@@ -11,7 +18,8 @@ class BatchFuction(ObjectiveFuction):
         batch_size=25,
         equal_size=False,
         use_same_prior_mean=True,
-        seed=1,
+        seed=None,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -24,22 +32,24 @@ class BatchFuction(ObjectiveFuction):
         noise optimized objective functions!
 
         Parameters:
-            func : ObjectiveFunction class
+            func: ObjectiveFunction class
                 A class with the objective function used
                 to optimize the hyperparameters.
-            get_prior_mean : bool
+            get_prior_mean: bool
                 Whether to get the parameters of the prior mean
                 in the solution.
-            equal_size : bool
+            equal_size: bool
                 Whether the clusters are forced to have the same size.
-            use_same_prior_mean : bool
+            use_same_prior_mean: bool
                 Whether to use the same prior mean for all models.
-            seed : int (optional)
-                The random seed used to permute the indicies.
-                If seed=None or False or 0, a random seed is not used.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
-        # Set a random seed
-        self.seed = seed
         # Set the arguments
         self.update_arguments(
             func=func,
@@ -48,6 +58,7 @@ class BatchFuction(ObjectiveFuction):
             equal_size=equal_size,
             use_same_prior_mean=use_same_prior_mean,
             seed=seed,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -79,12 +90,12 @@ class BatchFuction(ObjectiveFuction):
             self.sol = self.func.sol
             return output
         # Update the model with hyperparameters and prior mean
-        hp, parameters_set = self.make_hp(theta, parameters)
+        hp, _ = self.make_hp(theta, parameters)
         model = self.update_model(model, hp)
         self.set_same_prior_mean(model, X, Y)
         # Calculate the number of batches
         n_batches = self.get_number_batches(n_data)
-        indicies = np.arange(n_data)
+        indicies = arange(n_data)
         i_batches = self.randomized_batches(
             indicies,
             n_data,
@@ -134,6 +145,38 @@ class BatchFuction(ObjectiveFuction):
         self.update_solution(fvalue, theta, hp, model, jac=False)
         return fvalue
 
+    def set_dtype(self, dtype, **kwargs):
+        super().set_dtype(dtype=dtype)
+        # Set the dtype of the objective function
+        self.func.set_dtype(dtype=dtype)
+        return self
+
+    def set_seed(self, seed=None, **kwargs):
+        """
+        Set the random seed.
+
+        Parameters:
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+
+        Returns:
+            self: The instance itself.
+        """
+        if seed is not None:
+            self.seed = seed
+            if isinstance(seed, int):
+                self.rng = default_rng(self.seed)
+            elif isinstance(seed, Generator) or isinstance(seed, RandomState):
+                self.rng = seed
+        else:
+            self.seed = None
+            self.rng = default_rng()
+        # Set the seed of the objective function
+        self.func.set_seed(seed=self.seed)
+        return self
+
     def update_arguments(
         self,
         func=None,
@@ -142,6 +185,7 @@ class BatchFuction(ObjectiveFuction):
         equal_size=None,
         use_same_prior_mean=None,
         seed=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -149,19 +193,23 @@ class BatchFuction(ObjectiveFuction):
         The existing arguments are used if they are not given.
 
         Parameters:
-            func : ObjectiveFunction class
+            func: ObjectiveFunction class
                 A class with the objective function used
                 to optimize the hyperparameters.
-            get_prior_mean : bool
+            get_prior_mean: bool
                 Whether to get the parameters of the prior mean
                 in the solution.
-            equal_size : bool
+            equal_size: bool
                 Whether the clusters are forced to have the same size.
-            use_same_prior_mean : bool
+            use_same_prior_mean: bool
                 Whether to use the same prior mean for all models.
-            seed : int (optional)
-                The random seed used to permute the indicies.
-                If seed=None or False or 0, a random seed is not used.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
@@ -171,21 +219,23 @@ class BatchFuction(ObjectiveFuction):
             # Set descriptor of the objective function
             self.use_analytic_prefactor = func.use_analytic_prefactor
             self.use_optimized_noise = func.use_optimized_noise
-        if get_prior_mean is not None:
-            self.get_prior_mean = get_prior_mean
         if batch_size is not None:
             self.batch_size = int(batch_size)
         if equal_size is not None:
             self.equal_size = equal_size
         if use_same_prior_mean is not None:
             self.use_same_prior_mean = use_same_prior_mean
-        if seed is not None:
-            self.seed = seed
         # Update the objective function
         if len(kwargs.keys()):
             self.func.update_arguments(**kwargs)
-        # Always reset the solution when the objective function is changed
-        self.reset_solution()
+        # Set the seed
+        if seed is not None or not hasattr(self, "seed"):
+            self.set_seed(seed=seed)
+        # Update the arguments of the parent class
+        super().update_arguments(
+            get_prior_mean=get_prior_mean,
+            dtype=dtype,
+        )
         return self
 
     def update_solution(
@@ -200,7 +250,7 @@ class BatchFuction(ObjectiveFuction):
     ):
         if fun < self.sol["fun"]:
             self.sol["fun"] = fun
-            self.sol["x"] = np.concatenate(
+            self.sol["x"] = concatenate(
                 [hp[para] for para in sorted(hp.keys())]
             )
             self.sol["hp"] = hp.copy()
@@ -249,15 +299,12 @@ class BatchFuction(ObjectiveFuction):
         # Ensure equal sizes of batches if chosen
         if self.equal_size:
             i_perm = self.ensure_equal_sizes(i_perm, n_data, n_batches)
-        i_batches = np.array_split(i_perm, n_batches)
+        i_batches = array_split(i_perm, n_batches)
         return i_batches
 
     def get_permutation(self, indicies):
         "Permute the indicies"
-        if self.seed:
-            rng = np.random.default_rng(seed=self.seed)
-            return rng.permutation(indicies)
-        return np.random.permutation(indicies)
+        return self.rng.permutation(indicies)
 
     def ensure_equal_sizes(self, i_perm, n_data, n_batches, **kwargs):
         "Extend the permuted indicies so the clusters have equal sizes."
@@ -266,12 +313,12 @@ class BatchFuction(ObjectiveFuction):
         # Extend the permuted indicies
         if n_missing > 0:
             if n_missing > n_data:
-                i_perm = np.append(
+                i_perm = append(
                     i_perm,
-                    np.tile(i_perm, (n_missing // n_data) + 1)[:n_missing],
+                    tile(i_perm, (n_missing // n_data) + 1)[:n_missing],
                 )
             else:
-                i_perm = np.append(i_perm, i_perm[:n_missing])
+                i_perm = append(i_perm, i_perm[:n_missing])
         return i_perm
 
     def get_arguments(self):
@@ -284,6 +331,7 @@ class BatchFuction(ObjectiveFuction):
             equal_size=self.equal_size,
             use_same_prior_mean=self.use_same_prior_mean,
             seed=self.seed,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()

@@ -2,6 +2,7 @@ from numpy import (
     asarray,
     append,
     argsort,
+    array,
     diag,
     einsum,
     empty,
@@ -19,12 +20,12 @@ from numpy import (
     zeros,
 )
 from numpy.linalg import eigh, LinAlgError
-import numpy.random as random
+from numpy.random import default_rng, Generator, RandomState
 from scipy.linalg import eigh as scipy_eigh
 from scipy.spatial.distance import pdist
 from scipy.optimize import OptimizeResult
 import logging
-from .hpfitter import HyperparameterFitter
+from .hpfitter import HyperparameterFitter, VariableTransformation
 
 
 class FBPMGP(HyperparameterFitter):
@@ -33,10 +34,11 @@ class FBPMGP(HyperparameterFitter):
         Q=None,
         n_test=50,
         ngrid=80,
-        bounds=None,
+        bounds=VariableTransformation(),
         get_prior_mean=False,
         round_hp=None,
-        dtype=None,
+        seed=None,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -61,16 +63,16 @@ class FBPMGP(HyperparameterFitter):
             round_hp: int (optional)
                 The number of decimals to round the hyperparameters to.
                 If None, the hyperparameters are not rounded.
-            dtype: type
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
                 The data type of the arrays.
+                If None, the default data type is used.
         """
         # Set the default test points
         self.Q = None
-        # Set the default boundary conditions
-        if bounds is None:
-            from ..hpboundary.hptrans import VariableTransformation
-
-            self.bounds = VariableTransformation(bounds=None)
         # Set the solution form
         self.update_arguments(
             Q=Q,
@@ -79,13 +81,14 @@ class FBPMGP(HyperparameterFitter):
             bounds=bounds,
             get_prior_mean=get_prior_mean,
             round_hp=round_hp,
+            seed=seed,
             dtype=dtype,
             **kwargs,
         )
 
-    def fit(self, X, Y, model, hp=None, pdis=None, **kwargs):
+    def fit(self, X, Y, model, hp=None, pdis=None, retrain=True, **kwargs):
         # Copy the model so it is not changed outside of the optimization
-        model = self.copy_model(model)
+        model = self.copy_model(model, retrain=retrain)
         # Get hyperparameters
         hp, theta, parameters = self.get_hyperparams(hp, model)
         # Find FBMGP solution
@@ -102,6 +105,49 @@ class FBPMGP(HyperparameterFitter):
         sol = self.get_full_hp(sol, model)
         return sol
 
+    def set_dtype(self, dtype, **kwargs):
+        """
+        Set the data type of the arrays.
+
+        Parameters:
+            dtype: type
+                The data type of the arrays.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Set the data type
+        self.dtype = dtype
+        # Set the data type in the bounds
+        self.bounds.set_dtype(dtype, **kwargs)
+        return self
+
+    def set_seed(self, seed=None, **kwargs):
+        """
+        Set the random seed.
+
+        Parameters:
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+
+        Returns:
+            self: The instance itself.
+        """
+        if seed is not None:
+            self.seed = seed
+            if isinstance(seed, int):
+                self.rng = default_rng(self.seed)
+            elif isinstance(seed, Generator) or isinstance(seed, RandomState):
+                self.rng = seed
+        else:
+            self.seed = None
+            self.rng = default_rng()
+        # Set the seed in the bounds
+        self.bounds.set_seed(seed, **kwargs)
+        return self
+
     def update_arguments(
         self,
         Q=None,
@@ -110,6 +156,7 @@ class FBPMGP(HyperparameterFitter):
         bounds=None,
         get_prior_mean=None,
         round_hp=None,
+        seed=None,
         dtype=None,
         **kwargs,
     ):
@@ -134,8 +181,13 @@ class FBPMGP(HyperparameterFitter):
             round_hp: int (optional)
                 The number of decimals to round the hyperparameters to.
                 If None, the hyperparameters are not rounded.
-            dtype: type
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
                 The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
@@ -152,8 +204,12 @@ class FBPMGP(HyperparameterFitter):
             self.get_prior_mean = get_prior_mean
         if round_hp is not None or not hasattr(self, "round_hp"):
             self.round_hp = round_hp
+        # Set the seed
+        if seed is not None or not hasattr(self, "seed"):
+            self.set_seed(seed)
+        # Set the data type
         if dtype is not None or not hasattr(self, "dtype"):
-            self.dtype = dtype
+            self.set_dtype(dtype)
         return self
 
     def get_hp(self, theta, parameters, **kwargs):
@@ -167,11 +223,13 @@ class FBPMGP(HyperparameterFitter):
         }
         return hp, parameters_set
 
-    def numeric_limits(self, theta, dh=0.4 * log(finfo(float).max)):
+    def numeric_limits(self, theta, dh=None):
         """
         Replace hyperparameters if they are outside of
         the numeric limits in log-space.
         """
+        if dh is None:
+            dh = 0.4 * log(finfo(self.dtype).max)
         return where(-dh < theta, where(theta < dh, theta, dh), -dh)
 
     def update_model(self, model, hp, **kwargs):
@@ -195,18 +253,19 @@ class FBPMGP(HyperparameterFitter):
         return KXX
 
     def y_prior(self, X, Y, model, L=None, low=None, **kwargs):
-        "Update prior and subtract target."
-        Y_p = Y.copy()
+        "Update prior and subtract to target."
+        Y_p = array(Y, dtype=self.dtype)
         model.update_priormean(X, Y_p, L=L, low=low, **kwargs)
-        use_derivatives = model.use_derivatives
+        get_derivatives = model.get_use_derivatives()
         pmean = model.get_priormean(
             X,
             Y_p,
-            get_derivatives=use_derivatives,
+            get_derivatives=get_derivatives,
         )
-        if use_derivatives:
-            return (Y_p - pmean).T.reshape(-1, 1)
-        return (Y_p - pmean)[:, 0:1]
+        Y_p -= pmean
+        if get_derivatives:
+            return Y_p.T.reshape(-1, 1)
+        return Y_p[:, 0:1]
 
     def get_eig(self, model, X, Y, **kwargs):
         "Calculate the eigenvalues."
@@ -332,7 +391,7 @@ class FBPMGP(HyperparameterFitter):
         i_sort = argsort(pdist(X_tr))[: self.n_test]
         i_list, j_list = triu_indices(len(X_tr), k=1, m=None)
         i_list, j_list = i_list[i_sort], j_list[i_sort]
-        r = random.uniform(low=0.01, high=0.99, size=(2, len(i_list)))
+        r = self.rng.uniform(low=0.01, high=0.99, size=(2, len(i_list)))
         r = r / r.sum(axis=0)
         Q = asarray(
             [
@@ -561,7 +620,7 @@ class FBPMGP(HyperparameterFitter):
         # Get the analytic solution to the prefactor
         prefactor = (
             (y2bar_ubar + (df["pred"] ** 2) - (2.0 * df["pred"] * ybar))
-            / df["var"],
+            / df["var"]
         ).mean(axis=1)
         # Calculate all Kullback-Leibler divergences
         kl = 0.5 * (

@@ -1,5 +1,6 @@
 from numpy import round as round_
 from ase.calculators.calculator import Calculator, all_changes
+from .mlmodel import MLModel
 
 
 class MLCalculator(Calculator):
@@ -55,8 +56,6 @@ class MLCalculator(Calculator):
         Calculator.__init__(self, **calc_kwargs)
         # Set default mlmodel
         if mlmodel is None:
-            from .mlmodel import MLModel
-
             mlmodel = MLModel(
                 model=None,
                 database=None,
@@ -385,22 +384,62 @@ class MLCalculator(Calculator):
         Returns:
             self: The updated object itself.
         """
+        reset = False
         if mlmodel is not None:
             self.mlmodel = mlmodel.copy()
+            reset = True
         if calc_forces is not None:
             self.calc_forces = calc_forces
+            reset = True
         if calc_unc is not None:
             self.calc_unc = calc_unc
+            reset = True
         if calc_force_unc is not None:
             self.calc_force_unc = calc_force_unc
+            reset = True
         if calc_unc_deriv is not None:
             self.calc_unc_deriv = calc_unc_deriv
+            reset = True
         if calc_kwargs is not None:
             self.calc_kwargs = calc_kwargs.copy()
+            reset = True
         if round_pred is not None or not hasattr(self, "round_pred"):
             self.round_pred = round_pred
+            reset = True
         # Empty the results
-        self.reset()
+        if reset:
+            self.reset()
+        return self
+
+    def set_seed(self, seed=None, **kwargs):
+        """
+        Set the random seed.
+
+        Parameters:
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+
+        Returns:
+            self: The instance itself.
+        """
+        # Set the random seed for the ML model
+        self.mlmodel.set_seed(seed)
+        return self
+
+    def set_dtype(self, dtype, **kwargs):
+        """
+        Set the data type of the arrays.
+
+        Parameters:
+            dtype: type
+                The data type of the arrays.
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.mlmodel.set_dtype(dtype, **kwargs)
         return self
 
     def get_property_arguments(self, properties=[], **kwargs):
