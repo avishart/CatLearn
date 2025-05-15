@@ -372,7 +372,7 @@ class MLModel:
             use_derivatives=get_forces,
         )
         # Extract the energy
-        energy = y[0][0]
+        energy = y.item(0)
         # Extract the forces if they are requested
         if get_forces:
             forces = -y[0][1:]
@@ -380,10 +380,10 @@ class MLModel:
             forces = None
         # Get the uncertainties if they are requested
         if get_uncertainty:
-            unc = sqrt(var[0][0])
+            unc = sqrt(var.item(0))
             # Get the uncertainty of the forces if they are requested
             if get_force_uncertainties and get_forces:
-                unc_forces = sqrt(unc[0][1:])
+                unc_forces = sqrt(var[0][1:])
             else:
                 unc_forces = None
             # Get the derivatives of the predicted uncertainty
