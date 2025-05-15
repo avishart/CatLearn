@@ -1,5 +1,6 @@
 from numpy import asarray, ndarray, sqrt, zeros
 import warnings
+from ase.parallel import parprint
 
 
 class MLModel:
@@ -13,7 +14,7 @@ class MLModel:
         pdis=None,
         include_noise=False,
         verbose=False,
-        dtype=None,
+        dtype=float,
         **kwargs,
     ):
         """
@@ -45,10 +46,10 @@ class MLModel:
         """
         # Make default model if it is not given
         if model is None:
-            model = get_default_model()
+            model = get_default_model(dtype=dtype)
         # Make default database if it is not given
         if database is None:
-            database = get_default_database()
+            database = get_default_database(dtype=dtype)
         # Set the arguments
         self.update_arguments(
             model=model,
@@ -310,7 +311,7 @@ class MLModel:
         if verbose is not None:
             self.verbose = verbose
         if dtype is not None or not hasattr(self, "dtype"):
-            self.dtype = dtype
+            self.set_dtype(dtype=dtype)
         # Check if the baseline is used
         if self.baseline is None:
             self.use_baseline = False
@@ -335,8 +336,6 @@ class MLModel:
             **kwargs,
         )
         if self.verbose:
-            from ase.parallel import parprint
-
             parprint(sol)
         return self.model
 
@@ -356,10 +355,10 @@ class MLModel:
     ):
         "Predict the targets and uncertainties."
         # Calculate fingerprint
-        fp = self.database.make_atoms_feature(atoms)
+        fp = self.make_atoms_feature(atoms)
         # Calculate energy, forces, and uncertainty
         y, var, var_deriv = self.model.predict(
-            asarray([fp], dtype=self.dtype),
+            fp,
             get_derivatives=get_forces,
             get_variance=get_uncertainty,
             include_noise=self.include_noise,
@@ -447,7 +446,11 @@ class MLModel:
         return results
 
     def add_baseline_correction(
-        self, targets, atoms, use_derivatives=True, **kwargs
+        self,
+        targets,
+        atoms,
+        use_derivatives=True,
+        **kwargs,
     ):
         "Add the baseline correction to the targets if a baseline is used."
         if self.use_baseline:
@@ -545,6 +548,102 @@ class MLModel:
         not_masked = self.database.get_constraints(atoms, **kwargs)
         return natoms, not_masked
 
+    def set_seed(self, seed=None, **kwargs):
+        """
+        Set the random seed.
+
+        Parameters:
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+
+        Returns:
+            self: The instance itself.
+        """
+        # Set the random seed for the database
+        self.database.set_seed(seed)
+        # Set the random seed for the model
+        self.model.set_seed(seed)
+        return self
+
+    def set_dtype(self, dtype, **kwargs):
+        """
+        Set the data type of the arrays.
+
+        Parameters:
+            dtype: type
+                The data type of the arrays.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Set the data type
+        self.dtype = dtype
+        # Set the data type of the model and database
+        self.model.set_dtype(dtype=dtype, **kwargs)
+        self.database.set_dtype(dtype=dtype, **kwargs)
+        # Set the data type of the baseline if it is used
+        if self.baseline is not None:
+            self.baseline.set_dtype(dtype=dtype, **kwargs)
+        # Set the data type of the prior distributions if they are used
+        if self.pdis is not None:
+            for pdis in self.pdis.values():
+                pdis.set_dtype(dtype=dtype, **kwargs)
+        return self
+
+    def set_use_fingerprint(self, use_fingerprint, **kwargs):
+        """
+        Set whether to use fingerprints in the model and database.
+
+        Parameters:
+            use_fingerprint: bool
+                Whether to use fingerprints in the model and database.
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.model.set_use_fingerprint(use_fingerprint=use_fingerprint)
+        self.database.set_use_fingerprint(use_fingerprint=use_fingerprint)
+        return self
+
+    def set_use_derivatives(self, use_derivatives, **kwargs):
+        """
+        Set whether to use derivatives in the model and database.
+
+        Parameters:
+            use_derivatives: bool
+                Whether to use derivatives in the model and database.
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.model.set_use_derivatives(use_derivatives=use_derivatives)
+        self.database.set_use_derivatives(use_derivatives=use_derivatives)
+        # Set the data type of the baseline if it is used
+        if self.baseline is not None:
+            self.baseline.set_use_forces(use_derivatives)
+        return self
+
+    def make_atoms_feature(self, atoms, **kwargs):
+        """
+        Make the feature or fingerprint of a single Atoms object.
+        It can e.g. be used for predicting.
+
+        Parameters:
+            atoms: ASE Atoms
+                The ASE Atoms object with a calculator.
+
+        Returns:
+            array of fingerprint object: The fingerprint object of the
+            Atoms object.
+            or
+            array: The feature or fingerprint array of the Atoms object.
+        """
+        # Calculate fingerprint
+        fp = self.database.make_atoms_feature(atoms, **kwargs)
+        return asarray([fp])
+
     def check_attributes(self):
         "Check if all attributes agree between the class and subclasses."
         if (
@@ -617,6 +716,8 @@ def get_default_model(
     global_optimization=True,
     parallel=False,
     n_reduced=None,
+    round_hp=3,
+    dtype=float,
     **kwargs,
 ):
     """
@@ -643,6 +744,11 @@ def get_default_model(
             If n_reduced is an integer, the hyperparameters are only optimized
                 when the data set size is equal to or below the integer.
             If n_reduced is None, the hyperparameter is always optimized.
+        round_hp: int (optional)
+            The number of decimals to round the hyperparameters to.
+            If None, the hyperparameters are not rounded.
+        dtype: type
+            The data type of the arrays.
 
     Returns:
         model: Model
@@ -676,6 +782,7 @@ def get_default_model(
     kernel = SE(
         use_fingerprint=use_fingerprint,
         use_derivatives=use_derivatives,
+        dtype=dtype,
     )
     # Set the hyperparameter optimization method
     if global_optimization:
@@ -691,6 +798,7 @@ def get_default_model(
                 ngrid=80,
                 loops=3,
                 parallel=True,
+                dtype=dtype,
             )
         else:
             from ..optimizers.linesearcher import GoldenSearch
@@ -699,12 +807,14 @@ def get_default_model(
                 optimize=True,
                 multiple_min=False,
                 parallel=False,
+                dtype=dtype,
             )
         optimizer = FactorizedOptimizer(
             line_optimizer=line_optimizer,
             ngrid=80,
             calculate_init=False,
             parallel=parallel,
+            dtype=dtype,
         )
     else:
         from ..optimizers.localoptimizer import ScipyOptimizer
@@ -716,6 +826,7 @@ def get_default_model(
             method="l-bfgs-b",
             use_bounds=False,
             tol=1e-12,
+            dtype=dtype,
         )
         if parallel:
             warnings.warn(
@@ -732,7 +843,8 @@ def get_default_model(
             kernel=kernel,
             use_derivatives=use_derivatives,
             a=1e-4,
-            b=2.0,
+            b=10.0,
+            dtype=dtype,
         )
         # Set objective function
         if global_optimization:
@@ -753,6 +865,7 @@ def get_default_model(
             prior=prior,
             kernel=kernel,
             use_derivatives=use_derivatives,
+            dtype=dtype,
         )
         # Set objective function
         if global_optimization:
@@ -760,16 +873,21 @@ def get_default_model(
                 FactorizedLogLikelihood,
             )
 
-            func = FactorizedLogLikelihood()
+            func = FactorizedLogLikelihood(dtype=dtype)
         else:
             from ..objectivefunctions.gp.likelihood import LogLikelihood
 
-            func = LogLikelihood()
+            func = LogLikelihood(dtype=dtype)
     # Set hpfitter and whether a maximum data set size is applied
     if n_reduced is None:
         from ..hpfitter import HyperparameterFitter
 
-        hpfitter = HyperparameterFitter(func=func, optimizer=optimizer)
+        hpfitter = HyperparameterFitter(
+            func=func,
+            optimizer=optimizer,
+            round_hp=round_hp,
+            dtype=dtype,
+        )
     else:
         from ..hpfitter.redhpfitter import ReducedHyperparameterFitter
 
@@ -777,6 +895,8 @@ def get_default_model(
             func=func,
             optimizer=optimizer,
             opt_tr_size=n_reduced,
+            round_hp=round_hp,
+            dtype=dtype,
         )
     model.update_arguments(hpfitter=hpfitter)
     return model
@@ -787,8 +907,8 @@ def get_default_database(
     use_derivatives=True,
     database_reduction=False,
     database_reduction_kwargs={},
-    round_targets=None,
-    dtype=None,
+    round_targets=5,
+    dtype=float,
     **kwargs,
 ):
     """
@@ -806,6 +926,11 @@ def get_default_database(
         database_reduction_kwargs: dict
             A dictionary with the arguments for the reduced database
             if it is used.
+        round_targets: int (optional)
+            The number of decimals to round the targets to.
+            If None, the targets are not rounded.
+        dtype: type
+            The data type of the arrays.
 
     Returns:
         database: Database object
@@ -895,9 +1020,10 @@ def get_default_mlmodel(
     n_reduced=None,
     database_reduction=False,
     database_reduction_kwargs={},
-    round_targets=None,
+    round_targets=5,
+    round_hp=3,
     verbose=False,
-    dtype=None,
+    dtype=float,
     **kwargs,
 ):
     """
@@ -937,8 +1063,16 @@ def get_default_mlmodel(
         database_reduction_kwargs: dict
             A dictionary with the arguments for the reduced database
             if it is used.
+        round_targets: int (optional)
+            The number of decimals to round the targets to.
+            If None, the targets are not rounded.
+        round_hp: int (optional)
+            The number of decimals to round the hyperparameters to.
+            If None, the hyperparameters are not rounded.
         verbose: bool
             Whether to print statements in the optimization.
+        dtype: type
+            The data type of the arrays.
 
     Returns:
         mlmodel: MLModel class object
@@ -959,6 +1093,8 @@ def get_default_mlmodel(
             global_optimization=global_optimization,
             parallel=parallel,
             n_reduced=n_reduced,
+            round_hp=round_hp,
+            dtype=dtype,
         )
     # Make the database
     database = get_default_database(
@@ -974,8 +1110,8 @@ def get_default_mlmodel(
         from ..pdistributions.normal import Normal_prior
 
         pdis = dict(
-            length=Normal_prior(mu=[-0.8], std=[0.2]),
-            noise=Normal_prior(mu=[-6.0], std=[0.2]),
+            length=Normal_prior(mu=[-1.0], std=[0.1], dtype=dtype),
+            noise=Normal_prior(mu=[-6.0], std=[0.1], dtype=dtype),
         )
     else:
         pdis = None
