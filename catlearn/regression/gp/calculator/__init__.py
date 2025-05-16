@@ -1,5 +1,5 @@
 from .database import Database
-from .copy_atoms import copy_atoms
+from .copy_atoms import compare_atoms, copy_atoms
 from .database_reduction import (
     DatabaseReduction,
     DatabaseDistance,
@@ -23,6 +23,7 @@ from .bocalc import BOCalculator
 
 __all__ = [
     "Database",
+    "compare_atoms",
     "copy_atoms",
     "DatabaseReduction",
     "DatabaseDistance",
