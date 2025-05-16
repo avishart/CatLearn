@@ -1779,7 +1779,6 @@ class AnneallingOptimizer(ScipyGlobalOptimizer):
             restart_temp_ratio=2e-05,
             visit=2.62,
             accept=-5.0,
-            seed=None,
             no_local_search=False,
         )
         # Set default arguments for SciPy's local minimizer
@@ -1997,7 +1996,6 @@ class AnneallingTransOptimizer(AnneallingOptimizer):
             restart_temp_ratio=2e-05,
             visit=2.62,
             accept=-5.0,
-            seed=None,
             no_local_search=False,
         )
         # Set default arguments for SciPy's local minimizer
