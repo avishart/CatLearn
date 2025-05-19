@@ -126,24 +126,24 @@ class TestGPCalc(unittest.TestCase):
         ]
         # Make a list of the error values that the test compares to
         error_list = [
-            2.11773,
-            2.11773,
-            0.33617,
-            0.33617,
-            1.95853,
-            0.33617,
+            0.47624,
+            0.47624,
+            5.19594,
+            5.19594,
+            1.95852,
+            5.19594,
             0.71664,
             0.71664,
             0.89497,
-            0.35126,
-            5.04806,
-            6.25093,
+            5.23694,
+            1.13717,
+            3.52768,
             7.38153,
             9.47098,
-            1.76828,
-            1.76828,
-            1.76828,
-            1.76828,
+            0.38060,
+            0.38060,
+            0.38060,
+            0.38060,
         ]
         # Test the database objects
         for index, (data, use_fingerprint, data_kwarg) in enumerate(
@@ -156,7 +156,7 @@ class TestGPCalc(unittest.TestCase):
             ):
                 # Construct the Gaussian process
                 gp = GaussianProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
                     use_derivatives=use_derivatives,
                     kernel=SE(
                         use_derivatives=use_derivatives,
@@ -270,7 +270,7 @@ class TestGPCalc(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
             kernel=SE(
                 use_derivatives=use_derivatives,
@@ -305,7 +305,7 @@ class TestGPCalc(unittest.TestCase):
         atoms.get_forces()
         # Test the prediction energy error for a single test system
         error = abs(f_te.item(0) - energy)
-        self.assertTrue(abs(error - 1.32997) < 1e-2)
+        self.assertTrue(abs(error - 1.05160) < 1e-2)
 
 
 if __name__ == "__main__":

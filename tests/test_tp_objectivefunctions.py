@@ -44,7 +44,7 @@ class TestTPObjectiveFunctions(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
@@ -114,9 +114,8 @@ class TestTPObjectiveFunctions(unittest.TestCase):
         # Make fixed boundary conditions for one of the tests
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
             ),
             log=True,
         )
@@ -196,7 +195,7 @@ class TestTPObjectiveFunctions(unittest.TestCase):
                 )
                 # Construct the Student t process
                 tp = TProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )

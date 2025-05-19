@@ -16,7 +16,7 @@ class TestGPTrainPredict(unittest.TestCase):
         use_derivatives = False
         # Construct the Gaussian process
         GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
 
@@ -40,7 +40,7 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
@@ -66,7 +66,7 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
@@ -80,7 +80,7 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.00859) < 1e-4)
+        self.assertTrue(abs(error - 0.00069) < 1e-4)
 
     def test_predict(self):
         "Test if the GP can predict multiple test points."
@@ -102,7 +102,7 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
@@ -116,7 +116,7 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.88457) < 1e-4)
+        self.assertTrue(abs(error - 0.89152) < 1e-4)
 
     def test_predict_var(self):
         "Test if the GP can predict variance of multiple test point."
@@ -138,7 +138,7 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
@@ -152,7 +152,7 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.88457) < 1e-4)
+        self.assertTrue(abs(error - 0.89152) < 1e-4)
 
     def test_predict_var_n(self):
         """
@@ -177,7 +177,7 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
@@ -191,7 +191,7 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.88457) < 1e-4)
+        self.assertTrue(abs(error - 0.89152) < 1e-4)
 
     def test_predict_derivatives(self):
         "Test if the GP can predict derivatives of multiple test points."
@@ -213,7 +213,7 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
@@ -229,7 +229,7 @@ class TestGPTrainPredict(unittest.TestCase):
         self.assertTrue(ypred.shape[1] == 2)
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.88457) < 1e-4)
+        self.assertTrue(abs(error - 0.89152) < 1e-4)
 
 
 class TestGPTrainPredictDerivatives(unittest.TestCase):
@@ -258,7 +258,7 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
@@ -284,7 +284,7 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
@@ -298,7 +298,7 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.00038) < 1e-4)
+        self.assertTrue(abs(error - 0.00233) < 1e-4)
 
     def test_predict(self):
         "Test if the GP can predict multiple test points."
@@ -320,7 +320,7 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
@@ -334,7 +334,7 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.2055) < 1e-4)
+        self.assertTrue(abs(error - 0.40411) < 1e-4)
 
     def test_predict_var(self):
         "Test if the GP can predict variance of multiple test points."
@@ -356,7 +356,7 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
@@ -370,7 +370,7 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.20550) < 1e-4)
+        self.assertTrue(abs(error - 0.40411) < 1e-4)
 
     def test_predict_var_n(self):
         """
@@ -395,7 +395,7 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
@@ -409,7 +409,7 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.20550) < 1e-4)
+        self.assertTrue(abs(error - 0.40411) < 1e-4)
 
     def test_predict_derivatives(self):
         "Test if the GP can predict derivatives of multiple test points."
@@ -431,7 +431,7 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
@@ -447,7 +447,7 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         self.assertTrue(ypred.shape[1] == 2)
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.20550) < 1e-4)
+        self.assertTrue(abs(error - 0.40411) < 1e-4)
 
 
 if __name__ == "__main__":

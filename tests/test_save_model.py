@@ -30,7 +30,7 @@ class TestSaveModel(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
@@ -39,7 +39,7 @@ class TestSaveModel(unittest.TestCase):
         gp.save_model("test_model.pkl")
         # Load the model
         gp2 = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         gp2 = gp2.load_model("test_model.pkl")
@@ -52,7 +52,7 @@ class TestSaveModel(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.00859) < 1e-4)
+        self.assertTrue(abs(error - 0.00069) < 1e-4)
 
 
 if __name__ == "__main__":

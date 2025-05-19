@@ -35,7 +35,7 @@ class TestGPFP(unittest.TestCase):
         use_derivatives = False
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
             kernel=SE(use_derivatives=use_derivatives, use_fingerprint=True),
         )
@@ -87,15 +87,15 @@ class TestGPFP(unittest.TestCase):
         ]
         # Make a list of the error values that the test compares to
         error_list = [
-            21.47374,
-            18.9718,
-            24.42522,
-            122.74292,
-            24.42522,
-            83.87483,
-            63.01758,
-            12.08484,
-            61.98995,
+            23.51556,
+            22.50691,
+            10.00542,
+            56.04324,
+            10.00542,
+            6.712740,
+            13.49250,
+            20.04389,
+            1.880300,
         ]
         # Test the fingerprint objects
         for index, fp in enumerate(fp_kwarg_list):
@@ -115,7 +115,7 @@ class TestGPFP(unittest.TestCase):
                 # Train the machine learning model
                 gp.train(x_tr, f_tr)
                 # Predict the energies and uncertainties
-                ypred, var, var_deriv = gp.predict(
+                ypred, _, _ = gp.predict(
                     x_te,
                     get_variance=True,
                     get_derivatives=False,
@@ -159,7 +159,7 @@ class TestGPFPDerivatives(unittest.TestCase):
         use_derivatives = True
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
             kernel=SE(use_derivatives=use_derivatives, use_fingerprint=True),
         )
@@ -211,15 +211,15 @@ class TestGPFPDerivatives(unittest.TestCase):
         ]
         # Make a list of the error values that the test compares to
         error_list = [
-            38.74501,
-            39.72866,
-            84.47651,
-            632.09643,
-            84.47651,
-            65.53034,
-            132.05894,
-            72.97461,
-            81.84043,
+            37.64770,
+            39.70638,
+            69.16602,
+            58.86160,
+            69.16602,
+            73.85387,
+            69.11083,
+            63.00867,
+            70.55665,
         ]
         # Test the fingerprint objects
         for index, fp in enumerate(fp_kwarg_list):
@@ -239,7 +239,7 @@ class TestGPFPDerivatives(unittest.TestCase):
                 # Train the machine learning model
                 gp.train(x_tr, f_tr)
                 # Predict the energies and uncertainties
-                ypred, var, var_deriv = gp.predict(
+                ypred, _, _ = gp.predict(
                     x_te,
                     get_variance=True,
                     get_derivatives=False,

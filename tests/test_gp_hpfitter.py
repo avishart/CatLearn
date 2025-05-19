@@ -65,7 +65,7 @@ class TestGPHpfitter(unittest.TestCase):
             with self.subTest(hpfitter=hpfitter):
                 # Construct the Gaussian process
                 gp = GaussianProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
@@ -149,7 +149,7 @@ class TestGPHpfitter(unittest.TestCase):
             with self.subTest(hpfitter=hpfitter):
                 # Construct the Gaussian process
                 gp = GaussianProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )

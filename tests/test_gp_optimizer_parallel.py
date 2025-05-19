@@ -53,7 +53,7 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
@@ -128,7 +128,7 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
@@ -202,7 +202,7 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
@@ -285,7 +285,7 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )

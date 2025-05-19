@@ -46,14 +46,14 @@ class TestGPMeans(unittest.TestCase):
             Prior_first,
         ]
         # Make a list of the error values that the test compares to
-        error_list = [2.54619, 0.88457, 0.91272, 1.19668, 0.60103, 0.90832]
+        error_list = [2.61859, 0.89152, 0.91990, 1.21032, 0.61772, 0.91545]
         # Test the prior mean objects
         for index, prior in enumerate(priors):
             with self.subTest(prior=prior):
                 # Construct the Gaussian process
                 gp = GaussianProcess(
                     prior=prior(),
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
                     use_derivatives=use_derivatives,
                 )
                 # Set random seed to give the same results every time
@@ -110,14 +110,14 @@ class TestGPMeans(unittest.TestCase):
             Prior_first,
         ]
         # Make a list of the error values that the test compares to
-        error_list = [0.78570, 0.20550, 0.21498, 0.31329, 0.12582, 0.21349]
+        error_list = [1.14773, 0.40411, 0.41732, 0.54772, 0.26334, 0.41526]
         # Test the prior mean objects
         for index, prior in enumerate(priors):
             with self.subTest(prior=prior):
                 # Construct the Gaussian process
                 gp = GaussianProcess(
                     prior=prior(),
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
                     use_derivatives=use_derivatives,
                 )
                 # Set random seed to give the same results every time

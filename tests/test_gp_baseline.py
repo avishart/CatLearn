@@ -59,13 +59,13 @@ class TestGPBaseline(unittest.TestCase):
             MieCalculator(),
         ]
         # Make a list of the error values that the test compares to
-        error_list = [2.11773, 3.21230, 0.26532, 1.08910]
+        error_list = [0.47624, 3.21230, 5.03338, 0.38677]
         # Test the baseline objects
         for index, baseline in enumerate(baseline_list):
             with self.subTest(baseline=baseline):
                 # Construct the Gaussian process
                 gp = GaussianProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
                     use_derivatives=use_derivatives,
                     kernel=SE(
                         use_derivatives=use_derivatives,

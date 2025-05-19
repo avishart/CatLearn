@@ -36,7 +36,7 @@ class TestTPOptimizer(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
@@ -52,7 +52,7 @@ class TestTPOptimizer(unittest.TestCase):
             verbose=False,
         )
         # Test the solution is correct
-        self.assertTrue(abs(sol["fun"] - 487.618) < 1e-2)
+        self.assertTrue(abs(sol["fun"] - 489.88476) < 1e-2)
 
     def test_local_jac(self):
         """
@@ -90,7 +90,7 @@ class TestTPOptimizer(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
@@ -152,7 +152,7 @@ class TestTPOptimizer(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
@@ -217,7 +217,7 @@ class TestTPOptimizer(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
@@ -286,7 +286,7 @@ class TestTPOptimizer(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
@@ -376,7 +376,7 @@ class TestTPOptimizer(unittest.TestCase):
                 )
                 # Construct the Student t process
                 tp = TProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
@@ -443,9 +443,8 @@ class TestTPOptimizer(unittest.TestCase):
         bounds_ed = EducatedBoundaries()
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
             ),
             log=True,
         )
@@ -495,7 +494,7 @@ class TestTPOptimizer(unittest.TestCase):
                 )
                 # Construct the Student t process
                 tp = TProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
@@ -562,9 +561,8 @@ class TestTPOptimizer(unittest.TestCase):
         bounds_ed = EducatedBoundaries()
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
             ),
             log=True,
         )
@@ -614,7 +612,7 @@ class TestTPOptimizer(unittest.TestCase):
                 )
                 # Construct the Student t process
                 tp = TProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
@@ -684,7 +682,7 @@ class TestTPOptimizer(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
@@ -742,7 +740,6 @@ class TestTPOptimizer(unittest.TestCase):
             restart_temp_ratio=2e-05,
             visit=2.62,
             accept=-5.0,
-            seed=None,
             no_local_search=False,
         )
         # Make the optimizer
@@ -756,9 +753,8 @@ class TestTPOptimizer(unittest.TestCase):
         bounds_ed = EducatedBoundaries()
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
             ),
             log=True,
         )
@@ -775,7 +771,7 @@ class TestTPOptimizer(unittest.TestCase):
                 )
                 # Construct the Student t process
                 tp = TProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
@@ -836,7 +832,6 @@ class TestTPOptimizer(unittest.TestCase):
             restart_temp_ratio=2e-05,
             visit=2.62,
             accept=-5.0,
-            seed=None,
             no_local_search=False,
         )
         # Make the optimizer
@@ -850,9 +845,8 @@ class TestTPOptimizer(unittest.TestCase):
         bounds_trans = VariableTransformation()
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
             ),
             log=True,
         )
@@ -870,7 +864,7 @@ class TestTPOptimizer(unittest.TestCase):
                 )
                 # Construct the Student t process
                 tp = TProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
@@ -939,9 +933,8 @@ class TestTPOptimizer(unittest.TestCase):
         bounds_ed = EducatedBoundaries()
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
             ),
             log=True,
         )
@@ -1030,7 +1023,7 @@ class TestTPOptimizer(unittest.TestCase):
                 )
                 # Construct the Student t process
                 tp = TProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )

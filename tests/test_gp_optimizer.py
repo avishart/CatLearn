@@ -36,7 +36,7 @@ class TestGPOptimizer(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
@@ -52,7 +52,7 @@ class TestGPOptimizer(unittest.TestCase):
             verbose=False,
         )
         # Test the solution is correct
-        self.assertTrue(abs(sol["fun"] - 196.837) < 1e-2)
+        self.assertTrue(abs(sol["fun"] - 197.54480) < 1e-2)
 
     def test_local_jac(self):
         """
@@ -92,7 +92,7 @@ class TestGPOptimizer(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
@@ -154,7 +154,7 @@ class TestGPOptimizer(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
@@ -213,7 +213,7 @@ class TestGPOptimizer(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
@@ -283,7 +283,7 @@ class TestGPOptimizer(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
@@ -373,7 +373,7 @@ class TestGPOptimizer(unittest.TestCase):
                 )
                 # Construct the Gaussian process
                 gp = GaussianProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
@@ -440,9 +440,9 @@ class TestGPOptimizer(unittest.TestCase):
         bounds_ed = EducatedBoundaries()
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
+                prefactor=[[0.0, 2.0]],
             ),
             log=True,
         )
@@ -492,7 +492,7 @@ class TestGPOptimizer(unittest.TestCase):
                 )
                 # Construct the Gaussian process
                 gp = GaussianProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
@@ -559,9 +559,9 @@ class TestGPOptimizer(unittest.TestCase):
         bounds_ed = EducatedBoundaries()
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
+                prefactor=[[0.0, 2.0]],
             ),
             log=True,
         )
@@ -611,7 +611,7 @@ class TestGPOptimizer(unittest.TestCase):
                 )
                 # Construct the Gaussian process
                 gp = GaussianProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
@@ -681,7 +681,7 @@ class TestGPOptimizer(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
@@ -744,9 +744,9 @@ class TestGPOptimizer(unittest.TestCase):
         bounds_ed = EducatedBoundaries()
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
+                prefactor=[[0.0, 2.0]],
             ),
             log=True,
         )
@@ -763,7 +763,7 @@ class TestGPOptimizer(unittest.TestCase):
                 )
                 # Construct the Gaussian process
                 gp = GaussianProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
@@ -829,9 +829,9 @@ class TestGPOptimizer(unittest.TestCase):
         bounds_trans = VariableTransformation()
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
+                prefactor=[[0.0, 2.0]],
             ),
             log=True,
         )
@@ -849,7 +849,7 @@ class TestGPOptimizer(unittest.TestCase):
                 )
                 # Construct the Gaussian process
                 gp = GaussianProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
@@ -918,9 +918,9 @@ class TestGPOptimizer(unittest.TestCase):
         bounds_ed = EducatedBoundaries()
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
+                prefactor=[[0.0, 2.0]],
             ),
             log=True,
         )
@@ -1009,7 +1009,7 @@ class TestGPOptimizer(unittest.TestCase):
                 )
                 # Construct the Gaussian process
                 gp = GaussianProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )

@@ -63,7 +63,7 @@ class TestGPObjectiveFunctions(unittest.TestCase):
                 )
                 # Construct the Gaussian process
                 gp = GaussianProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
@@ -134,9 +134,9 @@ class TestGPObjectiveFunctions(unittest.TestCase):
         # Make fixed boundary conditions for one of the tests
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
+                prefactor=[[0.0, 2.0]],
             ),
             log=True,
         )
@@ -224,7 +224,7 @@ class TestGPObjectiveFunctions(unittest.TestCase):
                 )
                 # Construct the Gaussian process
                 gp = GaussianProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )

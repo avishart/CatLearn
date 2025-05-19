@@ -15,7 +15,10 @@ class TestTPTrainPredict(unittest.TestCase):
         # Whether to learn from the derivatives
         use_derivatives = False
         # Construct the Studen t process
-        TProcess(hp=dict(length=2.0), use_derivatives=use_derivatives)
+        TProcess(
+            hp=dict(length=[2.0], noise=[-5.0]),
+            use_derivatives=use_derivatives,
+        )
 
     def test_train(self):
         "Test if the TP can be trained."
@@ -36,7 +39,10 @@ class TestTPTrainPredict(unittest.TestCase):
             use_derivatives=use_derivatives,
         )
         # Construct the Studen t process
-        tp = TProcess(hp=dict(length=2.0), use_derivatives=use_derivatives)
+        tp = TProcess(
+            hp=dict(length=[2.0], noise=[-5.0]),
+            use_derivatives=use_derivatives,
+        )
         # Train the machine learning model
         tp.train(x_tr, f_tr)
 
@@ -59,7 +65,10 @@ class TestTPTrainPredict(unittest.TestCase):
             use_derivatives=use_derivatives,
         )
         # Construct the Studen t process
-        tp = TProcess(hp=dict(length=2.0), use_derivatives=use_derivatives)
+        tp = TProcess(
+            hp=dict(length=[2.0], noise=[-5.0]),
+            use_derivatives=use_derivatives,
+        )
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energy
@@ -71,7 +80,7 @@ class TestTPTrainPredict(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.00859) < 1e-4)
+        self.assertTrue(abs(error - 0.00069) < 1e-4)
 
     def test_predict(self):
         "Test if the TP can predict multiple test points."
@@ -92,7 +101,10 @@ class TestTPTrainPredict(unittest.TestCase):
             use_derivatives=use_derivatives,
         )
         # Construct the Studen t process
-        tp = TProcess(hp=dict(length=2.0), use_derivatives=use_derivatives)
+        tp = TProcess(
+            hp=dict(length=[2.0], noise=[-5.0]),
+            use_derivatives=use_derivatives,
+        )
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energies
@@ -104,7 +116,7 @@ class TestTPTrainPredict(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.88457) < 1e-4)
+        self.assertTrue(abs(error - 0.89152) < 1e-4)
 
     def test_predict_var(self):
         "Test if the TP can predict variance of multiple test point."
@@ -125,7 +137,10 @@ class TestTPTrainPredict(unittest.TestCase):
             use_derivatives=use_derivatives,
         )
         # Construct the Studen t process
-        tp = TProcess(hp=dict(length=2.0), use_derivatives=use_derivatives)
+        tp = TProcess(
+            hp=dict(length=[2.0], noise=[-5.0]),
+            use_derivatives=use_derivatives,
+        )
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energies and uncertainties
@@ -137,7 +152,7 @@ class TestTPTrainPredict(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.88457) < 1e-4)
+        self.assertTrue(abs(error - 0.89152) < 1e-4)
 
     def test_predict_var_n(self):
         """
@@ -161,7 +176,10 @@ class TestTPTrainPredict(unittest.TestCase):
             use_derivatives=use_derivatives,
         )
         # Construct the Studen t process
-        tp = TProcess(hp=dict(length=2.0), use_derivatives=use_derivatives)
+        tp = TProcess(
+            hp=dict(length=[2.0], noise=[-5.0]),
+            use_derivatives=use_derivatives,
+        )
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energies and uncertainties
@@ -173,7 +191,7 @@ class TestTPTrainPredict(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.88457) < 1e-4)
+        self.assertTrue(abs(error - 0.89152) < 1e-4)
 
     def test_predict_derivatives(self):
         "Test if the TP can predict derivatives of multiple test points."
@@ -194,7 +212,10 @@ class TestTPTrainPredict(unittest.TestCase):
             use_derivatives=use_derivatives,
         )
         # Construct the Studen t process
-        tp = TProcess(hp=dict(length=2.0), use_derivatives=use_derivatives)
+        tp = TProcess(
+            hp=dict(length=[2.0], noise=[-5.0]),
+            use_derivatives=use_derivatives,
+        )
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energies, derivatives, and uncertainties
@@ -208,7 +229,7 @@ class TestTPTrainPredict(unittest.TestCase):
         self.assertTrue(ypred.shape[1] == 2)
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.88457) < 1e-4)
+        self.assertTrue(abs(error - 0.89152) < 1e-4)
 
 
 class TestTPTrainPredictDerivatives(unittest.TestCase):
@@ -236,7 +257,10 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
             use_derivatives=use_derivatives,
         )
         # Construct the Studen t process
-        tp = TProcess(hp=dict(length=2.0), use_derivatives=use_derivatives)
+        tp = TProcess(
+            hp=dict(length=[2.0], noise=[-5.0]),
+            use_derivatives=use_derivatives,
+        )
         # Train the machine learning model
         tp.train(x_tr, f_tr)
 
@@ -259,7 +283,10 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
             use_derivatives=use_derivatives,
         )
         # Construct the Studen t process
-        tp = TProcess(hp=dict(length=2.0), use_derivatives=use_derivatives)
+        tp = TProcess(
+            hp=dict(length=[2.0], noise=[-5.0]),
+            use_derivatives=use_derivatives,
+        )
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energy
@@ -271,7 +298,7 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.00038) < 1e-4)
+        self.assertTrue(abs(error - 0.00233) < 1e-4)
 
     def test_predict(self):
         "Test if the TP can predict multiple test points."
@@ -292,7 +319,10 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
             use_derivatives=use_derivatives,
         )
         # Construct the Studen t process
-        tp = TProcess(hp=dict(length=2.0), use_derivatives=use_derivatives)
+        tp = TProcess(
+            hp=dict(length=[2.0], noise=[-5.0]),
+            use_derivatives=use_derivatives,
+        )
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energies
@@ -304,7 +334,7 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.20550) < 1e-4)
+        self.assertTrue(abs(error - 0.40411) < 1e-4)
 
     def test_predict_var(self):
         "Test if the TP can predict variance of multiple test points."
@@ -325,7 +355,10 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
             use_derivatives=use_derivatives,
         )
         # Construct the Studen t process
-        tp = TProcess(hp=dict(length=2.0), use_derivatives=use_derivatives)
+        tp = TProcess(
+            hp=dict(length=[2.0], noise=[-5.0]),
+            use_derivatives=use_derivatives,
+        )
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energies and uncertainties
@@ -337,7 +370,7 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.20550) < 1e-4)
+        self.assertTrue(abs(error - 0.40411) < 1e-4)
 
     def test_predict_var_n(self):
         """
@@ -361,7 +394,10 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
             use_derivatives=use_derivatives,
         )
         # Construct the Studen t process
-        tp = TProcess(hp=dict(length=2.0), use_derivatives=use_derivatives)
+        tp = TProcess(
+            hp=dict(length=[2.0], noise=[-5.0]),
+            use_derivatives=use_derivatives,
+        )
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energies and uncertainties
@@ -373,7 +409,7 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.20550) < 1e-4)
+        self.assertTrue(abs(error - 0.40411) < 1e-4)
 
     def test_predict_derivatives(self):
         "Test if the TP can predict derivatives of multiple test points."
@@ -394,7 +430,10 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
             use_derivatives=use_derivatives,
         )
         # Construct the Studen t process
-        tp = TProcess(hp=dict(length=2.0), use_derivatives=use_derivatives)
+        tp = TProcess(
+            hp=dict(length=[2.0], noise=[-5.0]),
+            use_derivatives=use_derivatives,
+        )
         # Train the machine learning model
         tp.train(x_tr, f_tr)
         # Predict the energies, derivatives, and uncertainties
@@ -408,7 +447,7 @@ class TestTPTrainPredictDerivatives(unittest.TestCase):
         self.assertTrue(ypred.shape[1] == 2)
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.20550) < 1e-4)
+        self.assertTrue(abs(error - 0.40411) < 1e-4)
 
 
 if __name__ == "__main__":

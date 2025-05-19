@@ -34,7 +34,7 @@ class TestGPEnsemble(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Construct the clustering object
@@ -45,7 +45,7 @@ class TestGPEnsemble(unittest.TestCase):
         # Define the list of whether to use variance as the ensemble method
         var_list = [False, True]
         # Make a list of the error values that the test compares to
-        error_list = [4.61352, 0.45865]
+        error_list = [4.61443, 0.48256]
         for index, use_variance_ensemble in enumerate(var_list):
             with self.subTest(use_variance_ensemble=use_variance_ensemble):
                 # Construct the ensemble model
@@ -101,7 +101,7 @@ class TestGPEnsemble(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Define the list of clustering objects that are tested
@@ -123,7 +123,7 @@ class TestGPEnsemble(unittest.TestCase):
             RandomClustering_number(data_number=12),
         ]
         # Make a list of the error values that the test compares to
-        error_list = [0.45865, 0.62425, 0.61887, 0.61937, 0.70159, 0.67982]
+        error_list = [0.48256, 0.63066, 0.62649, 0.62650, 0.70163, 0.67975]
         # Test the baseline objects
         for index, clustering in enumerate(clustering_list):
             with self.subTest(clustering=clustering):
@@ -180,7 +180,7 @@ class TestGPEnsembleDerivatives(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Construct the clustering object
@@ -188,7 +188,7 @@ class TestGPEnsembleDerivatives(unittest.TestCase):
         # Define the list of whether to use variance as the ensemble method
         var_list = [False, True]
         # Make a list of the error values that the test compares to
-        error_list = [4.3318, 0.18866]
+        error_list = [4.51161, 0.37817]
         for index, use_variance_ensemble in enumerate(var_list):
             with self.subTest(use_variance_ensemble=use_variance_ensemble):
                 # Construct the ensemble model
@@ -244,7 +244,7 @@ class TestGPEnsembleDerivatives(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Define the list of clustering objects that are tested
@@ -261,7 +261,7 @@ class TestGPEnsembleDerivatives(unittest.TestCase):
             RandomClustering_number(data_number=12),
         ]
         # Make a list of the error values that the test compares to
-        error_list = [0.18866, 0.19777, 0.19715, 0.19717, 0.47726, 0.18779]
+        error_list = [0.37817, 0.38854, 0.38641, 0.38640, 0.47864, 0.36700]
         # Test the baseline objects
         for index, clustering in enumerate(clustering_list):
             with self.subTest(clustering=clustering):
