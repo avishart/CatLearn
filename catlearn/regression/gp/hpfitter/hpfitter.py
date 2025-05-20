@@ -5,6 +5,11 @@ from ..pdistributions.update_pdis import update_pdis
 
 
 class HyperparameterFitter:
+    """
+    Hyperparameter fitter class for optimizing the hyperparameters
+    of a given objective function with a given optimizer.
+    """
+
     def __init__(
         self,
         func,
@@ -18,8 +23,7 @@ class HyperparameterFitter:
         **kwargs,
     ):
         """
-        Hyperparameter fitter object with an optimizer for optimizing
-        the hyperparameters on different given objective functions.
+        Initialize the hyperparameter fitter class.
 
         Parameters:
             func: ObjectiveFunction class

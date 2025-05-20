@@ -5,6 +5,11 @@ from .clustering import Clustering
 
 
 class K_means(Clustering):
+    """
+    Clustering algorithn class for data sets.
+    It uses the K-means++ algorithm for clustering.
+    """
+
     def __init__(
         self,
         metric="euclidean",
@@ -16,8 +21,7 @@ class K_means(Clustering):
         **kwargs,
     ):
         """
-        Clustering class object for data sets.
-        The K-means++ algorithm for clustering.
+        Initialize the clustering algorithm.
 
         Parameters:
             metric: str

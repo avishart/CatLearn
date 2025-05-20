@@ -3,6 +3,11 @@ from scipy.optimize import minimize
 
 
 class LocalOptimizer(Optimizer):
+    """
+    The local optimizer used for optimzing the objective function
+    wrt. the hyperparameters.
+    """
+
     def __init__(
         self,
         maxiter=5000,
@@ -14,8 +19,7 @@ class LocalOptimizer(Optimizer):
         **kwargs,
     ):
         """
-        The local optimizer used for optimzing the objective function
-        wrt. the hyperparameters.
+        Initialize the local optimizer.
 
         Parameters:
             maxiter: int
@@ -118,6 +122,13 @@ class LocalOptimizer(Optimizer):
 
 
 class ScipyOptimizer(LocalOptimizer):
+    """
+    The local optimizer used for optimzing the objective function
+    wrt. the hyperparameters.
+    This method uses the SciPy minimizers.
+    (https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html)
+    """
+
     def __init__(
         self,
         maxiter=5000,
@@ -134,10 +145,7 @@ class ScipyOptimizer(LocalOptimizer):
         **kwargs,
     ):
         """
-        The local optimizer used for optimzing the objective function
-        wrt. the hyperparameters.
-        This method uses the SciPy minimizers.
-        (https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html)
+        Initialize the local optimizer.
 
         Parameters:
             maxiter: int
@@ -376,77 +384,16 @@ class ScipyOptimizer(LocalOptimizer):
 
 
 class ScipyPriorOptimizer(ScipyOptimizer):
-    def __init__(
-        self,
-        maxiter=5000,
-        jac=True,
-        parallel=False,
-        seed=None,
-        dtype=float,
-        tol=1e-8,
-        method="l-bfgs-b",
-        bounds=None,
-        use_bounds=False,
-        options={},
-        opt_kwargs={},
-        **kwargs,
-    ):
-        """
-        The local optimizer used for optimzing the objective function
-        wrt.the hyperparameters.
-        This method uses the SciPy minimizers.
-        (https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html)
-        If prior distributions of the hyperparameters are used,
-        it will start by include
-        the prior distributions and then restart with
-        excluded prior distributions.
-
-        Parameters:
-            maxiter: int
-                The maximum number of evaluations or iterations
-                the optimizer can use.
-            jac: bool
-                Whether to use the gradient of the objective function
-                wrt. the hyperparameters.
-            parallel: bool
-                Whether to use parallelization.
-                This is not implemented for this method.
-            seed: int (optional)
-                The random seed.
-                The seed can be an integer, RandomState, or Generator instance.
-                If not given, the default random number generator is used.
-            dtype: type (optional)
-                The data type of the arrays.
-                If None, the default data type is used.
-            tol: float
-                A tolerance criterion for convergence.
-            method: str
-                The minimizer method used in SciPy.
-            bounds: HPBoundaries class
-                A class of the boundary conditions of the hyperparameters.
-                All global optimization methods are using boundary conditions.
-            use_bounds: bool
-                Whether to use the boundary conditions or not.
-                Only some methods can use boundary conditions.
-            options: dict
-                Solver options used in the SciPy minimizer.
-            opt_kwargs: dict
-                Extra arguments used in the SciPy minimizer.
-        """
-        super().__init__(
-            maxiter=maxiter,
-            jac=jac,
-            parallel=parallel,
-            seed=seed,
-            dtype=dtype,
-            tol=tol,
-            method=method,
-            bounds=bounds,
-            use_bounds=use_bounds,
-            options=options,
-            opt_kwargs=opt_kwargs,
-            **kwargs,
-        )
+    """
+    The local optimizer used for optimzing the objective function
+    wrt.the hyperparameters.
+    This method uses the SciPy minimizers.
+    (https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html)
+    If prior distributions of the hyperparameters are used,
+    it will start by include
+    the prior distributions and then restart with
+    excluded prior distributions.
+    """
 
     def run(self, func, theta, parameters, model, X, Y, pdis, **kwargs):
         # Get solution with the prior distributions
@@ -475,75 +422,14 @@ class ScipyPriorOptimizer(ScipyOptimizer):
 
 
 class ScipyGuessOptimizer(ScipyOptimizer):
-    def __init__(
-        self,
-        maxiter=5000,
-        jac=True,
-        parallel=False,
-        seed=None,
-        dtype=float,
-        tol=1e-8,
-        method="l-bfgs-b",
-        bounds=None,
-        use_bounds=False,
-        options={},
-        opt_kwargs={},
-        **kwargs,
-    ):
-        """
-        The local optimizer used for optimzing the objective function
-        wrt. the hyperparameters.
-        This method uses the SciPy minimizers.
-        (https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html)
-        Use boundary conditions to give an extra guess of the hyperparameters
-        that also are optimized.
-
-        Parameters:
-            maxiter: int
-                The maximum number of evaluations or iterations
-                the optimizer can use.
-            jac: bool
-                Whether to use the gradient of the objective function
-                wrt. the hyperparameters.
-            parallel: bool
-                Whether to use parallelization.
-                This is not implemented for this method.
-            seed: int (optional)
-                The random seed.
-                The seed can be an integer, RandomState, or Generator instance.
-                If not given, the default random number generator is used.
-            dtype: type (optional)
-                The data type of the arrays.
-                If None, the default data type is used.
-            tol: float
-                A tolerance criterion for convergence.
-            method: str
-                The minimizer method used in SciPy.
-            bounds: HPBoundaries class
-                A class of the boundary conditions of the hyperparameters.
-                All global optimization methods are using boundary conditions.
-            use_bounds: bool
-                Whether to use the boundary conditions or not.
-                Only some methods can use boundary conditions.
-            options: dict
-                Solver options used in the SciPy minimizer.
-            opt_kwargs: dict
-                Extra arguments used in the SciPy minimizer.
-        """
-        super().__init__(
-            maxiter=maxiter,
-            jac=jac,
-            parallel=parallel,
-            seed=seed,
-            dtype=dtype,
-            tol=tol,
-            method=method,
-            bounds=bounds,
-            use_bounds=use_bounds,
-            options=options,
-            opt_kwargs=opt_kwargs,
-            **kwargs,
-        )
+    """
+    The local optimizer used for optimzing the objective function
+    wrt. the hyperparameters.
+    This method uses the SciPy minimizers.
+    (https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html)
+    Use boundary conditions to give an extra guess of the hyperparameters
+    that also are optimized.
+    """
 
     def run(self, func, theta, parameters, model, X, Y, pdis, **kwargs):
         # Optimize the initial hyperparameters

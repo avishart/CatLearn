@@ -19,9 +19,13 @@ import logging
 
 
 class ObjectiveFuction:
+    """
+    The objective function that is used to optimize the hyperparameters.
+    """
+
     def __init__(self, get_prior_mean=False, dtype=float, **kwargs):
         """
-        The objective function that is used to optimize the hyperparameters.
+        Initialize the objective function.
 
         Parameters:
             get_prior_mean: bool

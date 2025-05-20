@@ -3,6 +3,13 @@ from .invdistances import InvDistances
 
 
 class SortedInvDistances(InvDistances):
+    """
+    Fingerprint constructor class that convert an atoms instance into
+    a fingerprint instance with vector and derivatives.
+    The sorted inverse distance fingerprint constructer class.
+    The inverse distances are scaled with covalent radii.
+    """
+
     def __init__(
         self,
         reduce_dimensions=True,
@@ -24,10 +31,7 @@ class SortedInvDistances(InvDistances):
         **kwargs,
     ):
         """
-        Fingerprint constructer class that convert atoms object into
-        a fingerprint object with vector and derivatives.
-        The sorted inverse distance fingerprint constructer class.
-        The inverse distances are scaled with covalent radii.
+        Initialize the fingerprint class.
 
         Parameters:
             reduce_dimensions: bool

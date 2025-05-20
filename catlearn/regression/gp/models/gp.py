@@ -9,6 +9,13 @@ from .model import (
 
 
 class GaussianProcess(ModelProcess):
+    """
+    The Gaussian Process Regressor.
+    The Gaussian process uses Cholesky decomposition for
+    inverting the kernel matrix.
+    The hyperparameters can be optimized.
+    """
+
     def __init__(
         self,
         prior=Prior_mean(),
@@ -21,10 +28,7 @@ class GaussianProcess(ModelProcess):
         **kwargs
     ):
         """
-        The Gaussian Process Regressor.
-        The Gaussian process uses Cholesky decomposition for
-        inverting the kernel matrix.
-        The hyperparameters can be optimized.
+        Initialize the Gaussian Process Regressor.
 
         Parameters:
             prior: Prior class

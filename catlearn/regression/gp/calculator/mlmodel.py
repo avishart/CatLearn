@@ -4,6 +4,11 @@ from ase.parallel import parprint
 
 
 class MLModel:
+    """
+    Machine Learning model used for the ASE Atoms instances and
+    in the machine learning calculators.
+    """
+
     def __init__(
         self,
         model=None,
@@ -18,7 +23,7 @@ class MLModel:
         **kwargs,
     ):
         """
-        Machine Learning model used for ASE Atoms and calculator.
+        Initialize the ML model for Atoms.
 
         Parameters:
             model: Model

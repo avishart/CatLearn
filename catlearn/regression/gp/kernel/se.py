@@ -16,38 +16,10 @@ from .kernel import Kernel
 
 
 class SE(Kernel):
-    def __init__(
-        self,
-        use_derivatives=False,
-        use_fingerprint=False,
-        hp={},
-        dtype=float,
-        **kwargs,
-    ):
-        """
-        The Kernel class with hyperparameters.
-        Squared exponential or radial basis kernel class.
-
-        Parameters:
-            use_derivatives: bool
-                Whether to use the derivatives of the targets.
-            use_fingerprint: bool
-                Whether fingerprint objects is given or arrays.
-            hp: dict
-                A dictionary of the hyperparameters in the log-space.
-                The hyperparameters should be given as flatten arrays,
-                like hp=dict(length=np.array([-0.7])).
-            dtype: type
-                The data type of the arrays.
-
-        """
-        super().__init__(
-            use_derivatives=use_derivatives,
-            use_fingerprint=use_fingerprint,
-            hp=hp,
-            dtype=dtype,
-            **kwargs,
-        )
+    """
+    The Squared exponential or radial basis function kernel class
+    with hyperparameters.
+    """
 
     def get_KXX(self, features, **kwargs):
         # Scale features or fingerprints with their length-scales

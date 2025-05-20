@@ -3,6 +3,12 @@ from .repulsive import RepulsionCalculator
 
 
 class MieCalculator(RepulsionCalculator):
+    """
+    A baseline calculator for ASE Atoms instance.
+    It uses the Mie potential baseline.
+    The power and the scaling of the Mie potential can be selected.
+    """
+
     implemented_properties = ["energy", "forces"]
     nolabel = True
 
@@ -26,9 +32,7 @@ class MieCalculator(RepulsionCalculator):
         **kwargs,
     ):
         """
-        A baseline calculator for ASE atoms object.
-        It uses the Mie potential baseline.
-        The power and the scaling of the Mie potential can be selected.
+        Initialize the baseline calculator.
 
         Parameters:
             reduce_dimensions: bool

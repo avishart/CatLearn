@@ -4,16 +4,20 @@ from scipy.special import loggamma
 
 
 class Gamma_prior(Prior_distribution):
+    """
+    Gamma prior distribution used for each type
+    of hyperparameters in log-space.
+    The Gamma distribution is variable transformed from
+    linear- to log-space.
+    If the type of the hyperparameter is multi dimensional (H),
+    it is given in the axis=-1.
+    If multiple values (M) of the hyperparameter(/s)
+    are calculated simultaneously, it has to be in a (M,H) array.
+    """
+
     def __init__(self, a=1e-20, b=1e-20, dtype=float, **kwargs):
         """
-        Gamma prior distribution used for each type
-        of hyperparameters in log-space.
-        The Gamma distribution is variable transformed from
-        linear- to log-space.
-        If the type of the hyperparameter is multi dimensional (H),
-        it is given in the axis=-1.
-        If multiple values (M) of the hyperparameter(/s)
-        are calculated simultaneously, it has to be in a (M,H) array.
+        Initialization of the prior distribution.
 
         Parameters:
             a: float or (H) array

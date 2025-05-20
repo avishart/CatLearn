@@ -1,8 +1,12 @@
 class Prior:
+    """
+    The prior mean of the targets.
+    The prior mean is used as a baseline of the target values.
+    """
+
     def __init__(self, dtype=float, **kwargs):
         """
-        The prior mean of the targets.
-        The prior mean is used as a baseline of the target values.
+        Initialize the prior mean.
 
         Parameters:
             dtype: type

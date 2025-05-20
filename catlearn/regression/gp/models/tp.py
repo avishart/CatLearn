@@ -9,6 +9,13 @@ from ..objectivefunctions.tp.likelihood import LogLikelihood
 
 
 class TProcess(ModelProcess):
+    """
+    The Student's T Process Regressor.
+    The Student's T process uses Cholesky decomposition for
+    inverting the kernel matrix.
+    The hyperparameters can be optimized.
+    """
+
     def __init__(
         self,
         prior=Prior_mean(),
@@ -23,10 +30,7 @@ class TProcess(ModelProcess):
         **kwargs,
     ):
         """
-        The Student's T Process Regressor.
-        The Student's T process uses Cholesky decomposition for
-        inverting the kernel matrix.
-        The hyperparameters can be optimized.
+        Initialize the Student's T Process Regressor.
 
         Parameters:
             prior: Prior class

@@ -3,10 +3,14 @@ from .loo import LOO
 
 
 class GPE(LOO):
+    """
+    The Geissers predictive mean square error objective function as
+    a function of the hyperparameters.
+    """
+
     def __init__(self, get_prior_mean=False, dtype=float, **kwargs):
         """
-        The Geissers predictive mean square error objective function as
-        a function of the hyperparameters.
+        Initialize the objective function.
 
         Parameters:
             get_prior_mean: bool

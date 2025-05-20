@@ -3,12 +3,16 @@ from .loo import LOO
 
 
 class GPP(LOO):
+    """
+    The Geissers surrogate predictive probability objective function as
+    a function of the hyperparameters.
+    The prefactor hyperparameter is calculated from
+    an analytical expression.
+    """
+
     def __init__(self, get_prior_mean=False, dtype=float, **kwargs):
         """
-        The Geissers surrogate predictive probability objective function as
-        a function of the hyperparameters.
-        The prefactor hyperparameter is calculated from
-        an analytical expression.
+        Initialize the objective function.
 
         Parameters:
             get_prior_mean: bool

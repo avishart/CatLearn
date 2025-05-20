@@ -8,6 +8,11 @@ from .copy_atoms import copy_atoms
 
 
 class Database:
+    """
+    Database of ASE Atoms instances that are converted
+    into stored fingerprints and targets.
+    """
+
     def __init__(
         self,
         fingerprint=None,
@@ -20,8 +25,7 @@ class Database:
         **kwargs,
     ):
         """
-        Database of ASE atoms objects that are converted
-        into fingerprints and targets.
+        Initialize the database.
 
         Parameters:
             fingerprint: Fingerprint object

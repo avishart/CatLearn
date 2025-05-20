@@ -15,6 +15,13 @@ from .boundary import HPBoundaries
 
 
 class LengthBoundaries(HPBoundaries):
+    """
+    Boundary conditions for the hyperparameters with educated guess for
+    the length-scale hyperparameter.
+    Machine precisions are used as default boundary conditions for
+    the rest of the hyperparameters not given in the dictionary.
+    """
+
     def __init__(
         self,
         bounds_dict={},
@@ -27,10 +34,7 @@ class LengthBoundaries(HPBoundaries):
         **kwargs,
     ):
         """
-        Boundary conditions for the hyperparameters with educated guess for
-        the length-scale hyperparameter.
-        Machine precisions are used as default boundary conditions for
-        the rest of the hyperparameters not given in the dictionary.
+        Initialize the boundary conditions for the hyperparameters.
 
         Parameters:
             bounds_dict: dict

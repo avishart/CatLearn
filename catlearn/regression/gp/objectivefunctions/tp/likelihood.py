@@ -9,20 +9,10 @@ from ..objectivefunction import ObjectiveFuction
 
 
 class LogLikelihood(ObjectiveFuction):
-    def __init__(self, get_prior_mean=False, dtype=float, **kwargs):
-        """
-        The log-likelihood objective function that is used to
-        optimize the hyperparameters.
-
-        Parameters:
-            get_prior_mean: bool
-                Whether to save the parameters of the prior mean
-                in the solution.
-            dtype: type (optional)
-                The data type of the arrays.
-                If None, the default data type is used.
-        """
-        super().__init__(get_prior_mean=get_prior_mean, dtype=dtype, **kwargs)
+    """
+    The log-likelihood objective function that is used to
+    optimize the hyperparameters.
+    """
 
     def function(
         self,

@@ -14,6 +14,13 @@ from ..objectivefunction import ObjectiveFuction
 
 
 class MaximumLogLikelihood(ObjectiveFuction):
+    """
+    The Maximum log-likelihood objective function as
+    a function of the hyperparameters.
+    The prefactor hyperparameter is calculated from
+    an analytical expression.
+    """
+
     def __init__(
         self,
         get_prior_mean=False,
@@ -22,10 +29,7 @@ class MaximumLogLikelihood(ObjectiveFuction):
         **kwargs,
     ):
         """
-        The Maximum log-likelihood objective function as
-        a function of the hyperparameters.
-        The prefactor hyperparameter is calculated from
-        an analytical expression.
+        Initialize the objective function.
 
         Parameters:
             get_prior_mean: bool

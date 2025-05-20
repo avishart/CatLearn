@@ -4,6 +4,12 @@ from .k_means import K_means
 
 
 class K_means_number(K_means):
+    """
+    Clustering algorithn class for data sets.
+    It uses the K-means++ algorithm for clustering.
+    It uses a fixed number of data points in each cluster.
+    """
+
     def __init__(
         self,
         metric="euclidean",
@@ -15,9 +21,7 @@ class K_means_number(K_means):
         **kwargs,
     ):
         """
-        Clustering class object for data sets.
-        The K-means++ algorithm for clustering, but where the number
-        of clusters are updated from a fixed number data point in each cluster.
+        Initialize the clustering algorithm.
 
         Parameters:
             metric: str

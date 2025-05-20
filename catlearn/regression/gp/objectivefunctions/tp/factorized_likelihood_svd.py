@@ -1,53 +1,16 @@
 from numpy import matmul
 from numpy.linalg import svd
-from .factorized_likelihood import (
-    FactorizedLogLikelihood,
-    VariableTransformation,
-)
+from .factorized_likelihood import FactorizedLogLikelihood
 
 
 class FactorizedLogLikelihoodSVD(FactorizedLogLikelihood):
-    def __init__(
-        self,
-        get_prior_mean=False,
-        ngrid=80,
-        bounds=VariableTransformation(),
-        noise_optimizer=None,
-        dtype=float,
-        **kwargs
-    ):
-        """
-        The factorized log-likelihood objective function that is used
-        to optimize the hyperparameters.
-        A SVD is performed to get the eigenvalues.
-        The relative-noise hyperparameter can be searched from
-        a single eigendecomposition for each length-scale hyperparameter.
-
-        Parameters:
-            get_prior_mean: bool
-                Whether to save the parameters of the prior mean
-                in the solution.
-            ngrid: int
-                Number of grid points that are searched in
-                the relative-noise hyperparameter.
-            bounds: Boundary_conditions class
-                A class of the boundary conditions of
-                the relative-noise hyperparameter.
-            noise_optimizer: Noise line search optimizer class
-                A line search optimization method for
-                the relative-noise hyperparameter.
-            dtype: type (optional)
-                The data type of the arrays.
-                If None, the default data type is used.
-        """
-        super().__init__(
-            get_prior_mean=get_prior_mean,
-            ngrid=ngrid,
-            bounds=bounds,
-            noise_optimizer=noise_optimizer,
-            dtype=dtype,
-            **kwargs
-        )
+    """
+    The factorized log-likelihood objective function that is used
+    to optimize the hyperparameters.
+    A SVD is performed to get the eigenvalues.
+    The relative-noise hyperparameter can be searched from
+    a single eigendecomposition for each length-scale hyperparameter.
+    """
 
     def get_eig(self, model, X, Y):
         "Calculate the eigenvalues"

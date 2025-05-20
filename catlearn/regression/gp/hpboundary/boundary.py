@@ -12,6 +12,14 @@ from numpy.random import default_rng, Generator, RandomState
 
 
 class HPBoundaries:
+    """
+    Boundary conditions for the hyperparameters.
+    A dictionary with boundary conditions of the hyperparameters
+    can be given as an argument.
+    Machine precisions are used as boundary conditions for
+    the hyperparameters not given in the dictionary.
+    """
+
     def __init__(
         self,
         bounds_dict={},
@@ -22,11 +30,7 @@ class HPBoundaries:
         **kwargs,
     ):
         """
-        Boundary conditions for the hyperparameters.
-        A dictionary with boundary conditions of the hyperparameters
-        can be given as an argument.
-        Machine precisions are used as boundary conditions for
-        the hyperparameters not given in the dictionary.
+        Initialize the boundary conditions for the hyperparameters.
 
         Parameters:
             bounds_dict: dict

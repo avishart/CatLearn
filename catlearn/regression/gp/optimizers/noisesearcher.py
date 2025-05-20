@@ -9,6 +9,16 @@ from .linesearcher import (
 
 
 class NoiseGrid(LineSearchOptimizer):
+    """
+    The grid method is used as the line search optimizer.
+    The grid of relative-noise hyperparameter values is calculated
+    with the objective function.
+    The lowest of objective function values of the single grid
+    is used as the optimum.
+    A line of the relative-noise hyperparameter is required to
+    run the line search.
+    """
+
     def __init__(
         self,
         maxiter=5000,
@@ -19,16 +29,10 @@ class NoiseGrid(LineSearchOptimizer):
         **kwargs,
     ):
         """
-        The grid method is used as the line search optimizer.
-        The grid of relative-noise hyperparameter values is calculated
-        with the objective function.
-        The lowest of objective function values of the single grid
-        is used as the optimum.
-        A line of the relative-noise hyperparameter is required to
-        run the line search.
+        Initialize the relative-noise search optimizer.
 
         Parameters:
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the optimizer can use.
             jac: bool
@@ -103,7 +107,7 @@ class NoiseGrid(LineSearchOptimizer):
         The existing arguments are used if they are not given.
 
         Parameters:
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the optimizer can use.
             jac: bool
@@ -175,6 +179,14 @@ class NoiseGrid(LineSearchOptimizer):
 
 
 class NoiseGoldenSearch(GoldenSearch):
+    """
+    The golden section search method is used as the line search optimizer.
+    The line search optimizer is used for optimzing the objective function
+    wrt. the relative-noise hyperparameter.
+    A line of the relative-noise hyperparameter is required to
+    run the line search.
+    """
+
     def __init__(
         self,
         maxiter=5000,
@@ -191,14 +203,10 @@ class NoiseGoldenSearch(GoldenSearch):
         **kwargs,
     ):
         """
-        The golden section search method is used as the line search optimizer.
-        The line search optimizer is used for optimzing the objective function
-        wrt. the relative-noise hyperparameter.
-        A line of the relative-noise hyperparameter is required to
-        run the line search.
+        Initialize the relative-noise search optimizer.
 
         Parameters:
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the optimizer can use.
             jac: bool
@@ -217,23 +225,23 @@ class NoiseGoldenSearch(GoldenSearch):
             dtype: type (optional)
                 The data type of the arrays.
                 If None, the default data type is used.
-            tol : float
+            tol: float
                 A tolerance criterion for convergence.
-            optimize : bool
+            optimize: bool
                 Whether to optimize the line given by split it
                 into smaller intervals.
-            multiple_min : bool
+            multiple_min: bool
                 Whether to optimize multiple minimums or just
                 optimize the lowest minimum.
-            theta_index : int or None
+            theta_index: int or None
                 The index of the relative-noise hyperparameter that
                 is optimized with the line search.
                 If theta_index=None, then it will use the index of
                 the relative-noise.
                 If theta_index=None and no relative-noise, then theta_index=0.
-            xtol : float
+            xtol: float
                 A tolerance criterion of the hyperparameter for convergence.
-            ftol : float
+            ftol: float
                 A tolerance criterion of the objective function
                 for convergence.
         """
@@ -286,6 +294,15 @@ class NoiseGoldenSearch(GoldenSearch):
 
 
 class NoiseFineGridSearch(FineGridSearch):
+    """
+    The fine grid search method is used as the line search optimizer.
+    The line search optimizer is used for optimzing the objective function
+    wrt. the relative-noise hyperparameter.
+    Finer grids are made for all minimums of the objective function.
+    A line of the relative-noise hyperparameter is required to
+    run the line search.
+    """
+
     def __init__(
         self,
         maxiter=5000,
@@ -304,15 +321,10 @@ class NoiseFineGridSearch(FineGridSearch):
         **kwargs,
     ):
         """
-        The fine grid search method is used as the line search optimizer.
-        The line search optimizer is used for optimzing the objective function
-        wrt. the relative-noise hyperparameter.
-        Finer grids are made for all minimums of the objective function.
-        A line of the relative-noise hyperparameter is required to
-        run the line search.
+        Initialize the relative-noise search optimizer.
 
         Parameters:
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the optimizer can use.
             jac: bool
@@ -331,23 +343,23 @@ class NoiseFineGridSearch(FineGridSearch):
             dtype: type (optional)
                 The data type of the arrays.
                 If None, the default data type is used.
-            tol : float
+            tol: float
                 A tolerance criterion for convergence.
-            optimize : bool
+            optimize: bool
                 Whether to optimize the line given by split it
                 into smaller intervals.
-            multiple_min : bool
+            multiple_min: bool
                 Whether to optimize multiple minimums or just
                 optimize the lowest minimum.
-            theta_index : int or None
+            theta_index: int or None
                 The index of the relative-noise hyperparameter that
                 is optimized with the line search.
                 If theta_index=None, then it will use the index of
                 the relative-noise.
                 If theta_index=None and no relative-noise, then theta_index=0.
-            xtol : float
+            xtol: float
                 A tolerance criterion of the hyperparameter for convergence.
-            ftol : float
+            ftol: float
                 A tolerance criterion of the objective function
                 for convergence.
         """
@@ -402,6 +414,17 @@ class NoiseFineGridSearch(FineGridSearch):
 
 
 class NoiseTransGridSearch(TransGridSearch):
+    """
+    The variable transformed grid search method is used as
+    the line search optimizer.
+    The line search optimizer is used for optimzing the objective function
+    wrt. the relative-noise hyperparameter.
+    Grids are made by updating the variable transformation from
+    the objective function values.
+    A line of the relative-noise hyperparameter is required to
+    run the line search.
+    """
+
     def __init__(
         self,
         maxiter=5000,
@@ -421,17 +444,10 @@ class NoiseTransGridSearch(TransGridSearch):
         **kwargs,
     ):
         """
-        The variable transformed grid search method is used as
-        the line search optimizer.
-        The line search optimizer is used for optimzing the objective function
-        wrt. the relative-noise hyperparameter.
-        Grids are made by updating the variable transformation from
-        the objective function values.
-        A line of the relative-noise hyperparameter is required to
-        run the line search.
+        Initialize the relative-noise search optimizer.
 
         Parameters:
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the optimizer can use.
             jac: bool
@@ -450,33 +466,33 @@ class NoiseTransGridSearch(TransGridSearch):
             dtype: type (optional)
                 The data type of the arrays.
                 If None, the default data type is used.
-            tol : float
+            tol: float
                 A tolerance criterion for convergence.
-            optimize : bool
+            optimize: bool
                 Whether to optimize the line given by split it
                 into smaller intervals.
-            multiple_min : bool
+            multiple_min: bool
                 Whether to optimize multiple minimums or just
                 optimize the lowest minimum.
-            ngrid : int
+            ngrid: int
                 The number of grid points of the hyperparameter that
                 is optimized.
-            loops : int
+            loops: int
                 The number of loops where the grid points are made.
-            use_likelihood : bool
+            use_likelihood: bool
                 Whether to use the objective function as
                 a log-likelihood or not.
                 If the use_likelihood=False, the objective function is scaled
                 and shifted with the maximum value.
-            theta_index : int or None
+            theta_index: int or None
                 The index of the relative-noise hyperparameter that
                 is optimized with the line search.
                 If theta_index=None, then it will use the index of
                 the relative-noise.
                 If theta_index=None and no relative-noise, then theta_index=0.
-            xtol : float
+            xtol: float
                 A tolerance criterion of the hyperparameter for convergence.
-            ftol : float
+            ftol: float
                 A tolerance criterion of the objective function
                 for convergence.
         """

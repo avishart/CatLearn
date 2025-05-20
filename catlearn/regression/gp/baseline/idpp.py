@@ -3,6 +3,11 @@ from ..fingerprint.geometry import get_full_distance_matrix
 
 
 class IDPP(BaselineCalculator):
+    """
+    A baseline calculator for ASE Atoms instance.
+    It uses image dependent pair potential.
+    (https://doi.org/10.1063/1.4878664)
+    """
 
     def __init__(
         self,
@@ -14,8 +19,7 @@ class IDPP(BaselineCalculator):
         **kwargs,
     ):
         """
-        A baseline calculator for ASE atoms object.
-        It uses image dependent pair potential.
+        Initialize the baseline calculator.
 
         Parameters:
             target: array
@@ -30,11 +34,6 @@ class IDPP(BaselineCalculator):
             dtype: type (optional)
                 The data type of the arrays.
                 If None, the default data type is used.
-
-        See:
-            Improved initial guess for minimum energy path calculations.
-            Søren Smidstrup, Andreas Pedersen, Kurt Stokbro and Hannes Jónsson
-            Chem. Phys. 140, 214106 (2014)
         """
         super().__init__(
             reduce_dimensions=False,

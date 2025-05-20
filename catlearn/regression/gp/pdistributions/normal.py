@@ -3,14 +3,18 @@ from .pdistributions import Prior_distribution
 
 
 class Normal_prior(Prior_distribution):
+    """
+    Independent Normal or Gaussian prior distribution used for each type
+    of hyperparameters in log-space.
+    If the type of the hyperparameter is multi dimensional (H),
+    it is given in the axis=-1.
+    If multiple values (M) of the hyperparameter(/s)
+    are calculated simultaneously, it has to be in a (M,H) array.
+    """
+
     def __init__(self, mu=0.0, std=10.0, dtype=float, **kwargs):
         """
-        Independent Normal prior distribution used for each type
-        of hyperparameters in log-space.
-        If the type of the hyperparameter is multi dimensional (H),
-        it is given in the axis=-1.
-        If multiple values (M) of the hyperparameter(/s)
-        are calculated simultaneously, it has to be in a (M,H) array.
+        Initialization of the prior distribution.
 
         Parameters:
             mu: float or (H) array

@@ -6,6 +6,12 @@ from ..calculator.mlmodel import get_default_model
 
 
 class EnsembleModel:
+    """
+    Ensemble model of machine learning models.
+    The ensemble model is used to combine the predictions
+    of multiple machine learning models.
+    """
+
     def __init__(
         self,
         model=None,
@@ -16,7 +22,7 @@ class EnsembleModel:
         **kwargs,
     ):
         """
-        Ensemble model of machine learning models.
+        Initialize the ensemble model.
 
         Parameters:
             model: Model

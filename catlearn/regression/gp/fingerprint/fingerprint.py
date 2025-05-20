@@ -4,6 +4,11 @@ from .fingerprintobject import FingerprintObject
 
 
 class Fingerprint:
+    """
+    Fingerprint constructor class that convert an atoms instance into
+    a fingerprint instance with vector and derivatives.
+    """
+
     def __init__(
         self,
         reduce_dimensions=True,
@@ -12,8 +17,7 @@ class Fingerprint:
         **kwargs,
     ):
         """
-        Fingerprint constructer class that convert atoms object into
-        a fingerprint object with vector and derivatives.
+        Initialize the fingerprint constructor.
 
         Parameters:
             reduce_dimensions: bool

@@ -19,6 +19,13 @@ from ..objectivefunctions.gp.likelihood import LogLikelihood
 
 
 class ModelProcess:
+    """
+    The Model Process Regressor.
+    The Model process uses Cholesky decomposition for
+    inverting the kernel matrix.
+    The hyperparameters can be optimized.
+    """
+
     def __init__(
         self,
         prior=Prior_mean(),
@@ -31,10 +38,7 @@ class ModelProcess:
         **kwargs,
     ):
         """
-        The Model Process Regressor.
-        The Model process uses Cholesky decomposition for
-        inverting the kernel matrix.
-        The hyperparameters can be optimized.
+        Initialize the Model Process Regressor.
 
         Parameters:
             prior: Prior class

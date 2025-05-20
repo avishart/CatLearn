@@ -14,6 +14,15 @@ from .strict import StrictBoundaries
 
 
 class VariableTransformation(HPBoundaries):
+    """
+    Make variable transformation of hyperparameters into
+    an interval of (0,1).
+    A dictionary of mean and standard deviation values are used
+    to make Logistic transformations.
+    Boundary conditions can be used to calculate
+    the variable transformation parameters.
+    """
+
     def __init__(
         self,
         var_dict={},
@@ -24,12 +33,7 @@ class VariableTransformation(HPBoundaries):
         **kwargs,
     ):
         """
-        Make variable transformation of hyperparameters into
-        an interval of (0,1).
-        A dictionary of mean and standard deviation values are used
-        to make Logistic transformations.
-        Boundary conditions can be used to calculate
-        the variable transformation parameters.
+        Initialize the variable transformation of hyperparameters.
 
         Parameters:
             var_dict: dict

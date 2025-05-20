@@ -120,7 +120,18 @@ class StoredDataCalculator(Calculator):
         dtype=float,
         **results,
     ):
-        """Save the properties for the given configuration."""
+        """
+        Save the properties for the given configuration.
+
+        Parameters:
+            atoms: ASE Atoms instance
+                The ASE Atoms instance which is used.
+            dtype: data type
+                The data type of the properties.
+            results: dict
+                The properties to be saved in the calculator.
+                If not given, the properties are taken from the calculator.
+        """
         super().__init__()
         self.results = {}
         # Save the properties

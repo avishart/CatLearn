@@ -11,6 +11,16 @@ from ..means.constant import Prior_constant
 
 
 class BatchFuction(ObjectiveFuction):
+    """
+    The objective function that is used to optimize the hyperparameters.
+    The instance splits the training data into batches.
+    A given objective function is then used as
+    an objective function for the batches.
+    The function values from each batch are summed.
+    BatchFuction is not recommended for analytic prefactor or
+    noise optimized objective functions!
+    """
+
     def __init__(
         self,
         func,
@@ -23,13 +33,7 @@ class BatchFuction(ObjectiveFuction):
         **kwargs,
     ):
         """
-        The objective function that is used to optimize the hyperparameters.
-        The instance splits the training data into batches.
-        A given objective function is then used as
-        an objective function for the batches.
-        The function values from each batch are summed.
-        BatchFuction is not recommended for analytic prefactor or
-        noise optimized objective functions!
+        Initialize the objective function.
 
         Parameters:
             func: ObjectiveFunction class

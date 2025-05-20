@@ -21,6 +21,13 @@ from ..hpboundary import EducatedBoundaries, VariableTransformation
 
 
 class GlobalOptimizer(Optimizer):
+    """
+    The global optimizer used for optimzing the objective function
+    wrt. the hyperparameters.
+    The global optimizer requires a local optimization method and
+    boundary conditions of the hyperparameters.
+    """
+
     def __init__(
         self,
         local_optimizer=None,
@@ -33,10 +40,7 @@ class GlobalOptimizer(Optimizer):
         **kwargs,
     ):
         """
-        The global optimizer used for optimzing the objective function
-        wrt. the hyperparameters.
-        The global optimizer requires a local optimization method and
-        boundary conditions of the hyperparameters.
+        Initialize the global optimizer.
 
         Parameters:
             local_optimizer: Local optimizer class
@@ -263,6 +267,14 @@ class GlobalOptimizer(Optimizer):
 
 
 class RandomSamplingOptimizer(GlobalOptimizer):
+    """
+    The random sampling optimizer used for optimzing the objective function
+    wrt. the hyperparameters.
+    The random sampling optimizer samples the hyperparameters randomly
+    from the boundary conditions
+    and optimize all samples with the local optimizer.
+    """
+
     def __init__(
         self,
         local_optimizer=None,
@@ -276,11 +288,7 @@ class RandomSamplingOptimizer(GlobalOptimizer):
         **kwargs,
     ):
         """
-        The random sampling optimizer used for optimzing the objective function
-        wrt. the hyperparameters.
-        The random sampling optimizer samples the hyperparameters randomly
-        from the boundary conditions
-        and optimize all samples with the local optimizer.
+        Initialize the global optimizer.
 
         Parameters:
             local_optimizer: Local optimizer class
@@ -542,6 +550,15 @@ class RandomSamplingOptimizer(GlobalOptimizer):
 
 
 class GridOptimizer(GlobalOptimizer):
+    """
+    The grid optimizer used for optimzing the objective function
+    wrt. the hyperparameters.
+    The grid optimizer makes a grid in the hyperparameter space from
+    the boundary conditions and evaluate them.
+    The grid point with the lowest function value can be optimized
+    with the local optimizer.
+    """
+
     def __init__(
         self,
         local_optimizer=None,
@@ -556,12 +573,7 @@ class GridOptimizer(GlobalOptimizer):
         **kwargs,
     ):
         """
-        The grid optimizer used for optimzing the objective function
-        wrt. the hyperparameters.
-        The grid optimizer makes a grid in the hyperparameter space from
-        the boundary conditions and evaluate them.
-        The grid point with the lowest function value can be optimized
-        with the local optimizer.
+        Initialize the global optimizer.
 
         Parameters:
             local_optimizer: Local optimizer class
@@ -875,6 +887,18 @@ class GridOptimizer(GlobalOptimizer):
 
 
 class IterativeLineOptimizer(GridOptimizer):
+    """
+    The iteratively line optimizer used for optimzing
+    the objective function wrt. the hyperparameters.
+    The iteratively line optimizer makes a 1D grid in each dimension
+    of the hyperparameter space from the boundary conditions.
+    The grid points are then evaluated and the best value
+    updates the hyperparameter in the specific dimension.
+    This process is done iteratively over all dimensions and in loops.
+    The grid point with the lowest function value can be optimized
+    with the local optimizer.
+    """
+
     def __init__(
         self,
         local_optimizer=None,
@@ -891,15 +915,7 @@ class IterativeLineOptimizer(GridOptimizer):
         **kwargs,
     ):
         """
-        The iteratively line optimizer used for optimzing
-        the objective function wrt. the hyperparameters.
-        The iteratively line optimizer makes a 1D grid in each dimension
-        of the hyperparameter space from the boundary conditions.
-        The grid points are then evaluated and the best value
-        updates the hyperparameter in the specific dimension.
-        This process is done iteratively over all dimensions and in loops.
-        The grid point with the lowest function value can be optimized
-        with the local optimizer.
+        Initialize the global optimizer.
 
         Parameters:
             local_optimizer: Local optimizer class
@@ -1140,6 +1156,17 @@ class IterativeLineOptimizer(GridOptimizer):
 
 
 class FactorizedOptimizer(GlobalOptimizer):
+    """
+    The factorized optimizer used for optimzing
+    the objective function wrt. the hyperparameters.
+    The factorized optimizer makes a 1D grid for each
+    hyperparameter from the boundary conditions.
+    The hyperparameters are then optimized with a line search optimizer.
+    The line search optimizer optimizes only one of the hyperparameters and
+    it therefore relies on a factorization method as
+    the objective function.
+    """
+
     def __init__(
         self,
         line_optimizer=None,
@@ -1154,14 +1181,7 @@ class FactorizedOptimizer(GlobalOptimizer):
         **kwargs,
     ):
         """
-        The factorized optimizer used for optimzing
-        the objective function wrt. the hyperparameters.
-        The factorized optimizer makes a 1D grid for each
-        hyperparameter from the boundary conditions.
-        The hyperparameters are then optimized with a line search optimizer.
-        The line search optimizer optimizes only one of the hyperparameters and
-        it therefore relies on a factorization method as
-        the objective function.
+        Initialize the global optimizer.
 
         Parameters:
             line_optimizer: Line search optimizer class
@@ -1377,6 +1397,14 @@ class FactorizedOptimizer(GlobalOptimizer):
 
 
 class ScipyGlobalOptimizer(Optimizer):
+    """
+    The global optimizer used for optimzing the objective function
+    wrt. the hyperparameters.
+    The global optimizer requires a local optimization method and
+    boundary conditions of the hyperparameters.
+    This global optimizer is a wrapper to SciPy's global optimizers.
+    """
+
     def __init__(
         self,
         maxiter=5000,
@@ -1389,10 +1417,7 @@ class ScipyGlobalOptimizer(Optimizer):
         **kwargs,
     ):
         """
-        The global optimizer used for optimzing the objective function
-        wrt. the hyperparameters.
-        The global optimizer requires a local optimization method and
-        boundary conditions of the hyperparameters.
+        Initialize the global optimizer.
 
         Parameters:
             maxiter: int
@@ -1539,6 +1564,16 @@ class ScipyGlobalOptimizer(Optimizer):
 
 
 class BasinOptimizer(ScipyGlobalOptimizer):
+    """
+    The basin-hopping optimizer used for optimzing the objective function
+    wrt. the hyperparameters.
+    The basin-hopping optimizer is a wrapper to SciPy's basinhopping.
+    (https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.basinhopping.html)
+    No local optimizer and boundary conditions are given to this optimizer.
+    The local optimizer is set by keywords in the local_kwargs and
+    it uses SciPy's minimizer.
+    """
+
     def __init__(
         self,
         maxiter=5000,
@@ -1551,13 +1586,7 @@ class BasinOptimizer(ScipyGlobalOptimizer):
         **kwargs,
     ):
         """
-        The basin-hopping optimizer used for optimzing the objective function
-        wrt. the hyperparameters.
-        The basin-hopping optimizer is a wrapper to SciPy's basinhopping.
-        (https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.basinhopping.html)
-        No local optimizer and boundary conditions are given to this optimizer.
-        The local optimizer is set by keywords in the local_kwargs and
-        it uses SciPy's minimizer.
+        Initialize the global optimizer.
 
         Parameters:
             maxiter: int
@@ -1723,6 +1752,17 @@ class BasinOptimizer(ScipyGlobalOptimizer):
 
 
 class AnneallingOptimizer(ScipyGlobalOptimizer):
+    """
+    The simulated annealing optimizer used for optimzing
+    the objective function wrt. the hyperparameters.
+    The simulated annealing optimizer is a wrapper to
+    SciPy's dual_annealing.
+    (https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.dual_annealing.html)
+    No local optimizer is given to this optimizer.
+    The local optimizer is set by keywords in the local_kwargs and
+    it uses SciPy's minimizer.
+    """
+
     def __init__(
         self,
         bounds=EducatedBoundaries(use_log=True),
@@ -1736,15 +1776,7 @@ class AnneallingOptimizer(ScipyGlobalOptimizer):
         **kwargs,
     ):
         """
-        The simulated annealing optimizer used for optimzing
-        the objective function wrt. the hyperparameters.
-        The simulated annealing optimizer is a wrapper to
-        SciPy's dual_annealing.
-        (https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.dual_annealing.html)
-        No local optimizer is given to this optimizer.
-        The local optimizer is set by keywords in the local_kwargs and
-        it uses SciPy's minimizer.
-
+        Initialize the global optimizer.
 
         Parameters:
             bounds: HPBoundaries class
@@ -1939,6 +1971,19 @@ class AnneallingOptimizer(ScipyGlobalOptimizer):
 
 
 class AnneallingTransOptimizer(AnneallingOptimizer):
+    """
+    The simulated annealing optimizer used for optimzing
+    the objective functionwrt. the hyperparameters.
+    The simulated annealing optimizer is a wrapper to
+    SciPy's dual_annealing.
+    (https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.dual_annealing.html)
+    No local optimizer is given to this optimizer.
+    The local optimizer is set by keywords in the local_kwargs and
+    it uses SciPy's minimizer.
+    This simulated annealing optimizer uses variable transformation of
+    the hyperparameters to search the space.
+    """
+
     def __init__(
         self,
         bounds=VariableTransformation(),
@@ -1952,16 +1997,7 @@ class AnneallingTransOptimizer(AnneallingOptimizer):
         **kwargs,
     ):
         """
-        The simulated annealing optimizer used for optimzing
-        the objective functionwrt. the hyperparameters.
-        The simulated annealing optimizer is a wrapper to
-        SciPy's dual_annealing.
-        (https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.dual_annealing.html)
-        No local optimizer is given to this optimizer.
-        The local optimizer is set by keywords in the local_kwargs and
-        it uses SciPy's minimizer.
-        This simulated annealing optimizer uses variable transformation of
-        the hyperparameters to search the space.
+        Initialize the global optimizer.
 
         Parameters:
             bounds: VariableTransformation class

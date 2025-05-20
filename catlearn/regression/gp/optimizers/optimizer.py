@@ -5,6 +5,11 @@ from ase.parallel import world, broadcast
 
 
 class Optimizer:
+    """
+    The optimizer used for optimzing the objective function wrt.
+    the hyperparameters.
+    """
+
     def __init__(
         self,
         maxiter=5000,
@@ -15,8 +20,7 @@ class Optimizer:
         **kwargs,
     ):
         """
-        The optimizer used for optimzing the objective function
-        wrt. the hyperparameters.
+        Initialize the optimizer.
 
         Parameters:
             maxiter: int
@@ -396,10 +400,14 @@ class Optimizer:
 
 
 class FunctionEvaluation(Optimizer):
+    """
+    A method used for evaluating the objective function for
+    the given hyperparameters.
+    """
+
     def __init__(self, jac=True, parallel=False, dtype=float, **kwargs):
         """
-        A method used for evaluating the objective function for
-        the given hyperparameters.
+        Initialize the function evaluation method.
 
         Parameters:
             jac: bool

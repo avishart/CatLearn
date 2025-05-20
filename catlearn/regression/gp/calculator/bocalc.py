@@ -3,6 +3,13 @@ from ase.calculators.calculator import Calculator, all_changes
 
 
 class BOCalculator(MLCalculator):
+    """
+    The machine learning calculator object applicable as an ASE calculator for
+    ASE Atoms instance.
+    This uses an acquisition function as the energy and forces.
+    E = E_pred + kappa * sigma
+    Therefore, it is Bayesian optimization calculator object.
+    """
 
     # Define the properties available in this calculator
     implemented_properties = [
@@ -29,8 +36,7 @@ class BOCalculator(MLCalculator):
         **kwargs,
     ):
         """
-        Bayesian optimization calculator object
-        applicable as an ASE calculator.
+        Initialize the ML calculator.
 
         Parameters:
             mlmodel: MLModel class object

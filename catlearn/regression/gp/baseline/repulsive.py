@@ -9,6 +9,13 @@ from ..fingerprint.geometry import (
 
 
 class RepulsionCalculator(BaselineCalculator):
+    """
+    A baseline calculator for ASE Atoms instance.
+    It uses a repulsive Lennard-Jones potential baseline.
+    The power and the scaling of the repulsive Lennard-Jones potential
+    can be selected.
+    """
+
     implemented_properties = ["energy", "forces"]
     nolabel = True
 
@@ -30,10 +37,7 @@ class RepulsionCalculator(BaselineCalculator):
         **kwargs,
     ):
         """
-        A baseline calculator for ASE atoms object.
-        It uses a repulsive Lennard-Jones potential baseline.
-        The power and the scaling of the repulsive Lennard-Jones potential
-        can be selected.
+        Initialize the baseline calculator.
 
         Parameters:
             reduce_dimensions: bool

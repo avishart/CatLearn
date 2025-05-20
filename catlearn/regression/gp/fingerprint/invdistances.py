@@ -8,6 +8,13 @@ from .distances import Distances
 
 
 class InvDistances(Distances):
+    """
+    Fingerprint constructor class that convert an atoms instance into
+    a fingerprint instance with vector and derivatives.
+    The inverse distances are constructed as the fingerprint.
+    The inverse distances are scaled with covalent radii.
+    """
+
     def __init__(
         self,
         reduce_dimensions=True,
@@ -26,10 +33,7 @@ class InvDistances(Distances):
         **kwargs,
     ):
         """
-        Fingerprint constructer class that convert atoms object into
-        a fingerprint object with vector and derivatives.
-        The inverse distance fingerprint constructer class.
-        The inverse distances are scaled with covalent radii.
+        Initialize the fingerprint constructor.
 
         Parameters:
             reduce_dimensions: bool

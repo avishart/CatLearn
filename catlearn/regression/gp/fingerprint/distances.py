@@ -12,6 +12,13 @@ from .fingerprint import Fingerprint
 
 
 class Distances(Fingerprint):
+    """
+    Fingerprint constructor class that convert an atoms instance into
+    a fingerprint instance with vector and derivatives.
+    The distances fingerprint is generated.
+    The distances are scaled with covalent radii.
+    """
+
     def __init__(
         self,
         reduce_dimensions=True,
@@ -27,10 +34,7 @@ class Distances(Fingerprint):
         **kwargs,
     ):
         """
-        Fingerprint constructer class that convert atoms object into
-        a fingerprint object with vector and derivatives.
-        The distance fingerprint constructer class.
-        The distances are scaled with covalent radii.
+        Initialize the fingerprint constructor.
 
         Parameters:
             reduce_dimensions: bool

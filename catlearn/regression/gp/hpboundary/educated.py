@@ -4,6 +4,13 @@ from .restricted import RestrictedBoundaries
 
 
 class EducatedBoundaries(RestrictedBoundaries):
+    """
+    Boundary conditions for the hyperparameters with educated guess for
+    the length-scale, relative-noise, and prefactor hyperparameters.
+    Machine precisions are used as boundary conditions for
+    other hyperparameters not given in the dictionary.
+    """
+
     def __init__(
         self,
         bounds_dict={},
@@ -17,10 +24,7 @@ class EducatedBoundaries(RestrictedBoundaries):
         **kwargs,
     ):
         """
-        Boundary conditions for the hyperparameters with educated guess for
-        the length-scale, relative-noise, and prefactor hyperparameters.
-        Machine precisions are used as boundary conditions for
-        other hyperparameters not given in the dictionary.
+        Initialize the boundary conditions for the hyperparameters.
 
         Parameters:
             bounds_dict: dict

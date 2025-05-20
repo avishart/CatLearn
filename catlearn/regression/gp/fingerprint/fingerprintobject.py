@@ -2,11 +2,15 @@ from numpy import asarray
 
 
 class FingerprintObject:
+    """
+    Fingerprint object class that has the fingerprint vector for an
+    ASE Atoms instance.
+    The derivatives wrt. to the cartesian coordinates can also be saved.
+    """
+
     def __init__(self, vector, derivative=None, **kwargs):
         """
-        Fingerprint object class that has the fingerprint vector
-        for an Atoms object.
-        The derivatives wrt. to the cartesian coordinates can also be saved.
+        Initialize the fingerprint object.
 
         Parameters:
             vector: (N) array

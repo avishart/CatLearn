@@ -1,4 +1,3 @@
-# import numpy as np
 from numpy import (
     append,
     arange,
@@ -17,6 +16,13 @@ from .database import Database
 
 
 class DatabaseReduction(Database):
+    """
+    Database of ASE Atoms instances that are converted
+    into stored fingerprints and targets.
+    The used Database is a reduced set of the full Database.
+    The reduction is done with a method that is defined in the class.
+    """
+
     def __init__(
         self,
         fingerprint=None,
@@ -32,10 +38,7 @@ class DatabaseReduction(Database):
         **kwargs,
     ):
         """
-        Database of ASE atoms objects that are converted
-        into fingerprints and targets.
-        The used Database is a reduced set of the full Database.
-        The reduced data set is selected from a method.
+        Initialize the database.
 
         Parameters:
             fingerprint: Fingerprint object
@@ -330,67 +333,13 @@ class DatabaseReduction(Database):
 
 
 class DatabaseDistance(DatabaseReduction):
-    def __init__(
-        self,
-        fingerprint=None,
-        reduce_dimensions=True,
-        use_derivatives=True,
-        use_fingerprint=True,
-        round_targets=None,
-        seed=None,
-        dtype=float,
-        npoints=25,
-        initial_indicies=[0],
-        include_last=1,
-        **kwargs,
-    ):
-        """
-        Database of ASE atoms objects that are converted
-        into fingerprints and targets.
-        The used Database is a reduced set of the full Database.
-        The reduced data set is selected from the distances.
-
-        Parameters:
-            fingerprint: Fingerprint object
-                An object as a fingerprint class
-                that convert atoms to fingerprint.
-            reduce_dimensions: bool
-                Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives: bool
-                Whether to use derivatives/forces in the targets.
-            use_fingerprint: bool
-                Whether the kernel uses fingerprint objects (True)
-                or arrays (False).
-            round_targets: int (optional)
-                The number of decimals to round the targets to.
-                If None, the targets are not rounded.
-            seed: int (optional)
-                The random seed.
-                The seed an also be a RandomState or Generator instance.
-                If not given, the default random number generator is used.
-            dtype: type
-                The data type of the arrays.
-            npoints: int
-                Number of points that are used from the database.
-            initial_indicies: list
-                The indicies of the data points that must be included
-                in the used data base.
-            include_last: int
-                Number of last data point to include in the used data base.
-        """
-        super().__init__(
-            fingerprint=fingerprint,
-            reduce_dimensions=reduce_dimensions,
-            use_derivatives=use_derivatives,
-            use_fingerprint=use_fingerprint,
-            round_targets=round_targets,
-            seed=seed,
-            dtype=dtype,
-            npoints=npoints,
-            initial_indicies=initial_indicies,
-            include_last=include_last,
-            **kwargs,
-        )
+    """
+    Database of ASE Atoms instances that are converted
+    into stored fingerprints and targets.
+    The used Database is a reduced set of the full Database.
+    The reduction is done by selecting the points with the
+    largest distances from each other.
+    """
 
     def make_reduction(self, all_indicies, **kwargs):
         "Reduce the training set with the points farthest from each other."
@@ -421,67 +370,12 @@ class DatabaseDistance(DatabaseReduction):
 
 
 class DatabaseRandom(DatabaseReduction):
-    def __init__(
-        self,
-        fingerprint=None,
-        reduce_dimensions=True,
-        use_derivatives=True,
-        use_fingerprint=True,
-        round_targets=None,
-        seed=None,
-        dtype=float,
-        npoints=25,
-        initial_indicies=[0],
-        include_last=1,
-        **kwargs,
-    ):
-        """
-        Database of ASE atoms objects that are converted
-        into fingerprints and targets.
-        The used Database is a reduced set of the full Database.
-        The reduced data set is selected from random.
-
-        Parameters:
-            fingerprint: Fingerprint object
-                An object as a fingerprint class
-                that convert atoms to fingerprint.
-            reduce_dimensions: bool
-                Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives: bool
-                Whether to use derivatives/forces in the targets.
-            use_fingerprint: bool
-                Whether the kernel uses fingerprint objects (True)
-                or arrays (False).
-            round_targets: int (optional)
-                The number of decimals to round the targets to.
-                If None, the targets are not rounded.
-            seed: int (optional)
-                The random seed.
-                The seed an also be a RandomState or Generator instance.
-                If not given, the default random number generator is used.
-            dtype: type
-                The data type of the arrays.
-            npoints: int
-                Number of points that are used from the database.
-            initial_indicies: list
-                The indicies of the data points that must be included
-                in the used data base.
-            include_last: int
-                Number of last data point to include in the used data base.
-        """
-        super().__init__(
-            fingerprint=fingerprint,
-            reduce_dimensions=reduce_dimensions,
-            use_derivatives=use_derivatives,
-            use_fingerprint=use_fingerprint,
-            round_targets=round_targets,
-            seed=seed,
-            dtype=dtype,
-            npoints=npoints,
-            initial_indicies=initial_indicies,
-            include_last=include_last,
-            **kwargs,
-        )
+    """
+    Database of ASE Atoms instances that are converted
+    into stored fingerprints and targets.
+    The used Database is a reduced set of the full Database.
+    The reduction is done by selecting the points randomly.
+    """
 
     def make_reduction(self, all_indicies, **kwargs):
         "Random select the training points."
@@ -504,6 +398,15 @@ class DatabaseRandom(DatabaseReduction):
 
 
 class DatabaseHybrid(DatabaseReduction):
+    """
+    Database of ASE Atoms instances that are converted
+    into stored fingerprints and targets.
+    The used Database is a reduced set of the full Database.
+    The reduction is done by selecting the points with the
+    largest distances from each other and randomly.
+    The random points are selected at every random_fraction step.
+    """
+
     def __init__(
         self,
         fingerprint=None,
@@ -520,11 +423,7 @@ class DatabaseHybrid(DatabaseReduction):
         **kwargs,
     ):
         """
-        Database of ASE atoms objects that are converted
-        into fingerprints and targets.
-        The used Database is a reduced set of the full Database.
-        The reduced data set is selected from a mix of
-        the distances and random.
+        Initialize the database.
 
         Parameters:
             fingerprint: Fingerprint object
@@ -706,6 +605,14 @@ class DatabaseHybrid(DatabaseReduction):
 
 
 class DatabaseMin(DatabaseReduction):
+    """
+    Database of ASE Atoms instances that are converted
+    into stored fingerprints and targets.
+    The used Database is a reduced set of the full Database.
+    The reduction is done by selecting the points with the
+    smallest targets.
+    """
+
     def __init__(
         self,
         fingerprint=None,
@@ -722,10 +629,7 @@ class DatabaseMin(DatabaseReduction):
         **kwargs,
     ):
         """
-        Database of ASE atoms objects that are converted
-        into fingerprints and targets.
-        The used Database is a reduced set of the full Database.
-        The reduced data set is selected from the smallest targets.
+        Initialize the database.
 
         Parameters:
             fingerprint: Fingerprint object
@@ -764,6 +668,7 @@ class DatabaseMin(DatabaseReduction):
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
             round_targets=round_targets,
+            seed=seed,
             dtype=dtype,
             npoints=npoints,
             initial_indicies=initial_indicies,
@@ -899,67 +804,12 @@ class DatabaseMin(DatabaseReduction):
 
 
 class DatabaseLast(DatabaseReduction):
-    def __init__(
-        self,
-        fingerprint=None,
-        reduce_dimensions=True,
-        use_derivatives=True,
-        use_fingerprint=True,
-        round_targets=None,
-        seed=None,
-        dtype=float,
-        npoints=25,
-        initial_indicies=[0],
-        include_last=1,
-        **kwargs,
-    ):
-        """
-        Database of ASE atoms objects that are converted
-        into fingerprints and targets.
-        The used Database is a reduced set of the full Database.
-        The reduced data set is selected from the last data points.
-
-        Parameters:
-            fingerprint: Fingerprint object
-                An object as a fingerprint class
-                that convert atoms to fingerprint.
-            reduce_dimensions: bool
-                Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives: bool
-                Whether to use derivatives/forces in the targets.
-            use_fingerprint: bool
-                Whether the kernel uses fingerprint objects (True)
-                or arrays (False).
-            round_targets: int (optional)
-                The number of decimals to round the targets to.
-                If None, the targets are not rounded.
-            seed: int (optional)
-                The random seed.
-                The seed an also be a RandomState or Generator instance.
-                If not given, the default random number generator is used.
-            dtype: type
-                The data type of the arrays.
-            npoints: int
-                Number of points that are used from the database.
-            initial_indicies: list
-                The indicies of the data points that must be included
-                in the used data base.
-            include_last: int
-                Number of last data point to include in the used data base.
-        """
-        super().__init__(
-            fingerprint=fingerprint,
-            reduce_dimensions=reduce_dimensions,
-            use_derivatives=use_derivatives,
-            use_fingerprint=use_fingerprint,
-            round_targets=round_targets,
-            seed=seed,
-            dtype=dtype,
-            npoints=npoints,
-            initial_indicies=initial_indicies,
-            include_last=include_last,
-            **kwargs,
-        )
+    """
+    Database of ASE Atoms instances that are converted
+    into stored fingerprints and targets.
+    The used Database is a reduced set of the full Database.
+    The reduction is done by selecting the last points in the database.
+    """
 
     def make_reduction(self, all_indicies, **kwargs):
         "Use the last data points."
@@ -976,68 +826,13 @@ class DatabaseLast(DatabaseReduction):
 
 
 class DatabaseRestart(DatabaseReduction):
-    def __init__(
-        self,
-        fingerprint=None,
-        reduce_dimensions=True,
-        use_derivatives=True,
-        use_fingerprint=True,
-        round_targets=None,
-        seed=None,
-        dtype=float,
-        npoints=25,
-        initial_indicies=[0],
-        include_last=1,
-        **kwargs,
-    ):
-        """
-        Database of ASE atoms objects that are converted
-        into fingerprints and targets.
-        The used Database is a reduced set of the full Database.
-        The reduced data set is selected from restarts after npoints are used.
-        The initial indicies and the last data point is used at each restart.
-
-        Parameters:
-            fingerprint: Fingerprint object
-                An object as a fingerprint class
-                that convert atoms to fingerprint.
-            reduce_dimensions: bool
-                Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives: bool
-                Whether to use derivatives/forces in the targets.
-            use_fingerprint: bool
-                Whether the kernel uses fingerprint objects (True)
-                or arrays (False).
-            round_targets: int (optional)
-                The number of decimals to round the targets to.
-                If None, the targets are not rounded.
-            seed: int (optional)
-                The random seed.
-                The seed an also be a RandomState or Generator instance.
-                If not given, the default random number generator is used.
-            dtype: type
-                The data type of the arrays.
-            npoints: int
-                Number of points that are used from the database.
-            initial_indicies: list
-                The indicies of the data points that must be included
-                in the used data base.
-            include_last: int
-                Number of last data point to include in the used data base.
-        """
-        super().__init__(
-            fingerprint=fingerprint,
-            reduce_dimensions=reduce_dimensions,
-            use_derivatives=use_derivatives,
-            use_fingerprint=use_fingerprint,
-            round_targets=round_targets,
-            seed=seed,
-            dtype=dtype,
-            npoints=npoints,
-            initial_indicies=initial_indicies,
-            include_last=include_last,
-            **kwargs,
-        )
+    """
+    Database of ASE Atoms instances that are converted
+    into stored fingerprints and targets.
+    The used Database is a reduced set of the full Database.
+    The reduced data set is selected from restarts after npoints are used.
+    The initial indicies and the last data point is used at each restart.
+    """
 
     def make_reduction(self, all_indicies, **kwargs):
         "Make restart of used data set."
@@ -1068,6 +863,16 @@ class DatabaseRestart(DatabaseReduction):
 
 
 class DatabasePointsInterest(DatabaseLast):
+    """
+    Database of ASE Atoms instances that are converted
+    into stored fingerprints and targets.
+    The used Database is a reduced set of the full Database.
+    The reduced data set is selected from the distances
+    to the points of interest.
+    The distance metric is the shortest distance
+    to any of the points of interest.
+    """
+
     def __init__(
         self,
         fingerprint=None,
@@ -1085,13 +890,7 @@ class DatabasePointsInterest(DatabaseLast):
         **kwargs,
     ):
         """
-        Database of ASE atoms objects that are converted
-        into fingerprints and targets.
-        The used Database is a reduced set of the full Database.
-        The reduced data set is selected from the distances
-        to the points of interest.
-        The distance metric is the shortest distance
-        to any of the points of interest.
+        Initialize the database.
 
         Parameters:
             fingerprint: Fingerprint object
@@ -1354,79 +1153,15 @@ class DatabasePointsInterest(DatabaseLast):
 
 
 class DatabasePointsInterestEach(DatabasePointsInterest):
-    def __init__(
-        self,
-        fingerprint=None,
-        reduce_dimensions=True,
-        use_derivatives=True,
-        use_fingerprint=True,
-        round_targets=None,
-        seed=None,
-        dtype=float,
-        npoints=25,
-        initial_indicies=[0],
-        include_last=1,
-        feature_distance=True,
-        point_interest=[],
-        **kwargs,
-    ):
-        """
-        Database of ASE atoms objects that are converted
-        into fingerprints and targets.
-        The used Database is a reduced set of the full Database.
-        The reduced data set is selected from the distances
-        to each point of interest.
-        The distance metric is the shortest distance to the point of interest
-        and it is performed iteratively.
-
-        Parameters:
-            fingerprint: Fingerprint object
-                An object as a fingerprint class
-                that convert atoms to fingerprint.
-            reduce_dimensions: bool
-                Whether to reduce the fingerprint space if constrains are used.
-            use_derivatives: bool
-                Whether to use derivatives/forces in the targets.
-            use_fingerprint: bool
-                Whether the kernel uses fingerprint objects (True)
-                or arrays (False).
-            round_targets: int (optional)
-                The number of decimals to round the targets to.
-                If None, the targets are not rounded.
-            seed: int (optional)
-                The random seed.
-                The seed an also be a RandomState or Generator instance.
-                If not given, the default random number generator is used.
-            dtype: type
-                The data type of the arrays.
-            npoints: int
-                Number of points that are used from the database.
-            initial_indicies: list
-                The indicies of the data points that must be included
-                in the used data base.
-            include_last: int
-                Number of last data point to include in the used data base.
-            feature_distance: bool
-                Whether to calculate the distance in feature space (True)
-                or Cartesian coordinate space (False).
-            point_interest: list
-                A list of the points of interest as ASE Atoms instances.
-        """
-        super().__init__(
-            fingerprint=fingerprint,
-            reduce_dimensions=reduce_dimensions,
-            use_derivatives=use_derivatives,
-            use_fingerprint=use_fingerprint,
-            round_targets=round_targets,
-            seed=seed,
-            dtype=dtype,
-            npoints=npoints,
-            initial_indicies=initial_indicies,
-            include_last=include_last,
-            feature_distance=feature_distance,
-            point_interest=point_interest,
-            **kwargs,
-        )
+    """
+    Database of ASE Atoms instances that are converted
+    into stored fingerprints and targets.
+    The used Database is a reduced set of the full Database.
+    The reduced data set is selected from the distances
+    to each point of interest.
+    The distance metric is the shortest distance to the point of interest
+    and it is performed iteratively.
+    """
 
     def make_reduction(self, all_indicies, **kwargs):
         """

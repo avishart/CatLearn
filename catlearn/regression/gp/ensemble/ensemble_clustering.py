@@ -4,6 +4,13 @@ from .clustering.k_means_number import K_means_number
 
 
 class EnsembleClustering(EnsembleModel):
+    """
+    Ensemble model of machine learning models.
+    The ensemble model is used to combine the predictions
+    of multiple machine learning models.
+    The ensemle models are chosen by a clustering algorithm.
+    """
+
     def __init__(
         self,
         model=None,
@@ -15,8 +22,7 @@ class EnsembleClustering(EnsembleModel):
         **kwargs,
     ):
         """
-        Ensemble model of machine learning models with ensembles
-        from a clustering algorithm..
+        Initialize the ensemble model.
 
         Parameters:
             model: Model

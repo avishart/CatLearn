@@ -29,6 +29,12 @@ from .hpfitter import HyperparameterFitter, VariableTransformation
 
 
 class FBPMGP(HyperparameterFitter):
+    """
+    This class is used to find the best Gaussian Process
+    that mimics the Full-Bayesian predictive distribution.
+    It only works with a Gaussian Process.
+    """
+
     def __init__(
         self,
         Q=None,
@@ -42,9 +48,7 @@ class FBPMGP(HyperparameterFitter):
         **kwargs,
     ):
         """
-        Get the best Gaussian Process that mimics
-        the Full-Bayesian predictive distribution.
-        It only works with a Gaussian Process.
+        Initialize the class with its arguments.
 
         Parameters:
             Q: (M,D) array

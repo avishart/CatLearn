@@ -21,6 +21,14 @@ from ase.parallel import world
 
 
 class LineSearchOptimizer(LocalOptimizer):
+    """
+    The line search optimizer is used for optimzing
+    the objective function wrt. a single hyperparameter.
+    The LineSearchOptimizer does only work together with a GlobalOptimizer
+    that uses line searches (e.g. FactorizedOptimizer).
+    A line of the hyperparameter is required to run the line search.
+    """
+
     def __init__(
         self,
         maxiter=5000,
@@ -37,11 +45,7 @@ class LineSearchOptimizer(LocalOptimizer):
         **kwargs,
     ):
         """
-        The line search optimizer is used for optimzing
-        the objective function wrt. a single hyperparameter.
-        The LineSearchOptimizer does only work together with a GlobalOptimizer
-        that uses line searches (e.g. FactorizedOptimizer).
-        A line of the hyperparameter is required to run the line search.
+        Initialize the line search optimizer.
 
         Parameters:
             maxiter: int
@@ -374,82 +378,14 @@ class LineSearchOptimizer(LocalOptimizer):
 
 
 class GoldenSearch(LineSearchOptimizer):
-    def __init__(
-        self,
-        maxiter=5000,
-        jac=False,
-        parallel=False,
-        seed=None,
-        dtype=float,
-        tol=1e-5,
-        optimize=True,
-        multiple_min=True,
-        theta_index=None,
-        xtol=None,
-        ftol=None,
-        **kwargs,
-    ):
-        """
-        The golden section search method is used as the line search optimizer.
-        The line search optimizer is used for
-        optimzing the objective function wrt. a single the hyperparameter.
-        The GoldenSearch does only work together with a GlobalOptimizer
-        that uses line searches (e.g. FactorizedOptimizer).
-        A line of the hyperparameter is required to run the line search.
-
-        Parameters:
-            maxiter: int
-                The maximum number of evaluations or iterations
-                the optimizer can use.
-            jac: bool
-                Whether to use the gradient of the objective function
-                wrt. the hyperparameters.
-                The line search optimizers cannot use gradients
-                of the objective function.
-            parallel: bool
-                Whether to calculate the grid points in parallel
-                over multiple CPUs.
-            seed: int (optional)
-                The random seed.
-                The seed can be an integer, RandomState, or Generator instance.
-                If not given, the default random number generator is used.
-            dtype: type (optional)
-                The data type of the arrays.
-                If None, the default data type is used.
-            tol: float
-                A tolerance criterion for convergence.
-            optimize: bool
-                Whether to optimize the line given by split it
-                into smaller intervals.
-            multiple_min: bool
-                Whether to optimize multiple minimums or just
-                optimize the lowest minimum.
-            theta_index: int or None
-                The index of the hyperparameter that is
-                optimized with the line search.
-                If theta_index=None, then it will use the index of
-                the length-scale.
-                If theta_index=None and no length-scale, then theta_index=0.
-            xtol: float
-                A tolerance criterion of the hyperparameter for convergence.
-            ftol: float
-                A tolerance criterion of the objective function
-                for convergence.
-        """
-        super().__init__(
-            maxiter=maxiter,
-            jac=jac,
-            parallel=parallel,
-            seed=seed,
-            dtype=dtype,
-            tol=tol,
-            optimize=optimize,
-            multiple_min=multiple_min,
-            theta_index=theta_index,
-            xtol=xtol,
-            ftol=ftol,
-            **kwargs,
-        )
+    """
+    The golden section search method is used as the line search optimizer.
+    The line search optimizer is used for optimzing the objective function
+    wrt. a single the hyperparameter.
+    The GoldenSearch does only work together with a GlobalOptimizer
+    that uses line searches (e.g. FactorizedOptimizer).
+    A line of the hyperparameter is required to run the line search.
+    """
 
     def run(self, func, line, parameters, model, X, Y, pdis, **kwargs):
         # Get the function arguments
@@ -659,6 +595,16 @@ class GoldenSearch(LineSearchOptimizer):
 
 
 class FineGridSearch(LineSearchOptimizer):
+    """
+    The fine grid search method is used as the line search optimizer.
+    The line search optimizer is used for optimzing the objective function
+    wrt. a single the hyperparameter.
+    Finer grids are made for all minimums of the objective function.
+    The FineGridSearch does only work together with a GlobalOptimizer
+    that uses line searches (e.g. FactorizedOptimizer).
+    A line of the hyperparameter is required to run the line search.
+    """
+
     def __init__(
         self,
         maxiter=5000,
@@ -677,13 +623,7 @@ class FineGridSearch(LineSearchOptimizer):
         **kwargs,
     ):
         """
-        The fine grid search method is used as the line search optimizer.
-        The line search optimizer is used for optimzing the objective function
-        wrt. a single the hyperparameter.
-        Finer grids are made for all minimums of the objective function.
-        The FineGridSearch does only work together with a GlobalOptimizer
-        that uses line searches (e.g. FactorizedOptimizer).
-        A line of the hyperparameter is required to run the line search.
+        Initialize the line search optimizer.
 
         Parameters:
             maxiter: int
@@ -1034,6 +974,18 @@ class FineGridSearch(LineSearchOptimizer):
 
 
 class TransGridSearch(FineGridSearch):
+    """
+    The variable transformed grid search method is used
+    as the line search optimizer.
+    The line search optimizer is used for optimzing
+    the objective function wrt. a single the hyperparameter.
+    Grids are made by updating the variable transformation from
+    the objective function values.
+    The TransGridSearch does only work together with a GlobalOptimizer
+    that uses line searches (e.g. FactorizedOptimizer).
+    A line of the hyperparameter is required to run the line search.
+    """
+
     def __init__(
         self,
         maxiter=5000,
@@ -1053,15 +1005,7 @@ class TransGridSearch(FineGridSearch):
         **kwargs,
     ):
         """
-        The variable transformed grid search method is used
-        as the line search optimizer.
-        The line search optimizer is used for optimzing
-        the objective function wrt. a single the hyperparameter.
-        Grids are made by updating the variable transformation from
-        the objective function values.
-        The TransGridSearch does only work together with a GlobalOptimizer
-        that uses line searches (e.g. FactorizedOptimizer).
-        A line of the hyperparameter is required to run the line search.
+        Initialize the line search optimizer.
 
         Parameters:
             maxiter: int
@@ -1072,7 +1016,7 @@ class TransGridSearch(FineGridSearch):
                 wrt. the hyperparameters.
                 The line search optimizers cannot use gradients
                 of the objective function.
-            parallel : bool
+            parallel: bool
                 Whether to calculate the grid points in parallel
                 over multiple CPUs.
             seed: int (optional)
@@ -1166,7 +1110,7 @@ class TransGridSearch(FineGridSearch):
                 wrt. the hyperparameters.
                 The line search optimizers cannot use gradients
                 of the objective function.
-            parallel : bool
+            parallel: bool
                 Whether to calculate the grid points in parallel
                 over multiple CPUs.
             seed: int (optional)

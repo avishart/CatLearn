@@ -15,6 +15,16 @@ from ...optimizers.noisesearcher import NoiseFineGridSearch
 
 
 class FactorizedLogLikelihood(ObjectiveFuction):
+    """
+    The factorized log-likelihood objective function that is used
+    to optimize the hyperparameters.
+    The prefactor hyperparameter is determined from
+    an analytical expression.
+    An eigendecomposition is performed to get the eigenvalues.
+    The relative-noise hyperparameter can be searched from
+    a single eigendecomposition for each length-scale hyperparameter.
+    """
+
     def __init__(
         self,
         get_prior_mean=False,
@@ -26,13 +36,7 @@ class FactorizedLogLikelihood(ObjectiveFuction):
         **kwargs,
     ):
         """
-        The factorized log-likelihood objective function that is used
-        to optimize the hyperparameters.
-        The prefactor hyperparameter is determined from
-        an analytical expression.
-        An eigendecomposition is performed to get the eigenvalues.
-        The relative-noise hyperparameter can be searched from
-        a single eigendecomposition for each length-scale hyperparameter.
+        Initialize the objective function.
 
         Parameters:
             get_prior_mean: bool

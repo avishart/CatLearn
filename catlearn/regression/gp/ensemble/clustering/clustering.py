@@ -2,6 +2,10 @@ from numpy.random import default_rng, Generator, RandomState
 
 
 class Clustering:
+    """
+    Clustering algorithn class for data sets.
+    """
+
     def __init__(
         self,
         seed=None,
@@ -9,7 +13,7 @@ class Clustering:
         **kwargs,
     ):
         """
-        Clustering class object for data sets.
+        Initialize the clustering algorithm.
 
         Parameters:
             seed: int (optional)

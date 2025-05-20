@@ -3,6 +3,14 @@ from .sumdistances import SumDistances
 
 
 class SumDistancesPower(SumDistances):
+    """
+    Fingerprint constructor class that convert an atoms instance into
+    a fingerprint instance with vector and derivatives.
+    The sum of multiple powers of the inverse distance fingerprint
+    constructer class.
+    The inverse distances are scaled with covalent radii.
+    """
+
     def __init__(
         self,
         reduce_dimensions=True,
@@ -26,11 +34,7 @@ class SumDistancesPower(SumDistances):
         **kwargs,
     ):
         """
-        Fingerprint constructer class that convert atoms object into
-        a fingerprint object with vector and derivatives.
-        The sum of dfferent powers of
-        the inverse distances fingerprint constructer class.
-        The inverse distances are scaled with covalent radii.
+        Initialize the fingerprint constructor.
 
         Parameters:
             reduce_dimensions: bool

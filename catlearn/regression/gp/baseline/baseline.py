@@ -3,6 +3,11 @@ from ase.calculators.calculator import Calculator, all_changes
 
 
 class BaselineCalculator(Calculator):
+    """
+    A baseline calculator for ASE Atoms instance.
+    It uses a flat baseline with zero energy and forces.
+    """
+
     implemented_properties = ["energy", "forces"]
     nolabel = True
 
@@ -14,8 +19,7 @@ class BaselineCalculator(Calculator):
         **kwargs,
     ):
         """
-        A baseline calculator for ASE atoms object.
-        It uses a flat baseline with zero energy and forces.
+        Initialize the baseline calculator.
 
         Parameters:
             reduce_dimensions: bool

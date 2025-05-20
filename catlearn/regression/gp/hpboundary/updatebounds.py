@@ -3,6 +3,15 @@ from .boundary import HPBoundaries
 
 
 class UpdatingBoundaries(HPBoundaries):
+    """
+    An updating boundary conditions for the hyperparameters.
+    Previous solutions to the hyperparameters can be used to
+    updating the boundary conditions.
+    The bounds and the solutions are treated as Normal distributions.
+    A Normal distribution of a mixture model is then treated as
+    the updated boundary conditions.
+    """
+
     def __init__(
         self,
         bounds=None,
@@ -15,12 +24,7 @@ class UpdatingBoundaries(HPBoundaries):
         **kwargs,
     ):
         """
-        An updating boundary conditions for the hyperparameters.
-        Previous solutions to the hyperparameters can be used to
-        updating the boundary conditions.
-        The bounds and the solutions are treated as Normal distributions.
-        A Normal distribution of a mixture model is then treated as
-        the updated boundary conditions.
+        Initialize the boundary conditions for the hyperparameters.
 
         Parameters:
             bounds: Boundary condition class

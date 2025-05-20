@@ -3,6 +3,13 @@ from .repulsive import RepulsionCalculator
 
 
 class BornRepulsionCalculator(RepulsionCalculator):
+    """
+    A baseline calculator for ASE Atoms instance.
+    It uses the Born repulsion potential.
+    A cutoff distance is used to remove the repulsion
+    at larger distances.
+    """
+
     implemented_properties = ["energy", "forces"]
     nolabel = True
 
@@ -23,10 +30,7 @@ class BornRepulsionCalculator(RepulsionCalculator):
         **kwargs,
     ):
         """
-        A baseline calculator for ASE atoms object.
-        It uses a repulsive Lennard-Jones potential baseline.
-        The power and the scaling of the repulsive Lennard-Jones potential
-        can be selected.
+        Initialize the baseline calculator.
 
         Parameters:
             reduce_dimensions: bool

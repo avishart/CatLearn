@@ -4,67 +4,13 @@ from .educated import EducatedBoundaries
 
 
 class StrictBoundaries(EducatedBoundaries):
-    def __init__(
-        self,
-        bounds_dict={},
-        scale=1.0,
-        use_log=True,
-        max_length=True,
-        use_derivatives=False,
-        use_prior_mean=True,
-        seed=None,
-        dtype=float,
-        **kwargs
-    ):
-        """
-        Boundary conditions for the hyperparameters with educated guess for
-        the length-scale, relative-noise, and prefactor hyperparameters.
-        Stricter boundary conditions are used for
-        the length-scale hyperparameter.
-        Machine precisions are used as boundary conditions for
-        other hyperparameters not given in the dictionary.
-
-        Parameters:
-            bounds_dict: dict
-                A dictionary with boundary conditions as numpy (H,2) arrays
-                with two columns for each type of hyperparameter.
-            scale: float
-                Scale the boundary conditions.
-            use_log: bool
-                Whether to use hyperparameters in log-scale or not.
-            max_length: bool
-                Whether to use the maximum scaling for the length-scale or
-                use a more reasonable scaling.
-            use_derivatives: bool
-                Whether the derivatives of the target are used in the model.
-                The boundary conditions of the length-scale hyperparameter(s)
-                will change with the use_derivatives.
-                The use_derivatives will be updated when
-                update_bounds is called.
-            use_prior_mean: bool
-                Whether to use the prior mean to calculate the boundary of
-                the prefactor hyperparameter.
-                If use_prior_mean=False, the minimum and maximum target
-                differences are used as the boundary conditions.
-            seed: int (optional)
-                The random seed.
-                The seed can be an integer, RandomState, or Generator instance.
-                If not given, the default random number generator is used.
-            dtype: type (optional)
-                The data type of the arrays.
-                If None, the default data type is used.
-        """
-        super().__init__(
-            bounds_dict=bounds_dict,
-            scale=scale,
-            use_log=use_log,
-            max_length=max_length,
-            use_derivatives=use_derivatives,
-            use_prior_mean=use_prior_mean,
-            seed=seed,
-            dtype=dtype,
-            **kwargs,
-        )
+    """
+    Boundary conditions for the hyperparameters with educated guess for
+    the length-scale, relative-noise, and prefactor hyperparameters.
+    Stricter boundary conditions are used for the length-scale hyperparameter.
+    Machine precisions are used as boundary conditions for
+    other hyperparameters not given in the dictionary.
+    """
 
     def length_bound(self, X, l_dim, **kwargs):
         """

@@ -4,6 +4,15 @@ from .mlcalc import MLCalculator
 
 
 class HierarchicalMLModel(MLModel):
+    """
+    Machine Learning model used for the ASE Atoms instances and
+    in the machine learning calculators.
+    It is a hierarchy of ML models where the first model is used
+    for the first npoints data points. A new model is made when the
+    number of data points exceed the number of points.
+    The old models are used as a baseline.
+    """
+
     def __init__(
         self,
         model=None,
@@ -20,11 +29,7 @@ class HierarchicalMLModel(MLModel):
         **kwargs,
     ):
         """
-        A hierarchy of Machine Learning model used for
-        ASE Atoms and calculator.
-        A new model is made when the number of data points
-        exceed the number of points.
-        The old models are used as a baseline.
+        Initialize the ML model for Atoms.
 
         Parameters:
             model: Model

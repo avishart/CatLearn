@@ -3,56 +3,15 @@ from .batch import BatchFuction
 
 
 class BestBatchFuction(BatchFuction):
-    def __init__(
-        self,
-        func,
-        get_prior_mean=False,
-        batch_size=25,
-        equal_size=False,
-        use_same_prior_mean=True,
-        seed=None,
-        dtype=float,
-        **kwargs,
-    ):
-        """
-        The objective function that is used to optimize the hyperparameters.
-        The instance splits the training data into batches.
-        A given objective function is then used as
-        an objective function for the batches.
-        The lowest function value and it corresponding hyperparameters
-        from a single batch are used.
-        BestBatchFuction is not recommended for gradient-based optimization!
-
-        Parameters:
-            func: ObjectiveFunction class
-                A class with the objective function used
-                to optimize the hyperparameters.
-            get_prior_mean: bool
-                Whether to get the parameters of the prior mean
-                in the solution.
-            equal_size: bool
-                Whether the clusters are forced to have the same size.
-            use_same_prior_mean: bool
-                Whether to use the same prior mean for all models.
-            seed: int (optional)
-                The random seed.
-                The seed can be an integer, RandomState, or Generator instance.
-                If not given, the default random number generator is used.
-            dtype: type (optional)
-                The data type of the arrays.
-                If None, the default data type is used.
-        """
-        # Set the arguments
-        super().__init__(
-            func=func,
-            get_prior_mean=get_prior_mean,
-            batch_size=batch_size,
-            equal_size=equal_size,
-            use_same_prior_mean=use_same_prior_mean,
-            seed=seed,
-            dtype=dtype,
-            **kwargs,
-        )
+    """
+    The objective function that is used to optimize the hyperparameters.
+    The instance splits the training data into batches.
+    A given objective function is then used as
+    an objective function for the batches.
+    The lowest function value and it corresponding hyperparameters
+    from a single batch are used.
+    BestBatchFuction is not recommended for gradient-based optimization!
+    """
 
     def function(
         self,

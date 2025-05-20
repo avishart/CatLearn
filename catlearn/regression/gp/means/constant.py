@@ -3,13 +3,17 @@ from .prior import Prior
 
 
 class Prior_constant(Prior):
+    """
+    The prior mean of the targets.
+    The prior mean is used as a baseline of the target values.
+    The prior mean is a constant from the target values
+    if given else it is 0.
+    A value can be added to the constant.
+    """
+
     def __init__(self, yp=0.0, add=0.0, dtype=float, **kwargs):
         """
-        The prior mean of the targets.
-        The prior mean is used as a baseline of the target values.
-        The prior mean is a constant from the target values
-        if given else it is 0.
-        A value can be added to the constant.
+        Initialize the prior mean.
 
         Parameters:
             yp: float

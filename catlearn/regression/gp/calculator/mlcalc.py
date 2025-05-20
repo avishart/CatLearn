@@ -4,6 +4,10 @@ from .mlmodel import MLModel
 
 
 class MLCalculator(Calculator):
+    """
+    The machine learning calculator object applicable as an ASE calculator for
+    ASE Atoms instance.
+    """
 
     # Define the properties available in this calculator
     implemented_properties = [
@@ -27,7 +31,7 @@ class MLCalculator(Calculator):
         **kwargs,
     ):
         """
-        ML calculator object applicable as an ASE calculator.
+        Initialize the ML calculator.
 
         Parameters:
             mlmodel: MLModel class object

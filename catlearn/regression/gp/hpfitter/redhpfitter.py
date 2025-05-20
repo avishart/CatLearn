@@ -8,6 +8,13 @@ from .hpfitter import (
 
 
 class ReducedHyperparameterFitter(HyperparameterFitter):
+    """
+    Hyperparameter fitter class for optimizing the hyperparameters
+    of a given objective function with a given optimizer.
+    The hyperparameters are only optimized when the training set size
+    is below a given number.
+    """
+
     def __init__(
         self,
         func,
@@ -22,10 +29,7 @@ class ReducedHyperparameterFitter(HyperparameterFitter):
         **kwargs,
     ):
         """
-        Hyperparameter fitter object with an optimizer for optimizing
-        the hyperparameters on different given objective functions.
-        The optimization of the hyperparameters are only performed when
-        the training set size is below a number.
+        Initialize the hyperparameter fitter class.
 
         Parameters:
             func: ObjectiveFunction class

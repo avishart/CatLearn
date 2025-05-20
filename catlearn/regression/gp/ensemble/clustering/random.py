@@ -3,6 +3,11 @@ from .clustering import Clustering
 
 
 class RandomClustering(Clustering):
+    """
+    Clustering algorithn class for data sets.
+    It uses randomized clusters for clustering.
+    """
+
     def __init__(
         self,
         n_clusters=4,
@@ -12,8 +17,7 @@ class RandomClustering(Clustering):
         **kwargs,
     ):
         """
-        Clustering class object for data sets.
-        The K-means++ algorithm for clustering.
+        Initialize the clustering algorithm.
 
         Parameters:
             n_clusters: int

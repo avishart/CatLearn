@@ -13,14 +13,18 @@ from .pdistributions import Prior_distribution
 
 
 class Uniform_prior(Prior_distribution):
+    """
+    Uniform prior distribution used for each type
+    of hyperparameters in log-space.
+    If the type of the hyperparameter is multi dimensional (H),
+    it is given in the axis=-1.
+    If multiple values (M) of the hyperparameter(/s)
+    are calculated simultaneously, it has to be in a (M,H) array.
+    """
+
     def __init__(self, start=-18.0, end=18.0, prob=1.0, dtype=float, **kwargs):
         """
-        Uniform prior distribution used for each type
-        of hyperparameters in log-space.
-        If the type of the hyperparameter is multi dimensional (H),
-        it is given in the axis=-1.
-        If multiple values (M) of the hyperparameter(/s)
-        are calculated simultaneously, it has to be in a (M,H) array.
+        Initialization of the prior distribution.
 
         Parameters:
             start: float or (H) array

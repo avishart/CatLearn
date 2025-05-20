@@ -3,6 +3,11 @@ from .k_means import K_means
 
 
 class FixedClustering(K_means):
+    """
+    Clustering algorithn class for data sets.
+    It uses the distances to pre-defined fixed centroids for clustering.
+    """
+
     def __init__(
         self,
         metric="euclidean",
@@ -12,8 +17,7 @@ class FixedClustering(K_means):
         **kwargs,
     ):
         """
-        Clustering class object for data sets.
-        Use distances to pre-defined fixed centroids for clustering.
+        Initialize the clustering algorithm.
 
         Parameters:
             metric: str

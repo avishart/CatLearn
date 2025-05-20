@@ -3,6 +3,10 @@ from scipy.spatial.distance import pdist, cdist
 
 
 class Kernel:
+    """
+    The kernel class with hyperparameters.
+    """
+
     def __init__(
         self,
         use_derivatives=False,
@@ -12,7 +16,7 @@ class Kernel:
         **kwargs,
     ):
         """
-        The Kernel class with hyperparameters.
+        Initialize the kernel class.
 
         Parameters:
             use_derivatives: bool
@@ -25,7 +29,6 @@ class Kernel:
                 like hp=dict(length=np.array([-0.7])).
             dtype: type
                 The data type of the arrays.
-
         """
         # Set the default hyperparameters
         self.hp = dict(length=asarray([-0.7], dtype=dtype))

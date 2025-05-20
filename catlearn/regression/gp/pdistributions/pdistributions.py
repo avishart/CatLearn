@@ -2,14 +2,18 @@ from numpy import exp
 
 
 class Prior_distribution:
+    """
+    Prior probability distribution used for each type
+    of hyperparameters in log-space.
+    If the type of the hyperparameter is multi dimensional (H),
+    it is given in the axis=-1.
+    If multiple values (M) of the hyperparameter(/s)
+    are calculated simultaneously, it has to be in a (M,H) array.
+    """
+
     def __init__(self, dtype=float, **kwargs):
         """
-        Prior probability distribution used for each type
-        of hyperparameters in log-space.
-        If the type of the hyperparameter is multi dimensional (H),
-        it is given in the axis=-1.
-        If multiple values (M) of the hyperparameter(/s)
-        are calculated simultaneously, it has to be in a (M,H) array.
+        Initialization of the prior distribution.
 
         Parameters:
             dtype: type
