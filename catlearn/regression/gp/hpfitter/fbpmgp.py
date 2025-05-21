@@ -24,7 +24,7 @@ from numpy.random import default_rng, Generator, RandomState
 from scipy.linalg import eigh as scipy_eigh
 from scipy.spatial.distance import pdist
 from scipy.optimize import OptimizeResult
-import logging
+import warnings
 from .hpfitter import HyperparameterFitter, VariableTransformation
 
 
@@ -278,8 +278,10 @@ class FBPMGP(HyperparameterFitter):
         # Eigendecomposition
         try:
             D, U = eigh(KXX)
-        except LinAlgError as e:
-            logging.error("An error occurred: %s", str(e))
+        except LinAlgError:
+            warnings.warn(
+                "Eigendecomposition failed, using scipy.eigh instead."
+            )
             # More robust but slower eigendecomposition
             D, U = scipy_eigh(KXX, driver="ev")
         # Subtract the prior mean to the training target
@@ -294,8 +296,10 @@ class FBPMGP(HyperparameterFitter):
         # Eigendecomposition
         try:
             D, U = eigh(KXX)
-        except LinAlgError as e:
-            logging.error("An error occurred: %s", str(e))
+        except LinAlgError:
+            warnings.warn(
+                "Eigendecomposition failed, using scipy.eigh instead."
+            )
             # More robust but slower eigendecomposition
             D, U = scipy_eigh(KXX, driver="ev")
         UTY = matmul(U.T, Y_p)

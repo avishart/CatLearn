@@ -15,7 +15,7 @@ from numpy import (
 )
 from numpy.linalg import eigh, LinAlgError
 from scipy.linalg import cho_factor, cho_solve, eigh as scipy_eigh
-import logging
+import warnings
 
 
 class ObjectiveFuction:
@@ -294,8 +294,10 @@ class ObjectiveFuction:
         # Eigendecomposition
         try:
             D, U = eigh(KXX)
-        except LinAlgError as e:
-            logging.error("An error occurred: %s", str(e))
+        except LinAlgError:
+            warnings.warn(
+                "Eigendecomposition failed, using scipy.eigh instead."
+            )
             # More robust but slower eigendecomposition
             D, U = scipy_eigh(KXX, driver="ev")
         # Subtract the prior mean to the training target
