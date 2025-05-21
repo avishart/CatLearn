@@ -1,10 +1,11 @@
 from numpy import ndarray
 from numpy.linalg import norm
 from ase.io import read
-from ase.geometry import find_mic
 from ase.optimize import FIRE
 from ase.build import minimize_rotation_and_translation
+from .improvedneb import ImprovedTangentNEB
 from ...regression.gp.calculator.copy_atoms import copy_atoms
+from ...regression.gp.fingerprint.geometry import mic_distance
 
 
 def interpolate(
@@ -202,15 +203,20 @@ def make_linear_interpolation(images, mic=False, **kwargs):
     # Get the position of initial state
     pos0 = images[0].get_positions()
     # Get the distance to the final state
-    dist = images[-1].get_positions() - pos0
+    dist_vec = images[-1].get_positions() - pos0
     # Calculate the minimum-image convention if mic=True
     if mic:
-        dist = find_mic(dist, images[0].get_cell(), images[0].pbc)[0]
+        _, dist_vec = mic_distance(
+            dist_vec,
+            cell=images[0].get_cell(),
+            pbc=images[0].pbc,
+            use_vector=True,
+        )
     # Calculate the distance moved for each image
-    dist = dist / float(len(images) - 1)
+    dist_vec = dist_vec / float(len(images) - 1)
     # Set the positions
     for i in range(1, len(images) - 1):
-        images[i].set_positions(pos0 + (i * dist))
+        images[i].set_positions(pos0 + (i * dist_vec))
     return images
 
 
@@ -227,7 +233,7 @@ def make_idpp_interpolation(
     Make the IDPP interpolation from initial to final state
     from NEB optimization.
     """
-    from .improvedneb import ImprovedTangentNEB
+
     from ...regression.gp.baseline import IDPP
 
     # Get all distances in the system
@@ -270,7 +276,6 @@ def make_rep_interpolation(
     """
     Make a repulsive potential to get the interpolation from NEB optimization.
     """
-    from .improvedneb import ImprovedTangentNEB
     from ...regression.gp.baseline import RepulsionCalculator
 
     # Use Repulsive potential as calculator
@@ -307,7 +312,6 @@ def make_born_interpolation(
     Make a Born repulsive potential to get the interpolation from NEB
     optimization.
     """
-    from .improvedneb import ImprovedTangentNEB
     from ...regression.gp.baseline import BornRepulsionCalculator
 
     # Use Repulsive potential as calculator
@@ -334,38 +338,41 @@ def make_end_interpolations(images, mic=False, trust_dist=0.2, **kwargs):
     but place the images at the initial and final states with
     the maximum distance as trust_dist.
     """
-    from ase.geometry import find_mic
-
     # Get the number of images
     n_images = len(images)
     # Get the position of initial state
     pos0 = images[0].get_positions()
     # Get the distance to the final state
-    dist = images[-1].get_positions() - pos0
+    dist_vec = images[-1].get_positions() - pos0
     # Calculate the minimum-image convention if mic=True
     if mic:
-        dist = find_mic(dist, images[0].get_cell(), images[0].pbc)[0]
+        _, dist_vec = mic_distance(
+            dist_vec,
+            cell=images[0].get_cell(),
+            pbc=images[0].pbc,
+            use_vector=True,
+        )
     # Calculate the scaled distance
-    scale_dist = 2.0 * trust_dist / norm(dist)
+    scale_dist = 2.0 * trust_dist / norm(dist_vec)
     # Check if the distance is within the trust distance
     if scale_dist >= 1.0:
         # Calculate the distance moved for each image
-        dist = dist / float(n_images - 1)
+        dist_vec = dist_vec / float(n_images - 1)
         # Set the positions
         for i in range(1, n_images - 1):
-            images[i].set_positions(pos0 + (i * dist))
+            images[i].set_positions(pos0 + (i * dist_vec))
         return images
     # Calculate the distance moved for each image
-    dist = dist * (scale_dist / float(n_images - 1))
+    dist_vec = dist_vec * (scale_dist / float(n_images - 1))
     # Get the position of final state
     posn = images[-1].get_positions()
     # Set the positions
     nfirst = int(0.5 * (n_images - 1))
     for i in range(1, n_images - 1):
         if i <= nfirst:
-            images[i].set_positions(pos0 + (i * dist))
+            images[i].set_positions(pos0 + (i * dist_vec))
         else:
-            images[i].set_positions(posn - ((n_images - 1 - i) * dist))
+            images[i].set_positions(posn - ((n_images - 1 - i) * dist_vec))
     return images
 
 
