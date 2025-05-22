@@ -1,8 +1,17 @@
-import numpy as np
+from numpy import where
+from ase.parallel import world
 from .improvedneb import ImprovedTangentNEB
 
 
 class EWNEB(ImprovedTangentNEB):
+    """
+    The energy-weighted Nudged Elastic Band method implementation.
+    The energy-weighted method uses energy weighting to calculate the spring
+    constants.
+    See:
+        https://doi.org/10.1021/acs.jctc.1c00462
+    """
+
     def __init__(
         self,
         images,
@@ -14,9 +23,43 @@ class EWNEB(ImprovedTangentNEB):
         mic=True,
         save_properties=False,
         parallel=False,
-        world=None,
+        comm=world,
         **kwargs
     ):
+        """
+        Initialize the NEB instance.
+
+        Parameters:
+            images: List of ASE Atoms instances
+                The ASE Atoms instances used as the images of the initial path
+                that is optimized.
+            k: List of floats or float
+                The (Nimg-1) spring forces acting between each image.
+                In the energy-weighted Nudged Elastic Band method, this spring
+                constants are the upper spring constants.
+            kl_scale: float
+                The scaling factor for the lower spring constants.
+            use_minimum: bool
+                Whether to use the minimum energy as the reference energy
+                for the spring constants.
+                If False, the maximum energy is used.
+            climb: bool
+                Whether to use climbing image in the NEB.
+                See:
+                    https://doi.org/10.1063/1.1329672
+            remove_rotation_and_translation: bool
+                Whether to remove rotation and translation in interpolation
+                and when predicting forces.
+            mic: bool
+                Minimum Image Convention (Shortest distances when
+                periodic boundary conditions are used).
+            save_properties: bool
+                Whether to save the properties by making a copy of the images.
+            parallel: bool
+                Whether to run the calculations in parallel.
+            comm: ASE communicator instance
+                The communicator instance for parallelization.
+        """
         super().__init__(
             images,
             k=k,
@@ -25,7 +68,7 @@ class EWNEB(ImprovedTangentNEB):
             mic=mic,
             save_properties=save_properties,
             parallel=parallel,
-            world=world,
+            comm=comm,
             **kwargs
         )
         self.kl_scale = kl_scale
@@ -36,16 +79,16 @@ class EWNEB(ImprovedTangentNEB):
         energies = self.get_energies()
         # Get the reference energy
         if self.use_minimum:
-            e0 = np.min([energies[0], energies[-1]])
+            e0 = min([energies[0], energies[-1]])
         else:
-            e0 = np.max([energies[0], energies[-1]])
+            e0 = max([energies[0], energies[-1]])
         # Get the maximum energy
-        emax = np.max(energies)
+        emax = energies.max()
         # Calculate the weighted spring constants
         k_l = self.k * self.kl_scale
         if e0 < emax:
             a = (emax - energies[:-1]) / (emax - e0)
-            k = np.where(a < 1.0, (1.0 - a) * self.k + a * k_l, k_l)
+            k = where(a < 1.0, (1.0 - a) * self.k + a * k_l, k_l)
         else:
             k = k_l
         return k

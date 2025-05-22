@@ -1,12 +1,33 @@
-import numpy as np
+from numpy import (
+    argmax,
+    array,
+    asarray,
+    einsum,
+    full,
+    nanmax,
+    sqrt,
+    vdot,
+    zeros,
+)
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.build import minimize_rotation_and_translation
-from ase.parallel import broadcast
+from ase.parallel import world, broadcast
+import warnings
+from .interpolate_band import interpolate
 from ..structure import Structure
 from ...regression.gp.fingerprint.geometry import mic_distance
+from ...regression.gp.calculator.copy_atoms import compare_atoms
 
 
 class OriginalNEB:
+    """
+    The orginal Nudged Elastic Band method implementation for the tangent
+    and parallel force.
+
+    See:
+        https://doi.org/10.1142/9789812839664_0016
+    """
+
     def __init__(
         self,
         images,
@@ -16,12 +37,11 @@ class OriginalNEB:
         mic=True,
         save_properties=False,
         parallel=False,
-        world=None,
+        comm=world,
         **kwargs
     ):
         """
-        The orginal Nudged Elastic Band method implementation for the tangent
-        and parallel force.
+        Initialize the NEB instance.
 
         Parameters:
             images: List of ASE Atoms instances
@@ -31,6 +51,8 @@ class OriginalNEB:
                 The (Nimg-1) spring forces acting between each image.
             climb: bool
                 Whether to use climbing image in the NEB.
+                See:
+                    https://doi.org/10.1063/1.1329672
             remove_rotation_and_translation: bool
                 Whether to remove rotation and translation in interpolation
                 and when predicting forces.
@@ -41,12 +63,12 @@ class OriginalNEB:
                 Whether to save the properties by making a copy of the images.
             parallel: bool
                 Whether to run the calculations in parallel.
-            world: ASE communicator instance
+            comm: ASE communicator instance
                 The communicator instance for parallelization.
 
         """
         # Check that the endpoints are the same
-        self.check_endpoints(images)
+        self.check_images(images)
         # Set images
         if save_properties:
             self.images = [Structure(image) for image in images]
@@ -56,7 +78,7 @@ class OriginalNEB:
         self.natoms = len(images[0])
         # Set the spring constant
         if isinstance(k, (int, float)):
-            self.k = np.full(self.nimages - 1, k)
+            self.k = full(self.nimages - 1, k)
         else:
             self.k = k.copy()
         # Set the parameters
@@ -67,34 +89,37 @@ class OriginalNEB:
         # Set the parallelization
         self.parallel = parallel
         if parallel:
-            if world is None:
-                from ase.parallel import world
-
-            self.world = world
-            if (self.nimages - 2) % self.world.size != 0:
-                if self.world.rank == 0:
-                    print(
-                        "Warning: The number of moving images are not chosen "
+            self.parallel_setup(comm)
+            if (self.nimages - 2) % self.size != 0:
+                if self.rank == 0:
+                    warnings.warn(
+                        "The number of moving images are not chosen "
                         "optimal for the number of processors when running in "
                         "parallel!"
                     )
         else:
-            self.world = None
+            self.remove_parallel_setup()
         # Set the properties
         self.reset()
 
-    def check_endpoints(self, images):
-        "Check that the endpoints of the images are the same structures."
-        initial_atomic_numbers = images[0].get_atomic_numbers()
-        final_atomic_numbers = images[-1].get_atomic_numbers()
-        if (
-            len(initial_atomic_numbers) != len(final_atomic_numbers)
-            or (initial_atomic_numbers != final_atomic_numbers).any()
-        ):
-            raise ValueError(
-                "The atoms in the initial and final images "
-                "are not the same."
-            )
+    def check_images(
+        self,
+        images,
+        properties_to_check=["atoms", "cell", "pbc"],
+    ):
+        "Check that the images are the same structures."
+        ends_equal = compare_atoms(
+            images[0],
+            images[-1],
+            properties_to_check=properties_to_check,
+        )
+        ends_move_equal = compare_atoms(
+            images[0],
+            images[1],
+            properties_to_check=properties_to_check,
+        )
+        if not (ends_equal and ends_move_equal):
+            raise ValueError("The images are not the same structures.")
         return self
 
     def interpolate(self, method="linear", mic=True, **kwargs):
@@ -111,8 +136,6 @@ class OriginalNEB:
         Returns:
             self: The instance itself.
         """
-        from .interpolate_band import interpolate
-
         self.images = interpolate(
             self.images[0],
             self.images[-1],
@@ -132,7 +155,7 @@ class OriginalNEB:
             ((Nimg-2)*Natoms,3) array: Coordinates of all atoms in
                 all the moving images.
         """
-        positions = np.array(
+        positions = array(
             [image.get_positions() for image in self.images[1:-1]]
         )
         return positions.reshape(-1, 3)
@@ -205,12 +228,12 @@ class OriginalNEB:
             ((Nimg),Natoms,3) array: The positions for all atoms in
                 all the images.
         """
-        return np.array([image.get_positions() for image in self.images])
+        return asarray([image.get_positions() for image in self.images])
 
     def get_climb_forces(self, forces_new, forces, tangent, **kwargs):
         "Get the forces of the climbing image."
-        i_max = np.argmax(self.get_energies()[1:-1])
-        forces_parallel = 2.0 * np.vdot(forces[i_max], tangent[i_max])
+        i_max = argmax(self.get_energies()[1:-1])
+        forces_parallel = 2.0 * vdot(forces[i_max], tangent[i_max])
         forces_parallel = forces_parallel * tangent[i_max]
         forces_new[i_max] = forces[i_max] - forces_parallel
         return forces_new
@@ -230,8 +253,8 @@ class OriginalNEB:
     def calculate_properties(self, **kwargs):
         "Calculate the energy and forces for each image."
         # Initialize the arrays
-        self.real_forces = np.zeros((self.nimages, self.natoms, 3))
-        self.energies = np.zeros((self.nimages))
+        self.real_forces = zeros((self.nimages, self.natoms, 3))
+        self.energies = zeros((self.nimages))
         # Get the energy of the fixed images
         self.energies[0] = self.images[0].get_potential_energy()
         self.energies[-1] = self.images[-1].get_potential_energy()
@@ -240,7 +263,7 @@ class OriginalNEB:
             return self.calculate_properties_parallel(**kwargs)
         # Calculate the energy and forces for each image
         for i, image in enumerate(self.images[1:-1]):
-            self.real_forces[i + 1] = image.get_forces().copy()
+            self.real_forces[i + 1] = image.get_forces()
             self.energies[i + 1] = image.get_potential_energy()
         return self.energies, self.real_forces
 
@@ -248,22 +271,22 @@ class OriginalNEB:
         "Calculate the energy and forces for each image in parallel."
         # Calculate the energy and forces for each image
         for i, image in enumerate(self.images[1:-1]):
-            if self.world.rank == (i % self.world.size):
-                self.real_forces[i + 1] = image.get_forces().copy()
+            if self.rank == (i % self.size):
+                self.real_forces[i + 1] = image.get_forces()
                 self.energies[i + 1] = image.get_potential_energy()
         # Broadcast the results
         for i in range(1, self.nimages - 1):
-            root = (i - 1) % self.world.size
+            root = (i - 1) % self.size
             self.energies[i], self.real_forces[i] = broadcast(
                 (self.energies[i], self.real_forces[i]),
                 root=root,
-                comm=self.world,
+                comm=self.comm,
             )
         return self.energies, self.real_forces
 
     def emax(self, **kwargs):
         "Get maximum energy of the moving images."
-        return np.nanmax(self.get_energies(**kwargs)[1:-1])
+        return nanmax(self.get_energies(**kwargs)[1:-1])
 
     def get_parallel_forces(self, tangent, pos_p, pos_m, **kwargs):
         "Get the parallel forces between the images."
@@ -289,29 +312,31 @@ class OriginalNEB:
         """
         positions = self.get_image_positions()
         position_diff = positions[1:] - positions[:-1]
-        pbc = np.array(self.images[0].get_pbc())
+        pbc = asarray(self.images[0].get_pbc())
         if self.mic and pbc.any():
-            cell = np.array(self.images[0].get_cell())
-            position_diff = mic_distance(
+            cell = asarray(self.images[0].get_cell())
+            _, position_diff = mic_distance(
                 position_diff,
                 cell,
                 pbc,
                 vector=True,
-            )[1]
+            )
         return position_diff[1:], position_diff[:-1]
 
     def get_tangent(self, pos_p, pos_m, **kwargs):
         "Calculate the tangent to the moving images."
         # Normalization factors
-        pos_m_norm = np.linalg.norm(pos_m, axis=(1, 2)).reshape(-1, 1, 1)
-        pos_p_norm = np.linalg.norm(pos_p, axis=(1, 2)).reshape(-1, 1, 1)
+        pos_m_norm = sqrt(einsum("ijk,ijk->i", pos_m, pos_m)).reshape(-1, 1, 1)
+        pos_p_norm = sqrt(einsum("ijk,ijk->i", pos_p, pos_p)).reshape(-1, 1, 1)
         # Normalization of tangent
         tangent_m = pos_m / pos_m_norm
         tangent_p = pos_p / pos_p_norm
         # Sum them
         tangent = tangent_m + tangent_p
         # Normalization of tangent
-        tangent_norm = np.linalg.norm(tangent, axis=(1, 2)).reshape(-1, 1, 1)
+        tangent_norm = sqrt(einsum("ijk,ijk->i", tangent, tangent)).reshape(
+            -1, 1, 1
+        )
         tangent = tangent / tangent_norm
         return tangent
 
@@ -325,10 +350,27 @@ class OriginalNEB:
         self.real_forces = None
         return self
 
+    def parallel_setup(self, comm, **kwargs):
+        "Setup the parallelization."
+        if comm is None:
+            self.comm = world
+        else:
+            self.comm = comm
+        self.rank = self.comm.rank
+        self.size = self.comm.size
+        return self
+
+    def remove_parallel_setup(self):
+        "Remove the parallelization by removing the communicator."
+        self.comm = None
+        self.rank = 0
+        self.size = 1
+        return self
+
     def get_residual(self, **kwargs):
         "Get the residual of the NEB."
         forces = self.get_forces()
-        return np.max(np.linalg.norm(forces, axis=-1))
+        return sqrt(einsum("ij,ij->i", forces, forces)).max()
 
     def set_calculator(self, calculators, copy_calc=False, **kwargs):
         """
@@ -371,7 +413,7 @@ class OriginalNEB:
         return self.set_calculator(calculators)
 
     def converged(self, forces, fmax):
-        return np.linalg.norm(forces, axis=1).max() < fmax
+        return sqrt(einsum("ij,ij->i", forces, forces)).max() < fmax
 
     def is_neb(self):
         return True

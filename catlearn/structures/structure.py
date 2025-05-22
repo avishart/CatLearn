@@ -1,4 +1,4 @@
-import numpy as np
+from numpy import einsum, sqrt
 from ase import Atoms
 from ..regression.gp.calculator.copy_atoms import copy_atoms
 
@@ -114,7 +114,7 @@ class Structure(Atoms):
         return unc
 
     def converged(self, forces, fmax):
-        return np.linalg.norm(forces, axis=1).max() < fmax
+        return sqrt(einsum("ij,ij->i", forces, forces)).max() < fmax
 
     def is_neb(self):
         return False
