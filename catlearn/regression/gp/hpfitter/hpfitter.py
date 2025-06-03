@@ -262,10 +262,10 @@ class HyperparameterFitter:
         a list of hyperparameter names.
         """
         parameters_set = sorted(hp.keys())
-        theta = sum([list(hp[para]) for para in parameters_set], [])
-        parameters = sum(
-            [[para] * len(hp[para]) for para in parameters_set], []
-        )
+        theta = [hp_v for para in parameters_set for hp_v in hp[para]]
+        parameters = [
+            para for para in parameters_set for _ in range(len(hp[para]))
+        ]
         return asarray(theta), parameters
 
     def update_bounds(self, model, X, Y, parameters, **kwargs):

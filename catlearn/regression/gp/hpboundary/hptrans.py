@@ -578,9 +578,11 @@ class VariableTransformation(HPBoundaries):
             self.var_dict.pop("correction")
         # Extract the hyperparameters
         self.parameters_set = sorted(var_dict.keys())
-        self.parameters = sum(
-            [[para] * len(var_dict[para]) for para in self.parameters_set], []
-        )
+        self.parameters = [
+            para
+            for para in self.parameters_set
+            for _ in range(len(var_dict[para]))
+        ]
         return self
 
     def initiate_bounds_dict(self, bounds, **kwargs):

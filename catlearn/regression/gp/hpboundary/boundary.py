@@ -351,10 +351,11 @@ class HPBoundaries:
             self.bounds_dict.pop("correction")
         # Extract the hyperparameter names
         self.parameters_set = sorted(bounds_dict.keys())
-        self.parameters = sum(
-            [[para] * len(bounds_dict[para]) for para in self.parameters_set],
-            [],
-        )
+        self.parameters = [
+            para
+            for para in self.parameters_set
+            for _ in range(len(bounds_dict[para]))
+        ]
         return self
 
     def make_parameters_set(self, parameters, **kwargs):

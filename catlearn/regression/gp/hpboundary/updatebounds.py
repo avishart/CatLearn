@@ -212,13 +212,11 @@ class UpdatingBoundaries(HPBoundaries):
         self.bounds_dict = self.bounds.get_bounds(use_array=False)
         # Extract the hyperparameter names
         self.parameters_set = sorted(self.bounds_dict.keys())
-        self.parameters = sum(
-            [
-                [para] * len(self.bounds_dict[para])
-                for para in self.parameters_set
-            ],
-            [],
-        )
+        self.parameters = [
+            para
+            for para in self.parameters_set
+            for _ in range(len(self.bounds_dict[para]))
+        ]
         # Make sure log-scale of the hyperparameters are used
         if self.bounds.use_log is False:
             raise ValueError(
