@@ -446,6 +446,34 @@ class MLCalculator(Calculator):
         self.mlmodel.set_dtype(dtype, **kwargs)
         return self
 
+    def set_use_fingerprint(self, use_fingerprint, **kwargs):
+        """
+        Set whether to use fingerprints in the model and database.
+
+        Parameters:
+            use_fingerprint: bool
+                Whether to use fingerprints in the model and database.
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.mlmodel.set_use_fingerprint(use_fingerprint=use_fingerprint)
+        return self
+
+    def set_use_derivatives(self, use_derivatives, **kwargs):
+        """
+        Set whether to use derivatives in the model and database.
+
+        Parameters:
+            use_derivatives: bool
+                Whether to use derivatives in the model and database.
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.mlmodel.set_use_derivatives(use_derivatives=use_derivatives)
+        return self
+
     def get_property_arguments(self, properties=[], **kwargs):
         """
         Get the arguments that ensure calculations of the properties requested.
