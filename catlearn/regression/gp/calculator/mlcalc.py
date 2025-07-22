@@ -1,5 +1,6 @@
 from numpy import round as round_
 from ase.calculators.calculator import Calculator, all_changes
+import pickle
 from .mlmodel import MLModel
 
 
@@ -315,34 +316,30 @@ class MLCalculator(Calculator):
 
     def save_mlcalc(self, filename="mlcalc.pkl", **kwargs):
         """
-        Save the ML calculator object to a file.
+        Save the ML calculator instance to a file.
 
         Parameters:
             filename: str
-                The name of the file where the object is saved.
+                The name of the file where the instance is saved.
 
         Returns:
-            self: The object itself.
+            self: The instance itself.
         """
-        import pickle
-
         with open(filename, "wb") as file:
             pickle.dump(self, file)
         return self
 
     def load_mlcalc(self, filename="mlcalc.pkl", **kwargs):
         """
-        Load the ML calculator object from a file.
+        Load the ML calculator instance from a file.
 
         Parameters:
             filename: str
-                The name of the file where the object is saved.
+                The name of the file where the instance is saved.
 
         Returns:
-            mlcalc: The loaded ML calculator object.
+            mlcalc: The loaded ML calculator instance.
         """
-        import pickle
-
         with open(filename, "rb") as file:
             mlcalc = pickle.load(file)
         return mlcalc

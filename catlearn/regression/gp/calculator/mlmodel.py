@@ -1,6 +1,7 @@
 from numpy import asarray, ndarray, sqrt, zeros
 import warnings
 from ase.parallel import parprint
+import pickle
 
 
 class MLModel:
@@ -18,6 +19,8 @@ class MLModel:
         hp=None,
         pdis=None,
         include_noise=False,
+        to_save_mlmodel=False,
+        save_mlmodel_kwargs={},
         verbose=False,
         dtype=float,
         **kwargs,
@@ -44,6 +47,10 @@ class MLModel:
                 A dict of prior distributions for each hyperparameter type.
             include_noise: bool
                 Whether to include noise in the uncertainty from the model.
+            to_save_mlmodel: bool
+                Whether to save the ML model to a file after training.
+            save_mlmodel_kwargs: dict
+                Arguments for saving the ML model, like the filename.
             verbose: bool
                 Whether to print statements in the optimization.
             dtype: type
@@ -64,6 +71,8 @@ class MLModel:
             hp=hp,
             pdis=pdis,
             include_noise=include_noise,
+            to_save_mlmodel=to_save_mlmodel,
+            save_mlmodel_kwargs=save_mlmodel_kwargs,
             verbose=verbose,
             dtype=dtype,
             **kwargs,
@@ -105,6 +114,9 @@ class MLModel:
         else:
             # Train the ML model
             self.model_training(features, targets, **kwargs)
+        # Save the ML model to a file if requested
+        if self.to_save_mlmodel:
+            self.save_mlmodel(**self.save_mlmodel_kwargs)
         return self
 
     def calculate(
@@ -249,6 +261,36 @@ class MLModel:
         self.database.update_arguments(point_interest=point_interest, **kwargs)
         return self
 
+    def save_mlmodel(self, filename="mlmodel.pkl", **kwargs):
+        """
+        Save the ML model instance to a file.
+
+        Parameters:
+            filename: str
+                The name of the file where the instance is saved.
+
+        Returns:
+            self: The instance itself.
+        """
+        with open(filename, "wb") as file:
+            pickle.dump(self, file)
+        return self
+
+    def load_mlmodel(self, filename="mlmodel.pkl", **kwargs):
+        """
+        Load the ML model instance from a file.
+
+        Parameters:
+            filename: str
+                The name of the file where the instance is saved.
+
+        Returns:
+            mlcalc: The loaded ML model instance.
+        """
+        with open(filename, "rb") as file:
+            mlmodel = pickle.load(file)
+        return mlmodel
+
     def update_arguments(
         self,
         model=None,
@@ -258,6 +300,8 @@ class MLModel:
         hp=None,
         pdis=None,
         include_noise=None,
+        to_save_mlmodel=None,
+        save_mlmodel_kwargs=None,
         verbose=None,
         dtype=None,
         **kwargs,
@@ -285,6 +329,10 @@ class MLModel:
                 A dict of prior distributions for each hyperparameter type.
             include_noise: bool
                 Whether to include noise in the uncertainty from the model.
+            to_save_mlmodel: bool
+                Whether to save the ML model to a file after training.
+            save_mlmodel_kwargs: dict
+                Arguments for saving the ML model, like the filename.
             verbose: bool
                 Whether to print statements in the optimization.
             dtype: type
@@ -313,6 +361,10 @@ class MLModel:
             self.pdis = None
         if include_noise is not None:
             self.include_noise = include_noise
+        if to_save_mlmodel is not None:
+            self.to_save_mlmodel = to_save_mlmodel
+        if save_mlmodel_kwargs is not None:
+            self.save_mlmodel_kwargs = save_mlmodel_kwargs
         if verbose is not None:
             self.verbose = verbose
         if dtype is not None or not hasattr(self, "dtype"):
@@ -331,6 +383,7 @@ class MLModel:
 
     def model_optimization(self, features, targets, **kwargs):
         "Optimize the ML model with the arguments set in optimize_kwargs."
+        # Optimize the hyperparameters and train the ML model
         sol = self.model.optimize(
             features,
             targets,
@@ -340,6 +393,7 @@ class MLModel:
             verbose=False,
             **kwargs,
         )
+        # Print the solution if verbose is True
         if self.verbose:
             parprint(sol)
         return self.model
@@ -680,6 +734,8 @@ class MLModel:
             hp=self.hp,
             pdis=self.pdis,
             include_noise=self.include_noise,
+            to_save_mlmodel=self.to_save_mlmodel,
+            save_mlmodel_kwargs=self.save_mlmodel_kwargs,
             verbose=self.verbose,
             dtype=self.dtype,
         )
@@ -1129,4 +1185,5 @@ def get_default_mlmodel(
         pdis=pdis,
         verbose=verbose,
         dtype=dtype,
+        **kwargs,
     )
