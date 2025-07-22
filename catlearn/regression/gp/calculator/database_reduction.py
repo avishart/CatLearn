@@ -170,16 +170,16 @@ class DatabaseReduction(Database):
         self.update_indicies = True
         return self
 
-    def get_all_atoms(self, **kwargs):
+    def get_all_data_atoms(self, **kwargs):
         """
         Get the list of all atoms in the database.
 
         Returns:
             list: A list of the saved ASE Atoms objects.
         """
-        return self.atoms_list.copy()
+        return super().get_data_atoms(**kwargs)
 
-    def get_atoms(self, **kwargs):
+    def get_data_atoms(self, **kwargs):
         """
         Get the list of atoms in the reduced database.
 
@@ -189,7 +189,7 @@ class DatabaseReduction(Database):
         indicies = self.get_reduction_indicies()
         return [
             atoms
-            for i, atoms in enumerate(self.get_all_atoms(**kwargs))
+            for i, atoms in enumerate(self.get_all_data_atoms(**kwargs))
             if i in indicies
         ]
 
@@ -986,7 +986,7 @@ class DatabasePointsInterest(DatabaseLast):
             list: A list of the positions of all the atoms in the database
                 for each system.
         """
-        return self.get_positions(self.get_all_atoms())
+        return self.get_positions(self.get_all_data_atoms())
 
     def get_distances(self, not_indicies, **kwargs):
         """

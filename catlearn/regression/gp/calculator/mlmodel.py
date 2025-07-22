@@ -93,7 +93,6 @@ class MLModel:
         if not isinstance(atoms_list, (list, ndarray)):
             atoms_list = [atoms_list]
         self.database.add_set(atoms_list)
-        self.store_baseline_targets(atoms_list)
         return self
 
     def train_model(self, **kwargs):
@@ -374,9 +373,6 @@ class MLModel:
             self.use_baseline = False
         else:
             self.use_baseline = True
-        # Make a list of the baseline targets
-        if baseline is not None or database is not None:
-            self.baseline_targets = []
         # Check that the model and database have the same attributes
         self.check_attributes()
         return self
@@ -523,14 +519,14 @@ class MLModel:
     ):
         "Add the baseline correction to the targets if a baseline is used."
         if self.use_baseline:
-            # Calculate the baseline for the ASE atoms object
+            # Calculate the baseline for the ASE atoms instance
             y_base = self.calculate_baseline(
                 [atoms],
                 use_derivatives=use_derivatives,
                 **kwargs,
             )
             # Add baseline correction to the targets
-            return targets + asarray(y_base, dtype=self.dtype)[0]
+            targets += asarray(y_base, dtype=self.dtype)[0]
         return targets
 
     def get_baseline_corrected_targets(self, targets, **kwargs):
@@ -539,20 +535,17 @@ class MLModel:
         The baseline correction is subtracted from training targets.
         """
         if self.use_baseline:
-            return targets - asarray(self.baseline_targets, dtype=self.dtype)
-        return targets
-
-    def store_baseline_targets(self, atoms_list, **kwargs):
-        "Store the baseline correction on the targets."
-        # Calculate the baseline for each ASE atoms objects
-        if self.use_baseline:
+            # Get the ASE atoms list from the database
+            atoms_list = self.get_data_atoms()
+            # Calculate the baseline for each ASE atoms instance
             y_base = self.calculate_baseline(
                 atoms_list,
                 use_derivatives=self.database.use_derivatives,
                 **kwargs,
             )
-            self.baseline_targets.extend(y_base)
-        return self.baseline_targets
+            # Subtract baseline correction to the targets
+            targets -= asarray(y_base, dtype=self.dtype)
+        return targets
 
     def calculate_baseline(self, atoms_list, use_derivatives=True, **kwargs):
         "Calculate the baseline for each ASE atoms object."
@@ -561,7 +554,11 @@ class MLModel:
             atoms_base = atoms.copy()
             atoms_base.calc = self.baseline
             y_base.append(
-                self.make_targets(atoms_base, use_derivatives=use_derivatives)
+                self.make_targets(
+                    atoms_base,
+                    use_derivatives=use_derivatives,
+                    **kwargs,
+                )
             )
         return y_base
 
@@ -597,7 +594,6 @@ class MLModel:
             self: The updated object itself.
         """
         self.database.reset_database()
-        self.baseline_targets = []
         return self
 
     def make_targets(self, atoms, use_derivatives=True, **kwargs):
@@ -752,7 +748,7 @@ class MLModel:
         # Get the constants made within the class
         constant_kwargs = dict()
         # Get the objects made within the class
-        object_kwargs = dict(baseline_targets=self.baseline_targets.copy())
+        object_kwargs = dict()
         return arg_kwargs, constant_kwargs, object_kwargs
 
     def copy(self):
@@ -789,6 +785,13 @@ def get_default_model(
     n_reduced=None,
     round_hp=3,
     dtype=float,
+    model_kwargs={},
+    prior_kwargs={},
+    kernel_kwargs={},
+    hpfitter_kwargs={},
+    optimizer_kwargs={},
+    lineoptimizer_kwargs={},
+    function_kwargs={},
     **kwargs,
 ):
     """
@@ -813,13 +816,28 @@ def get_default_model(
             Whether to optimize the hyperparameters in parallel.
         n_reduced: int or None
             If n_reduced is an integer, the hyperparameters are only optimized
-                when the data set size is equal to or below the integer.
+            when the data set size is equal to or below the integer.
             If n_reduced is None, the hyperparameter is always optimized.
         round_hp: int (optional)
             The number of decimals to round the hyperparameters to.
             If None, the hyperparameters are not rounded.
         dtype: type
             The data type of the arrays.
+        model_kwargs: dict (optional)
+            The keyword arguments for the model.
+            The additional arguments are passed to the model.
+        prior_kwargs: dict (optional)
+            The keyword arguments for the prior mean.
+        kernel_kwargs: dict (optional)
+            The keyword arguments for the kernel.
+        hpfitter_kwargs: dict (optional)
+            The keyword arguments for the hyperparameter fitter.
+        optimizer_kwargs: dict (optional)
+            The keyword arguments for the optimizer.
+        lineoptimizer_kwargs: dict (optional)
+            The keyword arguments for the line optimizer.
+        function_kwargs: dict (optional)
+            The keyword arguments for the objective function.
 
     Returns:
         model: Model
@@ -831,22 +849,16 @@ def get_default_model(
         return model
     # Make the prior mean from given string
     if isinstance(prior, str):
+        from ..means import Prior_median, Prior_mean, Prior_min, Prior_max
+
         if prior.lower() == "median":
-            from ..means.median import Prior_median
-
-            prior = Prior_median()
+            prior = Prior_median(**prior_kwargs)
         elif prior.lower() == "mean":
-            from ..means.mean import Prior_mean
-
-            prior = Prior_mean()
+            prior = Prior_mean(**prior_kwargs)
         elif prior.lower() == "min":
-            from ..means.min import Prior_min
-
-            prior = Prior_min()
+            prior = Prior_min(**prior_kwargs)
         elif prior.lower() == "max":
-            from ..means.max import Prior_max
-
-            prior = Prior_max()
+            prior = Prior_max(**prior_kwargs)
     # Construct the kernel class object
     from ..kernel.se import SE
 
@@ -854,50 +866,69 @@ def get_default_model(
         use_fingerprint=use_fingerprint,
         use_derivatives=use_derivatives,
         dtype=dtype,
+        **kernel_kwargs,
     )
     # Set the hyperparameter optimization method
     if global_optimization:
         # Set global optimization with or without parallelization
         from ..optimizers.globaloptimizer import FactorizedOptimizer
 
+        # Set the line searcher for the hyperparameter optimization
         if parallel:
             from ..optimizers.linesearcher import FineGridSearch
 
-            line_optimizer = FineGridSearch(
+            lineoptimizer_kwargs_default = dict(
                 optimize=True,
                 multiple_min=False,
                 ngrid=80,
                 loops=3,
+            )
+            lineoptimizer_kwargs_default.update(lineoptimizer_kwargs)
+            line_optimizer = FineGridSearch(
                 parallel=True,
                 dtype=dtype,
+                **lineoptimizer_kwargs_default,
             )
         else:
             from ..optimizers.linesearcher import GoldenSearch
 
-            line_optimizer = GoldenSearch(
+            lineoptimizer_kwargs_default = dict(
                 optimize=True,
                 multiple_min=False,
+            )
+            lineoptimizer_kwargs_default.update(lineoptimizer_kwargs)
+            line_optimizer = GoldenSearch(
                 parallel=False,
                 dtype=dtype,
+                **lineoptimizer_kwargs_default,
             )
-        optimizer = FactorizedOptimizer(
-            line_optimizer=line_optimizer,
+        # Set the optimizer for the hyperparameter optimization
+        optimizer_kwargs_default = dict(
             ngrid=80,
             calculate_init=False,
+        )
+        optimizer_kwargs_default.update(optimizer_kwargs)
+        optimizer = FactorizedOptimizer(
+            line_optimizer=line_optimizer,
             parallel=parallel,
             dtype=dtype,
+            **optimizer_kwargs_default,
         )
     else:
         from ..optimizers.localoptimizer import ScipyOptimizer
 
-        # Make the local optimizer
-        optimizer = ScipyOptimizer(
+        optimizer_kwargs_default = dict(
             maxiter=500,
             jac=True,
             method="l-bfgs-b",
             use_bounds=False,
             tol=1e-12,
+        )
+        optimizer_kwargs_default.update(optimizer_kwargs)
+        # Make the local optimizer
+        optimizer = ScipyOptimizer(
             dtype=dtype,
+            **optimizer_kwargs_default,
         )
         if parallel:
             warnings.warn(
@@ -905,17 +936,22 @@ def get_default_model(
                 "with local optimization!"
             )
     # Use either the Student t process or the Gaussian process
+    model_kwargs.update(kwargs)
     if model.lower() == "tp":
         # Set model
         from ..models.tp import TProcess
 
+        model_kwargs_default = dict(
+            a=1e-4,
+            b=10.0,
+        )
+        model_kwargs_default.update(model_kwargs)
         model = TProcess(
             prior=prior,
             kernel=kernel,
             use_derivatives=use_derivatives,
-            a=1e-4,
-            b=10.0,
             dtype=dtype,
+            **model_kwargs_default,
         )
         # Set objective function
         if global_optimization:
@@ -923,11 +959,11 @@ def get_default_model(
                 FactorizedLogLikelihood,
             )
 
-            func = FactorizedLogLikelihood()
+            func = FactorizedLogLikelihood(dtype=dtype, **function_kwargs)
         else:
             from ..objectivefunctions.tp.likelihood import LogLikelihood
 
-            func = LogLikelihood()
+            func = LogLikelihood(dtype=dtype, **function_kwargs)
     else:
         # Set model
         from ..models.gp import GaussianProcess
@@ -937,6 +973,7 @@ def get_default_model(
             kernel=kernel,
             use_derivatives=use_derivatives,
             dtype=dtype,
+            **model_kwargs,
         )
         # Set objective function
         if global_optimization:
@@ -944,11 +981,11 @@ def get_default_model(
                 FactorizedLogLikelihood,
             )
 
-            func = FactorizedLogLikelihood(dtype=dtype)
+            func = FactorizedLogLikelihood(dtype=dtype, **function_kwargs)
         else:
             from ..objectivefunctions.gp.likelihood import LogLikelihood
 
-            func = LogLikelihood(dtype=dtype)
+            func = LogLikelihood(dtype=dtype, **function_kwargs)
     # Set hpfitter and whether a maximum data set size is applied
     if n_reduced is None:
         from ..hpfitter import HyperparameterFitter
@@ -958,6 +995,7 @@ def get_default_model(
             optimizer=optimizer,
             round_hp=round_hp,
             dtype=dtype,
+            **hpfitter_kwargs,
         )
     else:
         from ..hpfitter.redhpfitter import ReducedHyperparameterFitter
@@ -968,6 +1006,7 @@ def get_default_model(
             opt_tr_size=n_reduced,
             round_hp=round_hp,
             dtype=dtype,
+            **hpfitter_kwargs,
         )
     model.update_arguments(hpfitter=hpfitter)
     return model
@@ -977,10 +1016,9 @@ def get_default_database(
     fp=None,
     use_derivatives=True,
     database_reduction=False,
-    database_reduction_kwargs={},
     round_targets=5,
     dtype=float,
-    **kwargs,
+    **database_kwargs,
 ):
     """
     Get the default Database from the simple given arguments.
@@ -994,14 +1032,14 @@ def get_default_database(
         database_reduction: bool
             Whether to used a reduced database after a number
             of training points.
-        database_reduction_kwargs: dict
-            A dictionary with the arguments for the reduced database
-            if it is used.
         round_targets: int (optional)
             The number of decimals to round the targets to.
             If None, the targets are not rounded.
         dtype: type
             The data type of the arrays.
+        database_kwargs: dict (optional)
+            A dictionary with additional arguments for the database.
+            Also used for the reduced databases.
 
     Returns:
         database: Database object
@@ -1019,6 +1057,7 @@ def get_default_database(
     # Make the data base ready
     if isinstance(database_reduction, str):
         data_kwargs = dict(
+            fingerprint=fp,
             reduce_dimensions=True,
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
@@ -1027,53 +1066,54 @@ def get_default_database(
             npoints=50,
             initial_indicies=[0, 1],
             include_last=1,
-            **kwargs,
         )
-        data_kwargs.update(database_reduction_kwargs)
+        data_kwargs.update(database_kwargs)
         if database_reduction.lower() == "distance":
             from .database_reduction import DatabaseDistance
 
-            database = DatabaseDistance(fingerprint=fp, **data_kwargs)
+            database = DatabaseDistance(**data_kwargs)
         elif database_reduction.lower() == "random":
             from .database_reduction import DatabaseRandom
 
-            database = DatabaseRandom(fingerprint=fp, **data_kwargs)
+            database = DatabaseRandom(**data_kwargs)
         elif database_reduction.lower() == "hybrid":
             from .database_reduction import DatabaseHybrid
 
-            database = DatabaseHybrid(fingerprint=fp, **data_kwargs)
+            database = DatabaseHybrid(**data_kwargs)
         elif database_reduction.lower() == "min":
             from .database_reduction import DatabaseMin
 
-            database = DatabaseMin(fingerprint=fp, **data_kwargs)
+            database = DatabaseMin(**data_kwargs)
         elif database_reduction.lower() == "last":
             from .database_reduction import DatabaseLast
 
-            database = DatabaseLast(fingerprint=fp, **data_kwargs)
+            database = DatabaseLast(**data_kwargs)
         elif database_reduction.lower() == "restart":
             from .database_reduction import DatabaseRestart
 
-            database = DatabaseRestart(fingerprint=fp, **data_kwargs)
+            database = DatabaseRestart(**data_kwargs)
         elif database_reduction.lower() == "interest":
             from .database_reduction import DatabasePointsInterest
 
-            database = DatabasePointsInterest(fingerprint=fp, **data_kwargs)
+            database = DatabasePointsInterest(**data_kwargs)
         elif database_reduction.lower() == "each_interest":
             from .database_reduction import DatabasePointsInterestEach
 
-            database = DatabasePointsInterestEach(
-                fingerprint=fp, **data_kwargs
-            )
+            database = DatabasePointsInterestEach(**data_kwargs)
     else:
         from .database import Database
 
+        data_kwargs = dict(
+            reduce_dimensions=True,
+        )
+        data_kwargs.update(database_kwargs)
         database = Database(
             fingerprint=fp,
-            reduce_dimensions=True,
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
             round_targets=round_targets,
             dtype=dtype,
+            **data_kwargs,
         )
     return database
 
@@ -1082,17 +1122,19 @@ def get_default_mlmodel(
     model="tp",
     fp=None,
     baseline=None,
+    optimize_hp=True,
+    use_pdis=True,
+    pdis=None,
     prior="median",
     use_derivatives=True,
-    optimize_hp=True,
     global_optimization=True,
     parallel=False,
-    use_pdis=True,
     n_reduced=None,
-    database_reduction=False,
-    database_reduction_kwargs={},
-    round_targets=5,
     round_hp=3,
+    all_model_kwargs={},
+    database_reduction=False,
+    round_targets=5,
+    database_kwargs={},
     verbose=False,
     dtype=float,
     **kwargs,
@@ -1110,40 +1152,51 @@ def get_default_mlmodel(
             Cartesian coordinates are used if it is None.
         baseline: Baseline object
             The Baseline object calculator that calculates energy and forces.
+        optimize_hp: bool
+            Whether to optimize the hyperparameters when the model is trained.
+        use_pdis: bool
+            Whether to make prior distributions for the hyperparameters.
+        pdis: dict (optional)
+            A dict of prior distributions for each hyperparameter type.
+            If None, the default prior distributions are used.
+            No prior distributions are used if use_pdis=False or pdis is {}.
         prior: str
             Specify what prior mean should be used.
         use_derivatives: bool
             Whether to use derivatives of the targets.
-        optimize_hp: bool
-            Whether to optimize the hyperparameters when the model is trained.
         global_optimization: bool
             Whether to perform a global optimization of the hyperparameters.
             A local optimization is used if global_optimization=False,
             which can not be parallelized.
         parallel: bool
             Whether to optimize the hyperparameters in parallel.
-        use_pdis: bool
-            Whether to make prior distributions for the hyperparameters.
         n_reduced: int or None
             If n_reduced is an integer, the hyperparameters are only optimized
                 when the data set size is equal to or below the integer.
             If n_reduced is None, the hyperparameter is always optimized.
-        database_reduction: bool
-            Whether to used a reduced database after a number
-            of training points.
-        database_reduction_kwargs: dict
-            A dictionary with the arguments for the reduced database
-            if it is used.
-        round_targets: int (optional)
-            The number of decimals to round the targets to.
-            If None, the targets are not rounded.
         round_hp: int (optional)
             The number of decimals to round the hyperparameters to.
             If None, the hyperparameters are not rounded.
+        all_model_kwargs: dict (optional)
+            A dictionary with additional arguments for the model.
+            It also can include model_kwargs, prior_kwargs,
+            kernel_kwargs, hpfitter_kwargs, optimizer_kwargs,
+            lineoptimizer_kwargs, and function_kwargs.
+        database_reduction: bool
+            Whether to used a reduced database after a number
+            of training points.
+        round_targets: int (optional)
+            The number of decimals to round the targets to.
+            If None, the targets are not rounded.
+        database_kwargs: dict
+            A dictionary with the arguments for the database
+            if it is used.
         verbose: bool
             Whether to print statements in the optimization.
         dtype: type
             The data type of the arrays.
+        kwargs: dict (optional)
+            Additional keyword arguments for the MLModel class.
 
     Returns:
         mlmodel: MLModel class object
@@ -1166,25 +1219,26 @@ def get_default_mlmodel(
             n_reduced=n_reduced,
             round_hp=round_hp,
             dtype=dtype,
+            **all_model_kwargs,
         )
     # Make the database
     database = get_default_database(
         fp=fp,
         use_derivatives=use_derivatives,
         database_reduction=database_reduction,
-        database_reduction_kwargs=database_reduction_kwargs,
         round_targets=round_targets,
         dtype=dtype,
+        **database_kwargs,
     )
     # Make prior distributions for the hyperparameters if specified
-    if use_pdis:
+    if use_pdis and pdis is None:
         from ..pdistributions.normal import Normal_prior
 
         pdis = dict(
             length=Normal_prior(mu=[-0.8], std=[0.2], dtype=dtype),
             noise=Normal_prior(mu=[-9.0], std=[1.0], dtype=dtype),
         )
-    else:
+    elif not use_pdis:
         pdis = None
     # Make the ML model with database
     return MLModel(
