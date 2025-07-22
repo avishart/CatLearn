@@ -395,6 +395,16 @@ class MLModel:
         )
         # Print the solution if verbose is True
         if self.verbose:
+            # Get the prefactor if it is available
+            if hasattr(self.model, "get_prefactor"):
+                sol["prefactor"] = float(
+                    "{:.3e}".format(self.model.get_prefactor())
+                )
+            # Get the noise correction if it is available
+            if hasattr(self.model, "get_correction"):
+                sol["correction"] = float(
+                    "{:.3e}".format(self.model.get_correction())
+                )
             parprint(sol)
         return self.model
 
