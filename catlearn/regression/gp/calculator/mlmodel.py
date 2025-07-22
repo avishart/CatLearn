@@ -1181,8 +1181,8 @@ def get_default_mlmodel(
         from ..pdistributions.normal import Normal_prior
 
         pdis = dict(
-            length=Normal_prior(mu=[-1.0], std=[0.1], dtype=dtype),
-            noise=Normal_prior(mu=[-6.0], std=[0.1], dtype=dtype),
+            length=Normal_prior(mu=[-0.8], std=[0.2], dtype=dtype),
+            noise=Normal_prior(mu=[-9.0], std=[1.0], dtype=dtype),
         )
     else:
         pdis = None
