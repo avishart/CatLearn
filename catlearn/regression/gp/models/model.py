@@ -773,15 +773,22 @@ class ModelProcess:
             return replacing
         return value
 
-    def get_correction(self, K_diag, **kwargs):
+    def get_correction(self, K_diag=None, **kwargs):
         """
         Get the noise correction, so that the training covariance matrix
         is always invertible.
+
+        Parameters:
+            K_diag: N or N*(D+1) array (optional)
+                The diagonal elements of the kernel matrix.
+                If it is not given, the stored noise correction is used.
         """
-        if self.use_correction:
+        if self.use_correction and K_diag is not None:
             K_sum = K_diag.sum()
             n = len(K_diag)
             corr = (K_sum**2) * (1.0 / ((1.0 / self.eps) - (n**2)))
+        elif self.use_correction and K_diag is None:
+            corr = self.corr
         else:
             corr = 0.0
         return corr
