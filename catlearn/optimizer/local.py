@@ -6,9 +6,15 @@ from numpy import isnan
 
 
 class LocalOptimizer(OptimizerMethod):
+    """
+    The LocalOptimizer is used to run a local optimization on
+    a given structure.
+    The LocalOptimizer is applicable to be used with active learning.
+    """
+
     def __init__(
         self,
-        atoms,
+        optimizable,
         local_opt=FIRE,
         local_opt_kwargs={},
         parallel_run=False,
@@ -18,12 +24,10 @@ class LocalOptimizer(OptimizerMethod):
         **kwargs,
     ):
         """
-        The LocalOptimizer is used to run a local optimization on
-        a given structure.
-        The LocalOptimizer is applicable to be used with active learning.
+        Initialize the OptimizerMethod instance.
 
         Parameters:
-            atoms: Atoms instance
+            optimizable: Atoms instance
                 The instance to be optimized.
             local_opt: ASE optimizer object
                 The local optimizer object.
@@ -43,7 +47,7 @@ class LocalOptimizer(OptimizerMethod):
         """
         # Set the parameters
         self.update_arguments(
-            atoms=atoms,
+            optimizable=optimizable,
             local_opt=local_opt,
             local_opt_kwargs=local_opt_kwargs,
             parallel_run=parallel_run,
@@ -66,12 +70,63 @@ class LocalOptimizer(OptimizerMethod):
         if steps <= 0:
             return self._converged
         # Run the local optimization
-        with self.local_opt(
-            self.optimizable, **self.local_opt_kwargs
-        ) as optimizer:
+        converged, _ = self.local_optimize(
+            atoms=self.optimizable,
+            fmax=fmax,
+            steps=steps,
+            max_unc=max_unc,
+            dtrust=dtrust,
+            **kwargs,
+        )
+        # Check if the optimization is converged
+        self._converged = self.check_convergence(
+            converged=converged,
+            max_unc=max_unc,
+            dtrust=dtrust,
+            unc_convergence=unc_convergence,
+        )
+        # Return whether the optimization is converged
+        return self._converged
+
+    def local_optimize(
+        self,
+        atoms,
+        fmax=0.05,
+        steps=1000,
+        max_unc=None,
+        dtrust=None,
+        **kwargs,
+    ):
+        """
+        Run the local optimization on the given atoms.
+
+        Parameters:
+            atoms: Atoms instance
+                The atoms to be optimized.
+            fmax: float
+                The maximum force allowed on an atom.
+            steps: int
+                The maximum number of steps allowed.
+            max_unc: float
+                The maximum uncertainty allowed on a structure.
+            dtrust: float
+                The distance trust criterion.
+
+        Returns:
+            converged: bool
+                Whether the optimization is converged.
+            used_steps: int
+                The number of steps used in the optimization.
+        """
+        # Set the initialization parameters
+        converged = False
+        used_steps = 0
+        # Run the local optimization
+        with self.local_opt(atoms, **self.local_opt_kwargs) as optimizer:
             if max_unc is None and dtrust is None:
                 optimizer.run(fmax=fmax, steps=steps)
                 converged = optimizer.converged()
+                self.steps += optimizer.get_number_of_steps()
             else:
                 converged = self.run_max_unc(
                     optimizer=optimizer,
@@ -81,15 +136,9 @@ class LocalOptimizer(OptimizerMethod):
                     dtrust=dtrust,
                     **kwargs,
                 )
-            # Check if the optimization is converged
-            self._converged = self.check_convergence(
-                converged=converged,
-                max_unc=max_unc,
-                dtrust=dtrust,
-                unc_convergence=unc_convergence,
-            )
-        # Return whether the optimization is converged
-        return self._converged
+            # Get the number of steps used in the optimization
+            used_steps = optimizer.get_number_of_steps()
+        return converged, used_steps
 
     def run_max_unc(
         self,
@@ -153,7 +202,7 @@ class LocalOptimizer(OptimizerMethod):
                 break
         return converged
 
-    def setup_local_optimizer(self, local_opt=None, local_opt_kwargs={}):
+    def setup_local_optimizer(self, local_opt=FIRE, local_opt_kwargs={}):
         """
         Setup the local optimizer.
 
@@ -166,8 +215,7 @@ class LocalOptimizer(OptimizerMethod):
         self.local_opt_kwargs = dict()
         if not self.verbose:
             self.local_opt_kwargs["logfile"] = None
-        if local_opt is None:
-            local_opt = FIRE
+        if issubclass(local_opt, FIRE):
             self.local_opt_kwargs.update(
                 dict(dt=0.05, maxstep=0.2, a=1.0, astart=1.0, fa=0.999)
             )
@@ -183,7 +231,7 @@ class LocalOptimizer(OptimizerMethod):
 
     def update_arguments(
         self,
-        atoms=None,
+        optimizable=None,
         local_opt=None,
         local_opt_kwargs={},
         parallel_run=None,
@@ -197,7 +245,7 @@ class LocalOptimizer(OptimizerMethod):
         The existing arguments are used if they are not given.
 
         Parameters:
-            atoms: Atoms instance
+            optimizable: Atoms instance
                 The instance to be optimized.
             local_opt: ASE optimizer object
                 The local optimizer object.
@@ -217,7 +265,7 @@ class LocalOptimizer(OptimizerMethod):
         """
         # Set the parameters in the parent class
         super().update_arguments(
-            optimizable=atoms,
+            optimizable=optimizable,
             parallel_run=parallel_run,
             comm=comm,
             verbose=verbose,
@@ -248,7 +296,7 @@ class LocalOptimizer(OptimizerMethod):
         "Get the arguments of the class itself."
         # Get the arguments given to the class in the initialization
         arg_kwargs = dict(
-            atoms=self.optimizable,
+            optimizable=self.optimizable,
             local_opt=self.local_opt,
             local_opt_kwargs=self.local_opt_kwargs,
             parallel_run=self.parallel_run,
