@@ -1,13 +1,17 @@
 from ase.optimize import FIRE
 from ase.parallel import world
 from ase.io import read
-from numpy.linalg import norm
 from .activelearning import ActiveLearning
 from ..optimizer import LocalCINEB
-from ..structures.neb import ImprovedTangentNEB
+from ..structures.neb import ImprovedTangentNEB, OriginalNEB
 
 
 class MLNEB(ActiveLearning):
+    """
+    An active learner that is used for accelerating nudged elastic band
+    (NEB) optimization with an active learning approach.
+    """
+
     def __init__(
         self,
         start,
@@ -20,11 +24,11 @@ class MLNEB(ActiveLearning):
         climb=True,
         neb_interpolation="linear",
         neb_interpolation_kwargs={},
+        start_without_ci=True,
         reuse_ci_path=True,
         local_opt=FIRE,
         local_opt_kwargs={},
         acq=None,
-        use_database_check=True,
         save_memory=False,
         parallel_run=False,
         copy_calc=False,
@@ -32,35 +36,43 @@ class MLNEB(ActiveLearning):
         apply_constraint=True,
         force_consistent=False,
         scale_fmax=0.8,
-        unc_convergence=0.05,
+        unc_convergence=0.02,
         use_method_unc_conv=True,
         use_restart=True,
         check_unc=True,
         check_energy=False,
         check_fmax=True,
+        max_unc_restart=0.05,
         n_evaluations_each=1,
         min_data=3,
+        use_database_check=True,
+        data_perturb=0.001,
+        data_tol=1e-8,
         save_properties_traj=True,
+        to_save_mlcalc=True,
+        save_mlcalc_kwargs={},
         trajectory="predicted.traj",
         trainingset="evaluated.traj",
+        pred_evaluated="predicted_evaluated.traj",
         converged_trajectory="converged.traj",
         initial_traj="initial_struc.traj",
         tabletxt="ml_summary.txt",
+        timetxt="ml_time.txt",
         prev_calculations=None,
         restart=False,
-        seed=None,
+        seed=1,
+        dtype=float,
         comm=world,
         **kwargs,
     ):
         """
-        An active learner that is used for accelerating nudged elastic band
-        (NEB) optimization with an active learning approach.
+        Initialize the ActiveLearning instance.
 
         Parameters:
-            start : Atoms instance or ASE Trajectory file.
+            start: Atoms instance or ASE Trajectory file.
                 The Atoms must have the calculator attached with energy.
                 Initial end-point of the NEB path.
-            end : Atoms instance or ASE Trajectory file.
+            end: Atoms instance or ASE Trajectory file.
                 The Atoms must have the calculator attached with energy.
                 Final end-point of the NEB path.
             ase_calc: ASE calculator instance.
@@ -68,36 +80,44 @@ class MLNEB(ActiveLearning):
             mlcalc: ML-calculator instance.
                 The ML-calculator instance used as surrogate surface.
                 The default BOCalculator instance is used if mlcalc is None.
-            neb_method : NEB class object or str
+            neb_method: NEB class object or str
                 The NEB implemented class object used for the ML-NEB.
                 A string can be used to select:
                 - 'improvedtangentneb' (default)
                 - 'ewneb'
-            neb_kwargs : dict
+            neb_kwargs: dict
                 A dictionary with the arguments used in the NEB object
                 to create the instance.
                 Climb must not be included.
-            n_images : int
+            n_images: int
                 Number of images of the path (if not included a path before).
                 The number of images include the 2 end-points of the NEB path.
-            climb : bool
+            climb: bool
                 Whether to use the climbing image in the NEB.
                 It is strongly recommended to have climb=True.
-            neb_interpolation : str or list of ASE Atoms or ASE Trajectory file
+            neb_interpolation: str or list of ASE Atoms or ASE Trajectory file
                 The interpolation method used to create the NEB path.
                 The string can be:
                 - 'linear' (default)
                 - 'idpp'
                 - 'rep'
+                - 'born
                 - 'ends'
                 Otherwise, the premade images can be given as a list of
                 ASE Atoms.
                 A string of the ASE Trajectory file that contains the images
                 can also be given.
-            neb_interpolation_kwargs : dict
+            neb_interpolation_kwargs: dict
                 The keyword arguments for the interpolation method.
                 It is only used when the interpolation method is a string.
-            reuse_ci_path : bool
+            start_without_ci: bool
+                Whether to start the NEB without the climbing image.
+                If True, the NEB path will be optimized without
+                the climbing image and afterwards climbing image is used
+                if climb=True as well.
+                If False, the NEB path will be optimized with the climbing
+                image if climb=True as well.
+            reuse_ci_path: bool
                 Whether to restart from the climbing image path when the NEB
                 without climbing image is converged.
             local_opt: ASE optimizer object
@@ -155,13 +175,35 @@ class MLNEB(ActiveLearning):
             check_fmax: bool
                 Check if the maximum force is larger for the restarted result
                 than the initial interpolation and if so then replace it.
+            max_unc_restart: float (optional)
+                Maximum uncertainty (in eV) for using the structure(s) as
+                the restart in the optimization method.
+                If max_unc_restart is None, then the optimization is performed
+                without the maximum uncertainty.
             n_evaluations_each: int
                 Number of evaluations for each iteration.
             min_data: int
                 The minimum number of data points in the training set before
                 the active learning can converge.
+            use_database_check: bool
+                Whether to check if the new structure is within the database.
+                If it is in the database, the structure is rattled.
+                Please be aware that the predicted structure will differ from
+                the structure in the database if the rattling is applied.
+            data_perturb: float
+                The perturbation of the data structure if it is in the database
+                and use_database_check is True.
+                data_perturb is the standard deviation of the normal
+                distribution used to rattle the structure.
+            data_tol: float
+                The tolerance for the data structure if it is in the database
+                and use_database_check is True.
             save_properties_traj: bool
                 Whether to save the calculated properties to the trajectory.
+            to_save_mlcalc: bool
+                Whether to save the ML calculator to a file after training.
+            save_mlcalc_kwargs: dict
+                Arguments for saving the ML calculator, like the filename.
             trajectory: str or TrajectoryWriter instance
                 Trajectory filename to store the predicted data.
                 Or the TrajectoryWriter instance to store the predicted data.
@@ -169,6 +211,13 @@ class MLNEB(ActiveLearning):
                 Trajectory filename to store the evaluated training data.
                 Or the TrajectoryWriter instance to store the evaluated
                 training data.
+            pred_evaluated: str or TrajectoryWriter instance (optional)
+                Trajectory filename to store the evaluated training data
+                with predicted properties.
+                Or the TrajectoryWriter instance to store the evaluated
+                training data with predicted properties.
+                If pred_evaluated is None, then the predicted data is
+                not saved.
             converged_trajectory: str or TrajectoryWriter instance
                 Trajectory filename to store the converged structure(s).
                 Or the TrajectoryWriter instance to store the converged
@@ -180,6 +229,9 @@ class MLNEB(ActiveLearning):
             tabletxt: str
                 Name of the .txt file where the summary table is printed.
                 It is not saved to the file if tabletxt=None.
+            timetxt: str (optional)
+                Name of the .txt file where the time table is printed.
+                It is not saved to the file if timetxt=None.
             prev_calculations: Atoms list or ASE Trajectory file.
                 The user can feed previously calculated data
                 for the same hypersurface.
@@ -191,6 +243,8 @@ class MLNEB(ActiveLearning):
                 The random seed for the optimization.
                 The seed an also be a RandomState or Generator instance.
                 If not given, the default random number generator is used.
+            dtype: type
+                The data type of the arrays.
             comm: MPI communicator.
                 The MPI communicator.
         """
@@ -204,6 +258,7 @@ class MLNEB(ActiveLearning):
             n_images=n_images,
             neb_interpolation=neb_interpolation,
             neb_interpolation_kwargs=neb_interpolation_kwargs,
+            start_without_ci=start_without_ci,
             reuse_ci_path=reuse_ci_path,
             local_opt=local_opt,
             local_opt_kwargs=local_opt_kwargs,
@@ -219,7 +274,6 @@ class MLNEB(ActiveLearning):
             mlcalc=mlcalc,
             acq=acq,
             is_minimization=False,
-            use_database_check=use_database_check,
             save_memory=save_memory,
             parallel_run=parallel_run,
             copy_calc=copy_calc,
@@ -234,17 +288,26 @@ class MLNEB(ActiveLearning):
             check_unc=check_unc,
             check_energy=check_energy,
             check_fmax=check_fmax,
+            max_unc_restart=max_unc_restart,
             n_evaluations_each=n_evaluations_each,
             min_data=min_data,
+            use_database_check=use_database_check,
+            data_perturb=data_perturb,
+            data_tol=data_tol,
             save_properties_traj=save_properties_traj,
+            to_save_mlcalc=to_save_mlcalc,
+            save_mlcalc_kwargs=save_mlcalc_kwargs,
             trajectory=trajectory,
             trainingset=trainingset,
+            pred_evaluated=pred_evaluated,
             converged_trajectory=converged_trajectory,
             initial_traj=initial_traj,
             tabletxt=tabletxt,
+            timetxt=timetxt,
             prev_calculations=self.prev_calculations,
             restart=restart,
             seed=seed,
+            dtype=dtype,
             comm=comm,
             **kwargs,
         )
@@ -254,7 +317,7 @@ class MLNEB(ActiveLearning):
         start,
         end,
         prev_calculations,
-        eps=1e-6,
+        tol=1e-8,
         **kwargs,
     ):
         """
@@ -266,10 +329,22 @@ class MLNEB(ActiveLearning):
         if isinstance(end, str):
             end = read(end)
         # Save the start point with calculators
-        start.get_forces()
+        try:
+            start.get_forces()
+        except RuntimeError:
+            raise RuntimeError(
+                "The start point must have a calculator attached with "
+                "energy and forces!"
+            )
         self.start = self.copy_atoms(start)
         # Save the end point with calculators
-        end.get_forces()
+        try:
+            end.get_forces()
+        except RuntimeError:
+            raise RuntimeError(
+                "The end point must have a calculator attached with "
+                "energy and forces!"
+            )
         self.end = self.copy_atoms(end)
         # Save in previous calculations
         self.prev_calculations = [self.start, self.end]
@@ -278,12 +353,20 @@ class MLNEB(ActiveLearning):
                 prev_calculations = read(prev_calculations, ":")
             # Check if end points are in the previous calculations
             if len(prev_calculations):
-                pos = prev_calculations[0].get_positions()
-                if norm(pos - self.start.get_positions()) < eps:
+                is_same = self.compare_atoms(
+                    self.start,
+                    prev_calculations[0],
+                    tol=tol,
+                )
+                if is_same:
                     prev_calculations = prev_calculations[1:]
             if len(prev_calculations):
-                pos = prev_calculations[0].get_positions()
-                if norm(pos - self.end.get_positions()) < eps:
+                is_same = self.compare_atoms(
+                    self.end,
+                    prev_calculations[0],
+                    tol=tol,
+                )
+                if is_same:
                     prev_calculations = prev_calculations[1:]
             # Save the previous calculations
             self.prev_calculations += list(prev_calculations)
@@ -300,6 +383,7 @@ class MLNEB(ActiveLearning):
         mic=True,
         neb_interpolation="linear",
         neb_interpolation_kwargs={},
+        start_without_ci=True,
         reuse_ci_path=True,
         local_opt=FIRE,
         local_opt_kwargs={},
@@ -317,11 +401,19 @@ class MLNEB(ActiveLearning):
         self.neb_kwargs = dict(
             k=k,
             remove_rotation_and_translation=remove_rotation_and_translation,
-            mic=mic,
-            save_properties=True,
             parallel=parallel_run,
-            world=comm,
         )
+        if isinstance(neb_method, str) or issubclass(neb_method, OriginalNEB):
+            self.neb_kwargs.update(
+                dict(
+                    use_image_permutation=True,
+                    save_properties=True,
+                    mic=mic,
+                    comm=comm,
+                )
+            )
+        else:
+            self.neb_kwargs.update(dict(world=comm))
         self.neb_kwargs.update(neb_kwargs)
         self.n_images = n_images
         self.neb_interpolation = neb_interpolation
@@ -330,6 +422,7 @@ class MLNEB(ActiveLearning):
             remove_rotation_and_translation=remove_rotation_and_translation,
         )
         self.neb_interpolation_kwargs.update(neb_interpolation_kwargs)
+        self.start_without_ci = start_without_ci
         self.climb = climb
         self.reuse_ci_path = reuse_ci_path
         # Build the sequential neb optimizer
@@ -342,6 +435,7 @@ class MLNEB(ActiveLearning):
             climb=self.climb,
             neb_interpolation=self.neb_interpolation,
             neb_interpolation_kwargs=self.neb_interpolation_kwargs,
+            start_without_ci=self.start_without_ci,
             reuse_ci_path=self.reuse_ci_path,
             local_opt=self.local_opt,
             local_opt_kwargs=self.local_opt_kwargs,
@@ -356,7 +450,7 @@ class MLNEB(ActiveLearning):
         if self.get_training_set_size() >= 3:
             return self
         # Get the images
-        images = self.get_structures(get_all=True)
+        images = self.get_structures(get_all=True, allow_calculation=False)
         # Calculate energies of end points
         e_start = self.start.get_potential_energy()
         e_end = self.end.get_potential_energy()
@@ -386,12 +480,12 @@ class MLNEB(ActiveLearning):
             climb=self.climb,
             neb_interpolation=self.neb_interpolation,
             neb_interpolation_kwargs=self.neb_interpolation_kwargs,
+            start_without_ci=self.start_without_ci,
             reuse_ci_path=self.reuse_ci_path,
             local_opt=self.local_opt,
             local_opt_kwargs=self.local_opt_kwargs,
             acq=self.acq,
             is_minimization=self.is_minimization,
-            use_database_check=self.use_database_check,
             save_memory=self.save_memory,
             parallel_run=self.parallel_run,
             copy_calc=self.copy_calc,
@@ -405,15 +499,24 @@ class MLNEB(ActiveLearning):
             check_unc=self.check_unc,
             check_energy=self.check_energy,
             check_fmax=self.check_fmax,
+            max_unc_restart=self.max_unc_restart,
             n_evaluations_each=self.n_evaluations_each,
             min_data=self.min_data,
+            use_database_check=self.use_database_check,
+            data_perturb=self.data_perturb,
+            data_tol=self.data_tol,
             save_properties_traj=self.save_properties_traj,
+            to_save_mlcalc=self.to_save_mlcalc,
+            save_mlcalc_kwargs=self.save_mlcalc_kwargs,
             trajectory=self.trajectory,
             trainingset=self.trainingset,
+            pred_evaluated=self.pred_evaluated,
             converged_trajectory=self.converged_trajectory,
             initial_traj=self.initial_traj,
             tabletxt=self.tabletxt,
+            timetxt=self.timetxt,
             seed=self.seed,
+            dtype=self.dtype,
             comm=self.comm,
         )
         # Get the constants made within the class
