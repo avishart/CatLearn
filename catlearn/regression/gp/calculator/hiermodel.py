@@ -22,9 +22,11 @@ class HierarchicalMLModel(MLModel):
         hp=None,
         pdis=None,
         include_noise=False,
+        to_save_mlmodel=False,
+        save_mlmodel_kwargs={},
         verbose=False,
         npoints=25,
-        initial_indicies=[0],
+        initial_indices=[0],
         dtype=float,
         **kwargs,
     ):
@@ -50,12 +52,16 @@ class HierarchicalMLModel(MLModel):
                 A dict of prior distributions for each hyperparameter type.
             include_noise: bool
                 Whether to include noise in the uncertainty from the model.
+            to_save_mlmodel: bool
+                Whether to save the ML model to a file after training.
+            save_mlmodel_kwargs: dict
+                Arguments for saving the ML model, like the filename.
             verbose: bool
                 Whether to print statements in the optimization.
             npoints: int
                 Number of points that are used from the database in the models.
-            initial_indicies: list
-                The indicies of the data points that must be included in
+            initial_indices: list
+                The indices of the data points that must be included in
                 the used data base for every model.
             dtype: type
                 The data type of the arrays.
@@ -68,9 +74,11 @@ class HierarchicalMLModel(MLModel):
             hp=hp,
             pdis=pdis,
             include_noise=include_noise,
+            to_save_mlmodel=to_save_mlmodel,
+            save_mlmodel_kwargs=save_mlmodel_kwargs,
             verbose=verbose,
             npoints=npoints,
-            initial_indicies=initial_indicies,
+            initial_indices=initial_indices,
             dtype=dtype,
             **kwargs,
         )
@@ -103,7 +111,7 @@ class HierarchicalMLModel(MLModel):
             )
             # Make a new ml model with the mandatory points
             data_atoms = self.get_data_atoms()
-            data_atoms = [data_atoms[i] for i in self.initial_indicies]
+            data_atoms = [data_atoms[i] for i in self.initial_indices]
             self.reset_database()
             super().add_training(data_atoms)
             super().add_training(atoms_list)
@@ -123,9 +131,11 @@ class HierarchicalMLModel(MLModel):
         hp=None,
         pdis=None,
         include_noise=None,
+        to_save_mlmodel=None,
+        save_mlmodel_kwargs=None,
         verbose=None,
         npoints=None,
-        initial_indicies=None,
+        initial_indices=None,
         dtype=None,
         **kwargs,
     ):
@@ -150,14 +160,18 @@ class HierarchicalMLModel(MLModel):
                 else the current set is used.
             pdis: dict
                 A dict of prior distributions for each hyperparameter type.
+            to_save_mlmodel: bool
+                Whether to save the ML model to a file after training.
+            save_mlmodel_kwargs: dict
+                Arguments for saving the ML model, like the filename.
             include_noise: bool
                 Whether to include noise in the uncertainty from the model.
             verbose: bool
                 Whether to print statements in the optimization.
             npoints: int
                 Number of points that are used from the database in the models.
-            initial_indicies: list
-                The indicies of the data points that must be included in
+            initial_indices: list
+                The indices of the data points that must be included in
                 the used data base for every model.
             dtype: type
                 The data type of the arrays.
@@ -174,15 +188,17 @@ class HierarchicalMLModel(MLModel):
             hp=hp,
             pdis=pdis,
             include_noise=include_noise,
+            to_save_mlmodel=to_save_mlmodel,
+            save_mlmodel_kwargs=save_mlmodel_kwargs,
             verbose=verbose,
             dtype=dtype,
         )
         # Set the number of points
         if npoints is not None:
             self.npoints = int(npoints)
-        # Set the initial indicies
-        if initial_indicies is not None:
-            self.initial_indicies = initial_indicies.copy()
+        # Set the initial indices
+        if initial_indices is not None:
+            self.initial_indices = initial_indices.copy()
         return self
 
     def get_arguments(self):
@@ -196,13 +212,15 @@ class HierarchicalMLModel(MLModel):
             hp=self.hp,
             pdis=self.pdis,
             include_noise=self.include_noise,
+            to_save_mlmodel=self.to_save_mlmodel,
+            save_mlmodel_kwargs=self.save_mlmodel_kwargs,
             verbose=self.verbose,
             npoints=self.npoints,
-            initial_indicies=self.initial_indicies,
+            initial_indices=self.initial_indices,
             dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()
         # Get the objects made within the class
-        object_kwargs = dict(baseline_targets=self.baseline_targets.copy())
+        object_kwargs = dict()
         return arg_kwargs, constant_kwargs, object_kwargs
