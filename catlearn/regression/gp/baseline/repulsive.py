@@ -198,12 +198,17 @@ class RepulsionCalculator(BaselineCalculator):
 
     def get_energy_forces(self, atoms, use_forces=True, **kwargs):
         "Get the energy and forces."
-        # Get the not fixed (not masked) atom indicies
+        # Get the not fixed (not masked) atom indices
         not_masked, _ = get_constraints(
             atoms,
             reduce_dimensions=self.reduce_dimensions,
         )
         i_nm = arange(len(not_masked))
+        # Check if there are any not masked atoms
+        if len(not_masked) == 0:
+            if use_forces:
+                return 0.0, zeros((len(atoms), 3), dtype=self.dtype)
+            return 0.0, None
         # Check what distance method should be used
         (
             use_vector,
