@@ -1232,22 +1232,17 @@ class ActiveLearning:
         Get the energies, uncertainties, and fmaxs with the ML calculator
         for the candidates.
         """
-        energies = asarray(
-            [candidate.get_potential_energy() for candidate in candidates]
-        )
-        uncertainties = asarray(
-            [candidate.calc.results["uncertainty"] for candidate in candidates]
-        )
-        fmaxs = asarray(
-            [
-                sqrt((candidate.get_forces() ** 2).sum(axis=1).max())
-                for candidate in candidates
-            ]
-        )
+        energies = []
+        uncertainties = []
+        fmaxs = []
+        for candidate in candidates:
+            energies.append(self.get_true_predicted_energy(candidate))
+            uncertainties.append(candidate.calc.results["uncertainty"])
+            fmaxs.append(sqrt((candidate.get_forces() ** 2).sum(axis=1).max()))
         return (
-            energies.reshape(-1),
-            uncertainties.reshape(-1),
-            fmaxs.reshape(-1),
+            asarray(energies).reshape(-1),
+            asarray(uncertainties).reshape(-1),
+            asarray(fmaxs).reshape(-1),
         )
 
     def parallel_setup(self, comm, **kwargs):
@@ -1546,7 +1541,7 @@ class ActiveLearning:
                 properties=["fmax", "uncertainty", "energy"],
                 allow_calculation=True,
             )
-            self.pred_energies[0] = candidate.get_potential_energy()
+            self.pred_energies[0] = self.get_true_predicted_energy(candidate)
             self.uncertainties[0] = candidate.calc.results["uncertainty"]
         return candidate
 
@@ -1712,6 +1707,18 @@ class ActiveLearning:
     def is_in_database(self, atoms, **kwargs):
         "Check if the ASE Atoms is in the database."
         return self.mlcalc.is_in_database(atoms, **kwargs)
+
+    def get_true_predicted_energy(self, atoms, **kwargs):
+        """
+        Get the true predicted energy of the atoms.
+        Since the BOCalculator will return the predicted energy and
+        the uncertainty times the kappa value, this should be avoided.
+        """
+        energy = atoms.get_potential_energy()
+        if hasattr(atoms.calc, "results"):
+            if "predicted energy" in atoms.calc.results:
+                energy = atoms.calc.results["predicted energy"]
+        return energy
 
     def save_mlcalc(self, filename="mlcalc.pkl", **kwargs):
         """

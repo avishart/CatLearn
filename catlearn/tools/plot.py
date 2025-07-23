@@ -41,45 +41,26 @@ def plot_minimize(
     # Get the energies of the predicted atoms
     if isinstance(pred_atoms, str):
         pred_atoms = read(pred_atoms, ":")
-    pred_energies = [atoms.get_potential_energy() for atoms in pred_atoms]
-    if (
-        "results" in pred_atoms[0].info
-        and "predicted energy" in pred_atoms[0].info["results"]
-    ):
-        for i, atoms in enumerate(pred_atoms):
-            pred_energies[i] = atoms.info["results"]["predicted energy"]
-    elif hasattr(pred_atoms[0].calc, "results"):
-        if "predicted energy" in pred_atoms[0].calc.results:
-            for i, atoms in enumerate(pred_atoms):
-                atoms.get_potential_energy()
-                pred_atoms[i] = atoms.calc.results["predicted energy"]
+    pred_energies = [get_true_predicted_energy(atoms) for atoms in pred_atoms]
+    # Get the uncertainties of the atoms if requested
+    uncertainties = None
+    if use_uncertainty:
+        uncertainties = np.array(
+            [get_uncertainty(atoms) for atoms in pred_atoms]
+        )
     # Get the energies of the evaluated atoms
     if isinstance(eval_atoms, str):
         eval_atoms = read(eval_atoms, ":")
     eval_energies = [atoms.get_potential_energy() for atoms in eval_atoms]
     # Get the reference energy
     e_ref = eval_energies[0]
-    # Get the uncertainties of the atoms if requested
-    uncertainties = None
-    if use_uncertainty:
-        if (
-            "results" in pred_atoms[0].info
-            and "uncertainty" in pred_atoms[0].info["results"]
-        ):
-            uncertainties = [
-                atoms.info["results"]["uncertainty"] for atoms in pred_atoms
-            ]
-        else:
-            uncertainties = [
-                atoms.calc.get_uncertainty(atoms) for atoms in pred_atoms
-            ]
-        uncertainties = np.array(uncertainties)
     # Make the energies relative to the first energy
     pred_energies = np.array(pred_energies) - e_ref
     eval_energies = np.array(eval_energies) - e_ref
     # Make x values
     x_values = np.arange(1, len(eval_energies) + 1)
-    x_pred = x_values[-len(pred_energies) :]
+    x_trunc = -len(pred_energies)
+    x_pred = x_values[x_trunc:]
     # Plot the energies of the atoms
     ax.plot(x_pred, pred_energies, "o-", color="red", label="Predicted")
     ax.plot(x_values, eval_energies, "o-", color="black", label="Evaluated")
@@ -142,34 +123,12 @@ def get_neb_data(
     # Initialize the NEB method
     neb = neb_method(images, climb=climb, **used_neb_kwargs)
     # Get the energies of the images
-    energies = [image.get_potential_energy() for image in images]
-    if (
-        "results" in images[1].info
-        and "predicted energy" in images[1].info["results"]
-    ):
-        for i, image in enumerate(images[1:-1]):
-            energies[i + 1] = image.info["results"]["predicted energy"]
-    elif hasattr(images[1].calc, "results"):
-        if "predicted energy" in images[1].calc.results:
-            for i, image in enumerate(images[1:-1]):
-                image.get_potential_energy()
-                energies[i + 1] = image.calc.results["predicted energy"]
+    energies = [get_true_predicted_energy(image) for image in images]
     energies = np.array(energies) - energies[0]
     # Get the uncertainties of the images if requested
     uncertainties = None
     if use_uncertainty:
-        if (
-            "results" in images[1].info
-            and "uncertainty" in images[1].info["results"]
-        ):
-            uncertainties = [
-                image.info["results"]["uncertainty"] for image in images[1:-1]
-            ]
-
-        else:
-            uncertainties = [
-                image.calc.get_uncertainty(image) for image in images[1:-1]
-            ]
+        uncertainties = [get_uncertainty(image) for image in images[1:-1]]
         uncertainties = np.concatenate([[0.0], uncertainties, [0.0]])
     # Get the distances between the images
     pos_p, pos_m = neb.get_position_diff()
@@ -179,21 +138,12 @@ def get_neb_data(
     # Use projection of the derivatives on the tangent
     if use_projection:
         # Get the forces
-        forces = [image.get_forces() for image in images]
+        forces = [images[0].get_forces()]
+        forces = forces + [
+            get_true_predicted_forces(image) for image in images[1:-1]
+        ]
+        forces = forces + [images[-1].get_forces()]
         forces = np.array(forces)
-        if (
-            "results" in images[1].info
-            and "predicted forces" in images[1].info["results"]
-        ):
-            for i, image in enumerate(images[1:-1]):
-                forces[i + 1] = image.info["results"][
-                    "predicted forces"
-                ].copy()
-        elif hasattr(images[1].calc, "results"):
-            if "predicted forces" in images[1].calc.results:
-                for i, image in enumerate(images[1:-1]):
-                    image.get_forces()
-                    forces[i + 1] = image.calc.results["predicted forces"]
         # Get the tangent
         tangent = neb.get_tangent(pos_p, pos_m)
         tangent = np.concatenate([[pos_m[0]], tangent, [pos_p[0]]], axis=0)
@@ -356,6 +306,7 @@ def plot_neb_fit_mlcalc(
     mlcalc = mlcalc.update_mlmodel_arguments(include_noise=include_noise)
     # Get the first image
     image = images[0].copy()
+    image.info["results"] = {}
     image.calc = mlcalc
     pos0 = image.get_positions()
     # Get the distances between the images
@@ -379,10 +330,7 @@ def plot_neb_fit_mlcalc(
             pred_distance.append(cum_distance + scaling * dist)
             image.set_positions(pred_pos)
             # Get the curve energy
-            energy = image.get_potential_energy()
-            if hasattr(image.calc, "results"):
-                if "predicted energy" in image.calc.results:
-                    energy = image.calc.results["predicted energy"]
+            energy = get_true_predicted_energy(image)
             pred_energies.append(energy)
             # Get the curve uncertainty
             if use_uncertainty:
@@ -469,7 +417,9 @@ def plot_all_neb(
     # Plot all NEB bands
     for i in range(n_neb):
         # Get the images of the NEB band
-        images = neb_traj[i * n_images : (i + 1) * n_images]
+        ni = i * n_images
+        ni1 = (i + 1) * n_images
+        images = neb_traj[ni:ni1]
         # Get data from NEB band
         _, distances, energies, _, _ = get_neb_data(
             images,
@@ -500,3 +450,54 @@ def plot_all_neb(
     ax.set_xlabel("Distance / [Å]")
     ax.set_ylabel("Potential energy / [eV]")
     return ax
+
+
+def get_true_predicted_energy(atoms, **kwargs):
+    """
+    Get the true predicted energy of the atoms.
+    Since the BOCalculator will return the predicted energy and
+    the uncertainty times the kappa value, this should be avoided.
+    """
+    energy = atoms.get_potential_energy()
+    if (
+        hasattr(atoms.calc, "results")
+        and "predicted energy" in atoms.calc.results
+    ):
+        energy = atoms.calc.results["predicted energy"]
+    elif (
+        "results" in atoms.info and "predicted energy" in atoms.info["results"]
+    ):
+        energy = atoms.info["results"]["predicted energy"]
+    return energy
+
+
+def get_uncertainty(atoms, **kwargs):
+    """
+    Get the uncertainty of the atoms.
+    """
+    if hasattr(atoms.calc, "results") and "uncertainty" in atoms.calc.results:
+        uncertainty = atoms.calc.results["uncertainty"]
+    elif "results" in atoms.info and "uncertainty" in atoms.info["results"]:
+        uncertainty = atoms.info["results"]["uncertainty"]
+    else:
+        uncertainty = atoms.calc.get_uncertainty(atoms)
+    return uncertainty
+
+
+def get_true_predicted_forces(atoms, **kwargs):
+    """
+    Get the true predicted forces of the atoms.
+    Since the BOCalculator will return the predicted forces and
+    the uncertainty times the kappa value, this should be avoided.
+    """
+    forces = atoms.get_forces()
+    if (
+        hasattr(atoms.calc, "results")
+        and "predicted forces" in atoms.calc.results
+    ):
+        forces = atoms.calc.results["predicted forces"]
+    elif (
+        "results" in atoms.info and "predicted forces" in atoms.info["results"]
+    ):
+        forces = atoms.info["results"]["predicted forces"]
+    return forces
