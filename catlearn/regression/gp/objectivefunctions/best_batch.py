@@ -46,9 +46,9 @@ class BestBatchFuction(BatchFuction):
         self.set_same_prior_mean(model, X, Y)
         # Calculate the number of batches
         n_batches = self.get_number_batches(n_data)
-        indicies = arange(n_data)
+        indices = arange(n_data)
         i_batches = self.randomized_batches(
-            indicies, n_data, n_batches, **kwargs
+            indices, n_data, n_batches, **kwargs
         )
         # Sum function values together from batches
         fvalue = inf

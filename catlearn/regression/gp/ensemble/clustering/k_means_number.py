@@ -5,7 +5,7 @@ from .k_means import K_means
 
 class K_means_number(K_means):
     """
-    Clustering algorithn class for data sets.
+    Clustering algorithm class for data sets.
     It uses the K-means++ algorithm for clustering.
     It uses a fixed number of data points in each cluster.
     """
@@ -55,19 +55,19 @@ class K_means_number(K_means):
         X = array(X, dtype=self.dtype)
         # Calculate the number of clusters
         self.n_clusters = self.calc_n_clusters(X)
-        # If only one cluster is used give the full data
+        # If only one cluster is used, give the full data
         if self.n_clusters == 1:
             self.centroids = asarray([X.mean(axis=0)])
             return [arange(len(X))]
         # Initiate the centroids
         centroids = self.initiate_centroids(X)
         # Optimize position of the centroids
-        self.centroids, cluster_indicies = self.optimize_centroids(
+        self.centroids, cluster_indices = self.optimize_centroids(
             X,
             centroids,
         )
-        # Return the cluster indicies
-        return cluster_indicies
+        # Return the cluster indices
+        return cluster_indices
 
     def update_arguments(
         self,
@@ -128,52 +128,49 @@ class K_means_number(K_means):
 
     def optimize_centroids(self, X, centroids, **kwargs):
         "Optimize the positions of the centroids."
-        indicies = arange(len(X))
+        indices = arange(len(X))
         for _ in range(1, self.maxiter + 1):
             # Store the old centroids
             centroids_old = centroids.copy()
             # Calculate which centroids that are closest
             distance_matrix = self.calculate_distances(X, centroids)
-            cluster_indicies = self.count_clusters(
+            cluster_indices = self.count_clusters(
                 X,
-                indicies,
+                indices,
                 distance_matrix,
             )
             centroids = asarray(
-                [
-                    X[indicies_ki].mean(axis=0)
-                    for indicies_ki in cluster_indicies
-                ]
+                [X[indices_ki].mean(axis=0) for indices_ki in cluster_indices]
             )
             # Check if it is converged
             if norm(centroids - centroids_old) <= self.tol:
                 break
-        return centroids, cluster_indicies
+        return centroids, cluster_indices
 
-    def count_clusters(self, X, indicies, distance_matrix, **kwargs):
+    def count_clusters(self, X, indices, distance_matrix, **kwargs):
         """
-        Get the indicies for each of the clusters.
+        Get the indices for each of the clusters.
         The number of data points in each cluster is counted and restricted
         between the minimum and maximum number of allowed cluster sizes.
         """
-        # Make a list cluster indicies
+        # Make a list cluster indices
         klist = arange(self.n_clusters).reshape(-1, 1)
         # Find the cluster that each point is closest to
-        k_indicies = argmin(distance_matrix, axis=1)
-        indicies_ki_bool = klist == k_indicies
-        # Sort the indicies as function of the distances to the centroids
-        d_indicies = argsort(distance_matrix, axis=0)
-        indicies_sorted = indicies[d_indicies.T]
-        indicies_ki_bool = indicies_ki_bool[klist, indicies_sorted]
+        k_indices = argmin(distance_matrix, axis=1)
+        indices_ki_bool = klist == k_indices
+        # Sort the indices as function of the distances to the centroids
+        d_indices = argsort(distance_matrix, axis=0)
+        indices_sorted = indices[d_indices.T]
+        indices_ki_bool = indices_ki_bool[klist, indices_sorted]
         # Prioritize the points that is part of each cluster
-        cluster_indicies = [
+        cluster_indices = [
             append(
-                indicies_sorted[ki, indicies_ki_bool[ki]],
-                indicies_sorted[ki, ~indicies_ki_bool[ki]],
+                indices_sorted[ki, indices_ki_bool[ki]],
+                indices_sorted[ki, ~indices_ki_bool[ki]],
             )[: self.data_number]
             for ki in range(self.n_clusters)
         ]
-        return cluster_indicies
+        return cluster_indices
 
     def get_arguments(self):
         "Get the arguments of the class itself."

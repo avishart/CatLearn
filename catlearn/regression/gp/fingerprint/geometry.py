@@ -22,7 +22,7 @@ from ase.constraints import FixAtoms
 
 def get_constraints(atoms, reduce_dimensions=True, **kwargs):
     """
-    Get the indicies of the atoms that does not have fixed constraints.
+    Get the indices of the atoms that does not have fixed constraints.
 
     Parameters:
         atoms: ASE Atoms
@@ -32,9 +32,9 @@ def get_constraints(atoms, reduce_dimensions=True, **kwargs):
 
     Returns:
         not_masked: (Nnm) list
-            A list of indicies for the moving atoms if constraints are used.
+            A list of indices for the moving atoms if constraints are used.
         masked: (Nm) list
-            A list of indicies for the fixed atoms if constraints are used.
+            A list of indices for the fixed atoms if constraints are used.
 
     """
     not_masked = list(range(len(atoms)))
@@ -54,7 +54,7 @@ def get_constraints(atoms, reduce_dimensions=True, **kwargs):
     return asarray(not_masked), asarray(masked)
 
 
-def get_mask_indicies(
+def get_mask_indices(
     atoms,
     not_masked=None,
     masked=None,
@@ -65,36 +65,36 @@ def get_mask_indicies(
     **kwargs,
 ):
     """
-    Get the indicies of the atoms that are masked and not masked.
+    Get the indices of the atoms that are masked and not masked.
 
     Parameters:
         atoms: ASE Atoms
             The ASE Atoms instance.
         not_masked: (Nnm) list (optional)
-            A list of indicies for the moving atoms if constraints are used.
+            A list of indices for the moving atoms if constraints are used.
             Else all atoms are treated to be moving.
         masked: (Nn) list (optional)
-            A list of indicies for the fixed atoms if constraints are used.
+            A list of indices for the fixed atoms if constraints are used.
         nmi: list (optional)
-            The upper triangle indicies of the not masked atoms.
+            The upper triangle indices of the not masked atoms.
         nmj: list (optional)
-            The upper triangle indicies of the not masked atoms.
+            The upper triangle indices of the not masked atoms.
         nmi_ind: list (optional)
-            The indicies of the not masked atoms.
+            The indices of the not masked atoms.
         nmj_ind: list (optional)
-            The indicies of the not masked atoms.
+            The indices of the not masked atoms.
 
     Returns:
         not_masked: (Nnm) list
-            A list of indicies for the moving atoms if constraints are used.
+            A list of indices for the moving atoms if constraints are used.
         masked: (Nm) list
-            A list of indicies for the fixed atoms if constraints are used.
+            A list of indices for the fixed atoms if constraints are used.
         nmi: list
-            The upper triangle indicies of the not masked atoms.
+            The upper triangle indices of the not masked atoms.
         nmi_ind: list
-            The indicies of the not masked atoms.
+            The indices of the not masked atoms.
         nmj_ind: list
-            The indicies of the not masked atoms.
+            The indices of the not masked atoms.
     """
     # If a not masked list is given, all atoms is treated to be not masked
     if not_masked is None:
@@ -104,7 +104,7 @@ def get_mask_indicies(
         masked = asarray(
             list(set(range(len(atoms))).difference(set(not_masked)))
         )
-    # Make indicies of not masked atoms with itself
+    # Make indices of not masked atoms with itself
     if nmi is None or nmj is None or nmi_ind is None or nmj_ind is None:
         nmi, nmj = triu_indices(len(not_masked), k=1, m=None)
         nmi_ind = not_masked[nmi]
@@ -146,9 +146,9 @@ def check_atoms(
         pbc_test: (3) list (optional)
             The periodic boundary conditions of the tested atoms.
         not_masked: (Nnm) list (optional)
-            A list of indicies for the moving atoms if constraints are used.
+            A list of indices for the moving atoms if constraints are used.
         not_masked_test: (Nnm) list (optional)
-            A list of indicies for the moving atoms if constraints
+            A list of indices for the moving atoms if constraints
             are used in the tested atoms.
 
     Returns:
@@ -262,7 +262,7 @@ def get_full_distance_matrix(
         atoms: ASE Atoms
             The ASE Atoms instance.
         not_masked: Nnm list (optional)
-            A list of indicies for the moving atoms if constraints are used.
+            A list of indices for the moving atoms if constraints are used.
             Else all atoms are treated to be moving.
         use_vector: bool
             If the distance vectors should be returned.
@@ -358,16 +358,16 @@ def get_all_distances(
         atoms: ASE Atoms
             The ASE Atoms instance.
         not_masked: Nnm list (optional)
-            A list of indicies for the moving atoms if constraints are used.
+            A list of indices for the moving atoms if constraints are used.
             Else all atoms are treated to be moving.
         masked: Nm list (optional)
-            A list of indicies for the fixed atoms if constraints are used.
+            A list of indices for the fixed atoms if constraints are used.
         nmi: list (optional)
-            The upper triangle indicies of the not masked atoms.
+            The upper triangle indices of the not masked atoms.
         nmi_ind: list (optional)
-            The indicies of the not masked atoms.
+            The indices of the not masked atoms.
         nmj_ind: list (optional)
-            The indicies of the not masked atoms.
+            The indices of the not masked atoms.
         use_vector: bool
             If the distance vectors should be returned.
         wrap: bool
@@ -390,8 +390,8 @@ def get_all_distances(
             (Nc, Nnm*N+(Nnm*(Nnm-1)/2), 3) array
             The unique distances with directions if use_vector=True.
     """
-    # Make indicies
-    not_masked, masked, nmi, _, nmi_ind, nmj_ind = get_mask_indicies(
+    # Make indices
+    not_masked, masked, nmi, _, nmi_ind, nmj_ind = get_mask_indices(
         atoms,
         not_masked=not_masked,
         masked=masked,
@@ -470,13 +470,13 @@ def get_distances(
         pos: (N, 3) array
             The atomic positions.
         not_masked: Nnm list
-            A list of indicies for the moving atoms if constraints are used.
+            A list of indices for the moving atoms if constraints are used.
         masked: Nm list
-            A list of indicies for the fixed atoms if constraints are used.
+            A list of indices for the fixed atoms if constraints are used.
         nmi: list
-            The upper triangle indicies of the not masked atoms.
+            The upper triangle indices of the not masked atoms.
         nmj_ind: list
-            The indicies of the not masked atoms.
+            The indices of the not masked atoms.
 
     Returns:
         dist: (Nnm*Nm+(Nnm*(Nnm-1)/2)) array
@@ -511,13 +511,13 @@ def get_distance_vectors(
         pos: (N, 3) array
             The atomic positions.
         not_masked: Nnm list
-            A list of indicies for the moving atoms if constraints are used.
+            A list of indices for the moving atoms if constraints are used.
         masked: Nm list
-            A list of indicies for the fixed atoms if constraints are used.
+            A list of indices for the fixed atoms if constraints are used.
         nmi_ind: list
-            The indicies of the not masked atoms.
+            The indices of the not masked atoms.
         nmj_ind: list
-            The indicies of the not masked atoms.
+            The indices of the not masked atoms.
 
     Returns:
         dist_vec: (Nnm*Nm+(Nnm*(Nnm-1)/2), 3) array
@@ -554,13 +554,13 @@ def get_covalent_distances(
         atomic_numbers: (N) list
             The atomic numbers of the atoms.
         not_masked: Nnm list
-            A list of indicies for the moving atoms if constraints are used.
+            A list of indices for the moving atoms if constraints are used.
         masked: Nm list
-            A list of indicies for the fixed atoms if constraints are used.
+            A list of indices for the fixed atoms if constraints are used.
         nmi_ind: list
-            The indicies of the not masked atoms.
+            The indices of the not masked atoms.
         nmj_ind: list
-            The indicies of the not masked atoms.
+            The indices of the not masked atoms.
         dtype: type
             The data type of the arrays.
 

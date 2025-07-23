@@ -240,7 +240,7 @@ class LineSearchOptimizer(LocalOptimizer):
         **kwargs,
     ):
         """
-        Find all the local minimums and their indicies or just
+        Find all the local minimums and their indices or just
         the global minimum and then check convergence.
         """
         # Investigate multiple minimums
@@ -264,7 +264,7 @@ class LineSearchOptimizer(LocalOptimizer):
         **kwargs,
     ):
         """
-        Find all the local minimums and their indicies and
+        Find all the local minimums and their indices and
         then check convergence.
         """
         # Find local minimas for middel part of line
@@ -294,7 +294,7 @@ class LineSearchOptimizer(LocalOptimizer):
                 - xvalues[i_minimas - 1, theta_index]
             ) >= self.xtol * (1.0 + abs(xvalues[i_minimas, theta_index]))
             i_minimas = i_minimas[i_keep]
-        # Sort the indicies after function value sizes
+        # Sort the indices after function value sizes
         if len(i_minimas) > 1:
             i_sort = argsort(fvalues[i_minimas])
             i_minimas = i_minimas[i_sort]
@@ -459,7 +459,7 @@ class GoldenSearch(LineSearchOptimizer):
         # Get the function that evaluate the objective function
         fun = self.get_fun(func)
         for i_min in i_minimas:
-            # Find the indicies of the interval
+            # Find the indices of the interval
             x1 = i_min - 1
             x4 = i_min + 1
             # Get the function values of the endpoints of the interval

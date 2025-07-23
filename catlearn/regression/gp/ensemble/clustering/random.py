@@ -4,7 +4,7 @@ from .clustering import Clustering
 
 class RandomClustering(Clustering):
     """
-    Clustering algorithn class for data sets.
+    Clustering algorithm class for data sets.
     It uses randomized clusters for clustering.
     """
 
@@ -41,15 +41,15 @@ class RandomClustering(Clustering):
         )
 
     def cluster_fit_data(self, X, **kwargs):
-        # Make indicies
+        # Make indices
         n_data = len(X)
-        indicies = arange(n_data)
-        # If only one cluster is used give the full data
+        indices = arange(n_data)
+        # If only one cluster is used, give the full data
         if self.n_clusters == 1:
-            return [indicies]
+            return [indices]
         # Randomly make clusters
-        i_clusters = self.randomized_clusters(indicies, n_data)
-        # Return the cluster indicies
+        i_clusters = self.randomized_clusters(indices, n_data)
+        # Return the cluster indices
         return i_clusters
 
     def cluster(self, X, **kwargs):
@@ -94,22 +94,22 @@ class RandomClustering(Clustering):
         )
         return self
 
-    def randomized_clusters(self, indicies, n_data, **kwargs):
-        "Randomized indicies used for each cluster."
-        # Permute the indicies
-        i_perm = self.get_permutation(indicies)
+    def randomized_clusters(self, indices, n_data, **kwargs):
+        "Randomized indices used for each cluster."
+        # Permute the indices
+        i_perm = self.get_permutation(indices)
         # Ensure equal sizes of clusters if chosen
         if self.equal_size:
             i_perm = self.ensure_equal_sizes(i_perm, n_data)
         i_clusters = array_split(i_perm, self.n_clusters)
         return i_clusters
 
-    def get_permutation(self, indicies):
-        "Permute the indicies"
-        return self.rng.permutation(indicies)
+    def get_permutation(self, indices):
+        "Permute the indices"
+        return self.rng.permutation(indices)
 
     def ensure_equal_sizes(self, i_perm, n_data, **kwargs):
-        "Extend the permuted indicies so the clusters have equal sizes."
+        "Extend the permuted indices so the clusters have equal sizes."
         # Find the number of excess points left
         n_left = n_data % self.n_clusters
         # Find the number of points that should be added
@@ -117,7 +117,7 @@ class RandomClustering(Clustering):
             n_missing = self.n_clusters - n_left
         else:
             n_missing = 0
-        # Extend the permuted indicies
+        # Extend the permuted indices
         if n_missing > 0:
             if n_missing > n_data:
                 i_perm = append(

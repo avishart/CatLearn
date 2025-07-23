@@ -6,7 +6,7 @@ from .clustering import Clustering
 
 class K_means(Clustering):
     """
-    Clustering algorithn class for data sets.
+    Clustering algorithm class for data sets.
     It uses the K-means++ algorithm for clustering.
     """
 
@@ -57,7 +57,7 @@ class K_means(Clustering):
     def cluster_fit_data(self, X, **kwargs):
         # Copy the data
         X = array(X, dtype=self.dtype)
-        # If only one cluster is used give the full data
+        # If only one cluster is used, give the full data
         if self.n_clusters == 1:
             self.centroids = asarray([X.mean(axis=0)])
             return [arange(len(X))]
@@ -65,13 +65,13 @@ class K_means(Clustering):
         centroids = self.initiate_centroids(X)
         # Optimize position of the centroids
         self.centroids = self.optimize_centroids(X, centroids)
-        # Return the cluster indicies
+        # Return the cluster indices
         return self.cluster(X)
 
     def cluster(self, X, **kwargs):
-        indicies = arange(len(X))
+        indices = arange(len(X))
         i_min = argmin(self.calculate_distances(X, self.centroids), axis=1)
-        return [indicies[i_min == ki] for ki in range(self.n_clusters)]
+        return [indices[i_min == ki] for ki in range(self.n_clusters)]
 
     def set_centroids(self, centroids, **kwargs):
         """

@@ -135,13 +135,13 @@ class SortedInvDistances(InvDistances):
         "Modify the fingerprint."
         # Sort the fingerprint
         if self.use_sort_all:
-            fp, indicies = self.sort_fp_all(
+            fp, indices = self.sort_fp_all(
                 fp,
                 use_include_ncells=use_include_ncells,
                 **kwargs,
             )
         else:
-            fp, indicies = self.sort_fp_pair(
+            fp, indices = self.sort_fp_pair(
                 fp,
                 atomic_numbers,
                 tags,
@@ -151,7 +151,7 @@ class SortedInvDistances(InvDistances):
                 **kwargs,
             )
         # Sort the fingerprints and their derivatives
-        fp = fp[indicies]
+        fp = fp[indices]
         # Insert the derivatives into the derivative matrix
         if g is not None:
             g = self.insert_to_deriv_matrix(
@@ -162,17 +162,17 @@ class SortedInvDistances(InvDistances):
                 nmj=nmj,
                 use_include_ncells=use_include_ncells,
             )
-            g = g[indicies]
+            g = g[indices]
         return fp, g
 
     def sort_fp_all(self, fp, use_include_ncells=False, **kwargs):
-        "Get the indicies for sorting the fingerprint."
+        "Get the indices for sorting the fingerprint."
         # Reshape the fingerprint
         if use_include_ncells:
             fp = fp.reshape(-1)
-        # Get the sorted indicies
-        indicies = argsort(fp)
-        return fp, indicies
+        # Get the sorted indices
+        indices = argsort(fp)
+        return fp, indices
 
     def sort_fp_pair(
         self,
@@ -184,9 +184,9 @@ class SortedInvDistances(InvDistances):
         use_include_ncells=False,
         **kwargs,
     ):
-        "Get the indicies for sorting the fingerprint."
-        # Get the indicies of the atomic combinations
-        split_indicies = self.element_setup(
+        "Get the indices for sorting the fingerprint."
+        # Get the indices of the atomic combinations
+        split_indices = self.element_setup(
             atomic_numbers,
             tags,
             not_masked,
@@ -198,12 +198,10 @@ class SortedInvDistances(InvDistances):
         # Reshape the fingerprint
         if use_include_ncells:
             fp = fp.reshape(-1)
-        # Sort the indicies after inverse distance magnitude
-        indicies = [
-            indi[argsort(fp[indi])] for indi in split_indicies.values()
-        ]
-        indicies = concatenate(indicies)
-        return fp, indicies
+        # Sort the indices after inverse distance magnitude
+        indices = [indi[argsort(fp[indi])] for indi in split_indices.values()]
+        indices = concatenate(indices)
+        return fp, indices
 
     def update_arguments(
         self,

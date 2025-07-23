@@ -4,7 +4,7 @@ from .geometry import (
     get_all_distances,
     get_constraints,
     get_covalent_distances,
-    get_mask_indicies,
+    get_mask_indices,
     get_periodic_softmax,
     get_periodic_sum,
 )
@@ -100,7 +100,13 @@ class Distances(Fingerprint):
             atoms,
             reduce_dimensions=self.reduce_dimensions,
         )
-        # Initialize the masking and indicies
+        # Check if there are any not masked atoms
+        if len(not_masked) == 0:
+            fp = zeros((0), dtype=self.dtype)
+            if self.use_derivatives:
+                return fp, zeros((0, 0), dtype=self.dtype)
+            return fp, None
+        # Initialize the masking and indices
         (
             not_masked,
             masked,
@@ -108,7 +114,7 @@ class Distances(Fingerprint):
             nmj,
             nmi_ind,
             nmj_ind,
-        ) = get_mask_indicies(atoms, not_masked=not_masked, masked=masked)
+        ) = get_mask_indices(atoms, not_masked=not_masked, masked=masked)
         # Get the periodicity
         pbc = atoms.pbc
         # Check what distance method should be used
@@ -367,7 +373,7 @@ class Distances(Fingerprint):
                 self.atomic_numbers is not None
                 or self.not_masked is not None
                 or self.tags is not None
-                or self.split_indicies is not None
+                or self.split_indices is not None
             ):
                 atoms_equal = check_atoms(
                     atomic_numbers=self.atomic_numbers,
@@ -379,7 +385,7 @@ class Distances(Fingerprint):
                     **kwargs,
                 )
                 if atoms_equal:
-                    return self.split_indicies
+                    return self.split_indices
         # Save the atomic setup
         self.atomic_numbers = atomic_numbers
         self.not_masked = not_masked
@@ -395,28 +401,28 @@ class Distances(Fingerprint):
             combis_m = list(zip(atomic_numbers[masked], tags[masked]))
         else:
             combis_m = []
-        split_indicies = {}
+        split_indices = {}
         t = 0
         for i, i_nm in enumerate(combis_nm):
             i1 = i + 1
             for j_m in combis_m:
-                split_indicies.setdefault(i_nm + j_m, []).append(t)
+                split_indices.setdefault(i_nm + j_m, []).append(t)
                 t += 1
             for j_nm in combis_nm[i1:]:
-                split_indicies.setdefault(i_nm + j_nm, []).append(t)
+                split_indices.setdefault(i_nm + j_nm, []).append(t)
                 t += 1
         # Include the neighboring cells
         if use_include_ncells and c_dim is not None:
             n_combi = full((c_dim, 1), t, dtype=int)
-            split_indicies = {
+            split_indices = {
                 k: (asarray(v) + n_combi).reshape(-1)
-                for k, v in split_indicies.items()
+                for k, v in split_indices.items()
             }
         else:
-            split_indicies = {k: asarray(v) for k, v in split_indicies.items()}
-        # Save the split indicies
-        self.split_indicies = split_indicies
-        return split_indicies
+            split_indices = {k: asarray(v) for k, v in split_indices.items()}
+        # Save the split indices
+        self.split_indices = split_indices
+        return split_indices
 
     def update_arguments(
         self,
@@ -509,8 +515,8 @@ class Distances(Fingerprint):
             self.atomic_numbers = None
         if not hasattr(self, "tags"):
             self.tags = None
-        if not hasattr(self, "split_indicies"):
-            self.split_indicies = None
+        if not hasattr(self, "split_indices"):
+            self.split_indices = None
         # Tags is not implemented
         self.use_tags = False
         self.reuse_combinations = False

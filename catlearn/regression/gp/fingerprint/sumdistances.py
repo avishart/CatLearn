@@ -139,8 +139,8 @@ class SumDistances(InvDistances):
         **kwargs,
     ):
         "Modify the fingerprint."
-        # Get the indicies of the atomic combinations
-        split_indicies_nm, split_indicies = self.element_setup(
+        # Get the indices of the atomic combinations
+        split_indices_nm, split_indices = self.element_setup(
             atomic_numbers,
             tags,
             not_masked,
@@ -154,8 +154,8 @@ class SumDistances(InvDistances):
                 g=g,
                 not_masked=not_masked,
                 use_include_ncells=use_include_ncells,
-                split_indicies_nm=split_indicies_nm,
-                split_indicies=split_indicies,
+                split_indices_nm=split_indices_nm,
+                split_indices=split_indices,
                 **kwargs,
             )
         else:
@@ -165,7 +165,7 @@ class SumDistances(InvDistances):
                 g=g,
                 not_masked=not_masked,
                 use_include_ncells=use_include_ncells,
-                split_indicies_nm=split_indicies_nm,
+                split_indices_nm=split_indices_nm,
                 **kwargs,
             )
         return fp, g
@@ -176,8 +176,8 @@ class SumDistances(InvDistances):
         g,
         not_masked,
         use_include_ncells,
-        split_indicies_nm,
-        split_indicies,
+        split_indices_nm,
+        split_indices,
         **kwargs,
     ):
         "Modify the fingerprint over pairs of elements."
@@ -188,13 +188,13 @@ class SumDistances(InvDistances):
                 g = g.sum(axis=0)
         # Make the new fingerprint
         fp_new = zeros(
-            (len(split_indicies_nm), len(split_indicies)),
+            (len(split_indices_nm), len(split_indices)),
             dtype=self.dtype,
         )
         # Sum the fingerprints
-        for i, i_v in enumerate(split_indicies_nm.values()):
+        for i, i_v in enumerate(split_indices_nm.values()):
             fp_i = fp[i_v]
-            for j, j_v in enumerate(split_indicies.values()):
+            for j, j_v in enumerate(split_indices.values()):
                 fp_new[i, j] = fp_i[:, j_v].sum()
         fp_new = fp_new.reshape(-1)
         # Calculate the new derivatives
@@ -202,21 +202,21 @@ class SumDistances(InvDistances):
             # Make the new derivatives
             g_new = zeros(
                 (
-                    len(split_indicies_nm),
-                    len(split_indicies),
+                    len(split_indices_nm),
+                    len(split_indices),
                     len(not_masked),
                     3,
                 ),
                 dtype=self.dtype,
             )
             # Sum the derivatives
-            for i, i_v in enumerate(split_indicies_nm.values()):
+            for i, i_v in enumerate(split_indices_nm.values()):
                 g_i = g[i_v]
                 g_ij = g_i[:, not_masked].sum(axis=0)
-                for j, (comb, j_v) in enumerate(split_indicies.items()):
+                for j, (comb, j_v) in enumerate(split_indices.items()):
                     g_new[i, j, i_v] = g_i[:, j_v].sum(axis=1)
-                    if comb in split_indicies_nm:
-                        ij_comb = split_indicies_nm[comb]
+                    if comb in split_indices_nm:
+                        ij_comb = split_indices_nm[comb]
                         g_new[i, j, ij_comb] -= g_ij[ij_comb]
             g_new = g_new.reshape(-1, len(not_masked) * 3)
             return fp_new, g_new
@@ -228,7 +228,7 @@ class SumDistances(InvDistances):
         g,
         not_masked,
         use_include_ncells,
-        split_indicies_nm,
+        split_indices_nm,
         **kwargs,
     ):
         "Modify the fingerprint over all elements."
@@ -240,13 +240,13 @@ class SumDistances(InvDistances):
         # Sum the fingerprints
         fp = fp.sum(axis=1)
         fp = asarray(
-            [fp[i_v].sum() for i_v in split_indicies_nm.values()],
+            [fp[i_v].sum() for i_v in split_indices_nm.values()],
             dtype=self.dtype,
         )
         # Calculate the new derivatives
         if g is not None:
-            g_new = zeros((len(split_indicies_nm), len(not_masked), 3))
-            for i, i_v in enumerate(split_indicies_nm.values()):
+            g_new = zeros((len(split_indices_nm), len(not_masked), 3))
+            for i, i_v in enumerate(split_indices_nm.values()):
                 g_new[i, i_v] = g[i_v].sum(axis=1)
                 g_new[i] -= g[i_v][:, not_masked].sum(axis=0)
             g_new = g_new.reshape(-1, len(not_masked) * 3)
@@ -363,8 +363,8 @@ class SumDistances(InvDistances):
             self.use_pairs = use_pairs
         if reuse_combinations is not None:
             self.reuse_combinations = reuse_combinations
-        if not hasattr(self, "split_indicies_nm"):
-            self.split_indicies_nm = None
+        if not hasattr(self, "split_indices_nm"):
+            self.split_indices_nm = None
         return self
 
     def calc_fp(
@@ -501,8 +501,8 @@ class SumDistances(InvDistances):
                 self.atomic_numbers is not None
                 or self.not_masked is not None
                 or self.tags is not None
-                or self.split_indicies is not None
-                or self.split_indicies_nm is not None
+                or self.split_indices is not None
+                or self.split_indices_nm is not None
             ):
                 atoms_equal = check_atoms(
                     atomic_numbers=self.atomic_numbers,
@@ -514,7 +514,7 @@ class SumDistances(InvDistances):
                     **kwargs,
                 )
                 if atoms_equal:
-                    return self.split_indicies_nm, self.split_indicies
+                    return self.split_indices_nm, self.split_indices
         # Save the atomic numbers and tags
         self.atomic_numbers = atomic_numbers
         self.tags = tags
@@ -523,17 +523,17 @@ class SumDistances(InvDistances):
         if not self.use_tags:
             tags = zeros((len(atomic_numbers)), dtype=int)
         combis = list(zip(atomic_numbers, tags))
-        split_indicies = {}
+        split_indices = {}
         for i, combi in enumerate(combis):
-            split_indicies.setdefault(combi, []).append(i)
-        self.split_indicies = split_indicies
+            split_indices.setdefault(combi, []).append(i)
+        self.split_indices = split_indices
         # Get the atomic types of the not masked atoms
         combis = list(zip(atomic_numbers[not_masked], tags[not_masked]))
-        split_indicies_nm = {}
+        split_indices_nm = {}
         for i, combi in enumerate(combis):
-            split_indicies_nm.setdefault(combi, []).append(i)
-        self.split_indicies_nm = split_indicies_nm
-        return split_indicies_nm, split_indicies
+            split_indices_nm.setdefault(combi, []).append(i)
+        self.split_indices_nm = split_indices_nm
+        return split_indices_nm, split_indices
 
     def get_arguments(self):
         "Get the arguments of the class itself."

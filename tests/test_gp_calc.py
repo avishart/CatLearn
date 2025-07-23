@@ -62,66 +62,62 @@ class TestGPCalc(unittest.TestCase):
             (
                 DatabaseDistance,
                 True,
-                dict(npoints=npoints, initial_indicies=[0]),
+                dict(npoints=npoints, initial_indices=[0]),
             ),
             (
                 DatabaseDistance,
                 True,
-                dict(npoints=npoints, initial_indicies=[]),
+                dict(npoints=npoints, initial_indices=[]),
             ),
             (
                 DatabaseHybrid,
                 True,
-                dict(npoints=npoints, initial_indicies=[0]),
+                dict(npoints=npoints, initial_indices=[0]),
             ),
-            (DatabaseHybrid, True, dict(npoints=npoints, initial_indicies=[])),
-            (DatabaseMin, True, dict(npoints=npoints, initial_indicies=[0])),
-            (DatabaseMin, True, dict(npoints=npoints, initial_indicies=[])),
+            (DatabaseHybrid, True, dict(npoints=npoints, initial_indices=[])),
+            (DatabaseMin, True, dict(npoints=npoints, initial_indices=[0])),
+            (DatabaseMin, True, dict(npoints=npoints, initial_indices=[])),
             (
                 DatabaseRandom,
                 True,
-                dict(npoints=npoints, initial_indicies=[0]),
+                dict(npoints=npoints, initial_indices=[0]),
             ),
-            (DatabaseRandom, True, dict(npoints=npoints, initial_indicies=[])),
-            (DatabaseLast, True, dict(npoints=npoints, initial_indicies=[0])),
-            (DatabaseLast, True, dict(npoints=npoints, initial_indicies=[])),
+            (DatabaseRandom, True, dict(npoints=npoints, initial_indices=[])),
+            (DatabaseLast, True, dict(npoints=npoints, initial_indices=[0])),
+            (DatabaseLast, True, dict(npoints=npoints, initial_indices=[])),
             (
                 DatabaseRestart,
                 True,
-                dict(npoints=npoints, initial_indicies=[0]),
+                dict(npoints=npoints, initial_indices=[0]),
             ),
             (
                 DatabaseRestart,
                 True,
-                dict(npoints=npoints, initial_indicies=[]),
+                dict(npoints=npoints, initial_indices=[]),
             ),
             (
                 DatabasePointsInterest,
                 True,
                 dict(
-                    npoints=npoints, initial_indicies=[0], point_interest=x_te
+                    npoints=npoints, initial_indices=[0], point_interest=x_te
                 ),
             ),
             (
                 DatabasePointsInterest,
                 True,
-                dict(
-                    npoints=npoints, initial_indicies=[], point_interest=x_te
-                ),
+                dict(npoints=npoints, initial_indices=[], point_interest=x_te),
             ),
             (
                 DatabasePointsInterestEach,
                 True,
                 dict(
-                    npoints=npoints, initial_indicies=[0], point_interest=x_te
+                    npoints=npoints, initial_indices=[0], point_interest=x_te
                 ),
             ),
             (
                 DatabasePointsInterestEach,
                 True,
-                dict(
-                    npoints=npoints, initial_indicies=[], point_interest=x_te
-                ),
+                dict(npoints=npoints, initial_indices=[], point_interest=x_te),
             ),
         ]
         # Make a list of the error values that the test compares to

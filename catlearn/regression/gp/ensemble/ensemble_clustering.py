@@ -201,10 +201,10 @@ class EnsembleClustering(EnsembleModel):
                 [feature.get_vector() for feature in features],
                 dtype=self.dtype,
             )
-        cluster_indicies = self.clustering.cluster_fit_data(X)
+        cluster_indices = self.clustering.cluster_fit_data(X)
         return [
-            (features[indicies_ki], targets[indicies_ki])
-            for indicies_ki in cluster_indicies
+            (features[indices_ki], targets[indices_ki])
+            for indices_ki in cluster_indices
         ]
 
     def get_arguments(self):

@@ -3,7 +3,7 @@ from numpy.random import default_rng, Generator, RandomState
 
 class Clustering:
     """
-    Clustering algorithn class for data sets.
+    Clustering algorithm class for data sets.
     """
 
     def __init__(
@@ -53,7 +53,7 @@ class Clustering:
                 Training features with N data points.
 
         Returns:
-            list: A list of indicies to the training data for each cluster.
+            list: A list of indices to the training data for each cluster.
         """
         raise NotImplementedError()
 
@@ -66,7 +66,7 @@ class Clustering:
                 Features with M data points.
 
         Returns:
-            list: A list of indicies to the data for each cluster.
+            list: A list of indices to the data for each cluster.
         """
         raise NotImplementedError()
 

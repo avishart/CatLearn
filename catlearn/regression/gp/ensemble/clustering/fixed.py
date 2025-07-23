@@ -4,7 +4,7 @@ from .k_means import K_means
 
 class FixedClustering(K_means):
     """
-    Clustering algorithn class for data sets.
+    Clustering algorithm class for data sets.
     It uses the distances to pre-defined fixed centroids for clustering.
     """
 
@@ -43,9 +43,9 @@ class FixedClustering(K_means):
         )
 
     def cluster_fit_data(self, X, **kwargs):
-        indicies = arange(len(X))
+        indices = arange(len(X))
         i_min = argmin(self.calculate_distances(X, self.centroids), axis=1)
-        return [indicies[i_min == ki] for ki in range(self.n_clusters)]
+        return [indices[i_min == ki] for ki in range(self.n_clusters)]
 
     def update_arguments(
         self, metric=None, centroids=None, seed=None, dtype=None, **kwargs

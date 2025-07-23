@@ -1,6 +1,6 @@
 from .fingerprint import Fingerprint
 from .geometry import get_constraints
-from numpy import asarray, concatenate, transpose
+from numpy import asarray, concatenate, transpose, zeros
 
 
 class FingerprintWrapperGPAtom(Fingerprint):
@@ -86,6 +86,12 @@ class FingerprintWrapperGPAtom(Fingerprint):
             atoms,
             reduce_dimensions=self.reduce_dimensions,
         )
+        # Check if there are any not masked atoms
+        if len(not_masked) == 0:
+            fp = zeros((0), dtype=self.dtype)
+            if self.use_derivatives:
+                return fp, zeros((0, 0), dtype=self.dtype)
+            return fp, None
         # Get the fingerprint
         fp = self.fingerprint(
             atoms,
@@ -212,6 +218,12 @@ class FingerprintWrapperDScribe(Fingerprint):
             atoms,
             reduce_dimensions=self.reduce_dimensions,
         )
+        # Check if there are any not masked atoms
+        if len(not_masked) == 0:
+            fp = zeros((0), dtype=self.dtype)
+            if self.use_derivatives:
+                return fp, zeros((0, 0), dtype=self.dtype)
+            return fp, None
         # Get the fingerprint
         if self.use_derivatives:
             derivative, vector = self.fingerprint.derivatives(

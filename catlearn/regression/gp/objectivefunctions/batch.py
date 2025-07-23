@@ -99,9 +99,9 @@ class BatchFuction(ObjectiveFuction):
         self.set_same_prior_mean(model, X, Y)
         # Calculate the number of batches
         n_batches = self.get_number_batches(n_data)
-        indicies = arange(n_data)
+        indices = arange(n_data)
         i_batches = self.randomized_batches(
-            indicies,
+            indices,
             n_data,
             n_batches,
             **kwargs,
@@ -296,25 +296,25 @@ class BatchFuction(ObjectiveFuction):
             n_batches = n_batches + 1
         return n_batches
 
-    def randomized_batches(self, indicies, n_data, n_batches, **kwargs):
-        "Randomized indicies used for batches."
-        # Permute the indicies
-        i_perm = self.get_permutation(indicies)
+    def randomized_batches(self, indices, n_data, n_batches, **kwargs):
+        "Randomized indices used for batches."
+        # Permute the indices
+        i_perm = self.get_permutation(indices)
         # Ensure equal sizes of batches if chosen
         if self.equal_size:
             i_perm = self.ensure_equal_sizes(i_perm, n_data, n_batches)
         i_batches = array_split(i_perm, n_batches)
         return i_batches
 
-    def get_permutation(self, indicies):
-        "Permute the indicies"
-        return self.rng.permutation(indicies)
+    def get_permutation(self, indices):
+        "Permute the indices"
+        return self.rng.permutation(indices)
 
     def ensure_equal_sizes(self, i_perm, n_data, n_batches, **kwargs):
-        "Extend the permuted indicies so the clusters have equal sizes."
+        "Extend the permuted indices so the clusters have equal sizes."
         # Find the number of points that should be added
         n_missing = (n_batches * self.batch_size) - n_data
-        # Extend the permuted indicies
+        # Extend the permuted indices
         if n_missing > 0:
             if n_missing > n_data:
                 i_perm = append(

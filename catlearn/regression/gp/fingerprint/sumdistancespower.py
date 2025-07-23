@@ -140,8 +140,8 @@ class SumDistancesPower(SumDistances):
         use_include_ncells,
         **kwargs,
     ):
-        # Get the indicies of the atomic combinations
-        split_indicies_nm, split_indicies = self.element_setup(
+        # Get the indices of the atomic combinations
+        split_indices_nm, split_indices = self.element_setup(
             atomic_numbers,
             tags,
             not_masked,
@@ -149,9 +149,9 @@ class SumDistancesPower(SumDistances):
         )
         # Get the number of atomic combinations
         if self.use_pairs:
-            fp_len = len(split_indicies_nm) * len(split_indicies)
+            fp_len = len(split_indices_nm) * len(split_indices)
         else:
-            fp_len = len(split_indicies_nm)
+            fp_len = len(split_indices_nm)
         # Create the new fingerprint and derivatives
         fp_new = zeros(
             (fp_len, self.power),
@@ -178,8 +178,8 @@ class SumDistancesPower(SumDistances):
                     nmi=nmi,
                     nmj=nmj,
                     use_include_ncells=use_include_ncells,
-                    split_indicies_nm=split_indicies_nm,
-                    split_indicies=split_indicies,
+                    split_indices_nm=split_indices_nm,
+                    split_indices=split_indices,
                     power=power,
                 )
             else:
@@ -192,8 +192,8 @@ class SumDistancesPower(SumDistances):
                     nmi=nmi,
                     nmj=nmj,
                     use_include_ncells=use_include_ncells,
-                    split_indicies_nm=split_indicies_nm,
-                    split_indicies=split_indicies,
+                    split_indices_nm=split_indices_nm,
+                    split_indices=split_indices,
                 )
         # Reshape fingerprint and derivatives
         fp_new = fp_new.reshape(-1)
@@ -212,8 +212,8 @@ class SumDistancesPower(SumDistances):
         nmi,
         nmj,
         use_include_ncells,
-        split_indicies_nm,
-        split_indicies,
+        split_indices_nm,
+        split_indices,
         **kwargs,
     ):
         """
@@ -228,8 +228,8 @@ class SumDistancesPower(SumDistances):
                 g=g,
                 not_masked=not_masked,
                 use_include_ncells=use_include_ncells,
-                split_indicies_nm=split_indicies_nm,
-                split_indicies=split_indicies,
+                split_indices_nm=split_indices_nm,
+                split_indices=split_indices,
                 **kwargs,
             )
         else:
@@ -239,7 +239,7 @@ class SumDistancesPower(SumDistances):
                 g=g,
                 not_masked=not_masked,
                 use_include_ncells=use_include_ncells,
-                split_indicies_nm=split_indicies_nm,
+                split_indices_nm=split_indices_nm,
                 **kwargs,
             )
         # Add a small number to avoid division by zero
@@ -255,8 +255,8 @@ class SumDistancesPower(SumDistances):
         nmi,
         nmj,
         use_include_ncells,
-        split_indicies_nm,
-        split_indicies,
+        split_indices_nm,
+        split_indices,
         power,
         **kwargs,
     ):
@@ -279,8 +279,8 @@ class SumDistancesPower(SumDistances):
                 g=g_new,
                 not_masked=not_masked,
                 use_include_ncells=use_include_ncells,
-                split_indicies_nm=split_indicies_nm,
-                split_indicies=split_indicies,
+                split_indices_nm=split_indices_nm,
+                split_indices=split_indices,
                 **kwargs,
             )
         else:
@@ -290,7 +290,7 @@ class SumDistancesPower(SumDistances):
                 g=g_new,
                 not_masked=not_masked,
                 use_include_ncells=use_include_ncells,
-                split_indicies_nm=split_indicies_nm,
+                split_indices_nm=split_indices_nm,
                 **kwargs,
             )
         # Add a small number to avoid division by zero

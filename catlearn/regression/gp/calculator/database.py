@@ -101,7 +101,7 @@ class Database:
 
     def get_constraints(self, atoms, **kwargs):
         """
-        Get the indicies of the atoms that does not have fixed constraints.
+        Get the indices of the atoms that does not have fixed constraints.
 
         Parameters:
             atoms: ASE Atoms
@@ -109,7 +109,7 @@ class Database:
 
         Returns:
             not_masked: list
-                A list of indicies for the moving atoms.
+                A list of indices for the moving atoms.
         """
         not_masked = list(range(len(atoms)))
         if not self.reduce_dimensions:
