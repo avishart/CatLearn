@@ -3,6 +3,13 @@ from ase.parallel import world
 
 
 class SequentialOptimizer(OptimizerMethod):
+    """
+    The SequentialOptimizer is used to run multiple optimizations in
+    sequence for a given structure.
+    The SequentialOptimizer is applicable to be used with
+    active learning.
+    """
+
     def __init__(
         self,
         methods,
@@ -14,10 +21,7 @@ class SequentialOptimizer(OptimizerMethod):
         **kwargs,
     ):
         """
-        The SequentialOptimizer is used to run multiple optimizations in
-        sequence for a given structure.
-        The SequentialOptimizer is applicable to be used with
-        active learning.
+        Initialize the OptimizerMethod instance.
 
         Parameters:
             methods: List of OptimizerMethod objects
@@ -50,23 +54,29 @@ class SequentialOptimizer(OptimizerMethod):
     def update_optimizable(self, structures, **kwargs):
         # Update optimizable for the first method
         self.methods[0].update_optimizable(structures, **kwargs)
-        self.optimizable = self.methods[0].get_optimizable()
         # Reset the optimization and update the optimizable
         self.setup_optimizable()
         return self
 
     def get_optimizable(self):
-        return self.optimizable
+        return self.method.get_optimizable()
 
-    def get_structures(self, get_all=True, **kwargs):
-        if isinstance(self.structures, list):
-            if not get_all:
-                return self.copy_atoms(self.structures[0])
-            return [self.copy_atoms(struc) for struc in self.structures]
-        return self.copy_atoms(self.structures)
+    def get_structures(
+        self,
+        get_all=True,
+        properties=[],
+        allow_calculation=True,
+        **kwargs,
+    ):
+        return self.method.get_structures(
+            get_all=get_all,
+            properties=properties,
+            allow_calculation=allow_calculation,
+            **kwargs,
+        )
 
     def get_candidates(self, **kwargs):
-        return self.candidates
+        return self.method.get_candidates(**kwargs)
 
     def run(
         self,
@@ -82,13 +92,14 @@ class SequentialOptimizer(OptimizerMethod):
             return self._converged
         # Get number of methods
         n_methods = len(self.methods)
+        structures = None
         # Run the optimizations
-        for i, method in enumerate(self.methods):
+        for i, self.method in enumerate(self.methods):
             # Update the structures if not the first method
             if i > 0:
-                method.update_optimizable(self.structures)
+                self.method.update_optimizable(structures)
             # Run the optimization
-            converged = method.run(
+            converged = self.method.run(
                 fmax=fmax,
                 steps=steps,
                 max_unc=max_unc,
@@ -96,12 +107,11 @@ class SequentialOptimizer(OptimizerMethod):
                 **kwargs,
             )
             # Get the structures
-            self.optimizable = method.get_optimizable()
-            self.structures = method.get_structures()
-            self.candidates = method.get_candidates()
+            structures = self.method.get_structures(allow_calculation=False)
+            self.optimizable = self.method.get_optimizable()
             # Update the number of steps
-            self.steps += method.get_number_of_steps()
-            steps -= method.get_number_of_steps()
+            self.steps += self.method.get_number_of_steps()
+            steps -= self.method.get_number_of_steps()
             # Check if the optimization is converged
             converged = self.check_convergence(
                 converged=converged,
@@ -124,14 +134,14 @@ class SequentialOptimizer(OptimizerMethod):
         return self._converged
 
     def set_calculator(self, calculator, copy_calc=False, **kwargs):
+        self.method.set_calculator(calculator, copy_calc=copy_calc, **kwargs)
         for method in self.methods:
             method.set_calculator(calculator, copy_calc=copy_calc, **kwargs)
         return self
 
     def setup_optimizable(self, **kwargs):
-        self.optimizable = self.methods[0].get_optimizable()
-        self.structures = self.methods[0].get_structures()
-        self.candidates = self.methods[0].get_candidates()
+        self.method = self.methods[0]
+        self.optimizable = self.method.get_optimizable()
         self.reset_optimization()
         return self
 
@@ -187,6 +197,14 @@ class SequentialOptimizer(OptimizerMethod):
             verbose=verbose,
             seed=seed,
         )
+        return self
+
+    def set_seed(self, seed=None, **kwargs):
+        # Set the seed for the class
+        super().set_seed(seed=seed, **kwargs)
+        # Set the seed for each method
+        for method in self.methods:
+            method.set_seed(seed=seed, **kwargs)
         return self
 
     def get_arguments(self):

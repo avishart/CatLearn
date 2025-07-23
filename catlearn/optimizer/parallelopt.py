@@ -1,9 +1,15 @@
 from .method import OptimizerMethod
 from ase.parallel import world, broadcast
-from numpy import argmin, inf, max as max_
+from numpy import argmin, inf
 
 
 class ParallelOptimizer(OptimizerMethod):
+    """
+    The ParallelOptimizer is used to run an optimization in parallel.
+    The ParallelOptimizer is applicable to be used with
+    active learning.
+    """
+
     def __init__(
         self,
         method,
@@ -15,15 +21,15 @@ class ParallelOptimizer(OptimizerMethod):
         **kwargs,
     ):
         """
-        The ParallelOptimizer is used to run an optimization in parallel.
-        The ParallelOptimizer is applicable to be used with
-        active learning.
+        Initialize the OptimizerMethod instance.
 
         Parameters:
             method: OptimizerMethod instance
                 The optimization method to be used.
-            chains: int
+            chains: int (optional)
                 The number of optimization that will be run in parallel.
+                If not given, the number of chains is set to the number of
+                processors if parallel_run is True, otherwise it is set to 1.
             parallel_run: bool
                 If True, the optimization will be run in parallel.
             comm: ASE communicator instance
@@ -35,6 +41,8 @@ class ParallelOptimizer(OptimizerMethod):
                 The random seed for the optimization.
                 The seed an also be a RandomState or Generator instance.
                 If not given, the default random number generator is used.
+                A different seed is used for each chain if the seed is an
+                integer.
         """
         # Set the parameters
         self.update_arguments(
@@ -49,27 +57,75 @@ class ParallelOptimizer(OptimizerMethod):
 
     def update_optimizable(self, structures, **kwargs):
         if isinstance(structures, list) and len(structures) == self.chains:
+            self.method.update_optimizable(structures[0])
             for method, structure in zip(self.methods, structures):
                 method.update_optimizable(structure, **kwargs)
         else:
             self.method.update_optimizable(structures, **kwargs)
-            self.methods = [self.method.copy() for _ in range(self.chains)]
-        self.reset_optimization()
+            for method in self.methods:
+                method.update_optimizable(structures, **kwargs)
+        # Reset the optimization
+        self.setup_optimizable()
         return self
 
     def get_optimizable(self, **kwargs):
         return self.method.get_optimizable(**kwargs)
 
-    def get_structures(self, get_all=True, **kwargs):
-        if get_all:
-            return [
-                method.get_structures(get_all=get_all)
-                for method in self.methods
-            ]
-        return self.method.get_structures(get_all=get_all, **kwargs)
+    def get_structures(
+        self,
+        get_all=True,
+        properties=[],
+        allow_calculation=True,
+        **kwargs,
+    ):
+        if not get_all:
+            return self.method.get_structures(
+                get_all=get_all,
+                properties=properties,
+                allow_calculation=allow_calculation,
+                **kwargs,
+            )
+        structures = []
+        for chain, method in enumerate(self.methods):
+            root = chain % self.size
+            if self.rank == root:
+                # Get the structure
+                structure = method.get_structures(
+                    properties=properties,
+                    allow_calculation=allow_calculation,
+                    **kwargs,
+                )
+            else:
+                structure = None
+            # Broadcast the structure
+            structures.append(
+                broadcast(
+                    structure,
+                    root=root,
+                    comm=self.comm,
+                )
+            )
+        return structures
 
     def get_candidates(self, **kwargs):
-        return self.candidates
+        candidates = []
+        for chain, method in enumerate(self.methods):
+            root = chain % self.size
+            if self.rank == root:
+                # Get the candidate(s)
+                candidates_tmp = [
+                    candidate for candidate in method.get_candidates(**kwargs)
+                ]
+            else:
+                candidates_tmp = []
+            # Broadcast the candidates
+            for candidate in broadcast(
+                candidates_tmp,
+                root=root,
+                comm=self.comm,
+            ):
+                candidates.append(candidate)
+        return candidates
 
     def run(
         self,
@@ -83,83 +139,80 @@ class ParallelOptimizer(OptimizerMethod):
         # Check if the optimization can take any steps
         if steps <= 0:
             return self._converged
-        # Make list of properties
-        structures = [None] * self.chains
-        candidates = [[]] * self.chains
-        converged = [False] * self.chains
-        used_steps = [self.steps] * self.chains
-        values = [inf] * self.chains
         # Run the optimizations
-        for chain, method in enumerate(self.methods):
-            root = chain % self.size
-            if self.rank == root:
-                # Set the random seed
-                self.change_seed(chain)
-                method.set_seed(self.seed)
-                # Run the optimization
-                converged[chain] = method.run(
+        converged_list = [
+            (
+                method.run(
                     fmax=fmax,
                     steps=steps,
                     max_unc=max_unc,
                     dtrust=dtrust,
                     **kwargs,
                 )
-                # Update the number of steps
-                used_steps[chain] += method.get_number_of_steps()
-                # Get the structures
-                structures[chain] = method.get_structures()
-                # Get the candidates
-                candidates[chain] = method.get_candidates()
-                # Get the values
-                if self.method.is_energy_minimized():
-                    values[chain] = method.get_potential_energy()
-                else:
-                    values[chain] = method.get_fmax()
-        # Broadcast the saved instances
-        for chain in range(self.chains):
+                if self.rank == chain % self.size
+                else False
+            )
+            for chain, method in enumerate(self.methods)
+        ]
+        # Save the structures, values, and used steps
+        structures = []
+        values = []
+        for chain, method in enumerate(self.methods):
             root = chain % self.size
-            structures[chain] = broadcast(
-                structures[chain],
-                root=root,
-                comm=self.comm,
+            if self.rank == root:
+                # Get the structure
+                structure = method.get_structures()
+                # Get the value
+                if self.method.is_energy_minimized():
+                    value = method.get_potential_energy()
+                else:
+                    value = method.get_fmax()
+            else:
+                structure = None
+                value = inf
+            # Broadcast the structure
+            structures.append(
+                broadcast(
+                    structure,
+                    root=root,
+                    comm=self.comm,
+                )
             )
-            candidates_tmp = broadcast(
-                [
-                    self.copy_atoms(candidate)
-                    for candidate in candidates[chain]
-                ],
-                root=root,
-                comm=self.comm,
+            # Broadcast the values
+            values.append(
+                broadcast(
+                    value,
+                    root=root,
+                    comm=self.comm,
+                )
             )
-            if self.rank != root:
-                candidates[chain] = candidates_tmp
-            converged[chain] = broadcast(
-                converged[chain],
-                root=root,
-                comm=self.comm,
-            )
-            used_steps[chain] = broadcast(
-                used_steps[chain],
-                root=root,
-                comm=self.comm,
-            )
-            values[chain] = broadcast(
-                values[chain],
-                root=root,
-                comm=self.comm,
-            )
-        # Set the candidates
-        self.candidates = []
-        for candidate_inner in candidates:
-            for candidate in candidate_inner:
-                self.candidates.append(candidate)
-        # Check the minimum value
-        i_min = argmin(values)
-        self.method = self.method.update_optimizable(structures[i_min])
-        self.steps = max_(used_steps)
+        # Get the number of steps
+        self.steps += sum(
+            [
+                broadcast(
+                    method.get_number_of_steps(),
+                    root=chain % self.size,
+                    comm=self.comm,
+                )
+                for chain, method in enumerate(self.methods)
+            ]
+        )
+        # Find the best optimization
+        chain_min = argmin(values)
+        root = chain_min % self.size
+        # Broadcast whether the optimization is converged
+        converged = broadcast(
+            converged_list[chain_min],
+            root=root,
+            comm=self.comm,
+        )
+        # Get the best structure and update the method
+        structure = structures[chain_min]
+        self.method = self.method.update_optimizable(structure)
+        self.optimizable = self.method.get_optimizable()
         # Check if the optimization is converged
         self._converged = self.check_convergence(
-            converged=converged[i_min],
+            converged=converged,
             max_unc=max_unc,
             dtrust=dtrust,
             unc_convergence=unc_convergence,
@@ -221,38 +274,52 @@ class ParallelOptimizer(OptimizerMethod):
         if chains is not None:
             self.chains = chains
         elif not hasattr(self, "chains"):
-            if self.parallel_run:
-                chains = comm.size
-            else:
-                chains = 1
-            self.chains = chains
+            self.chains = self.size
         # Set the method
         if method is not None:
             self.method = method.copy()
             self.methods = [method.copy() for _ in range(self.chains)]
+            self.set_seed(seed=self.seed)
+            self.setup_optimizable()
+        # Check if the method is set correctly
+        if len(self.methods) != self.chains:
+            self.message(
+                "The number of chains should be equal to "
+                "the number of methods!",
+                is_warning=True,
+            )
+            self.methods = [method.copy() for _ in range(self.chains)]
+            self.set_seed(seed=self.seed)
             self.setup_optimizable()
         # Check if the number of chains is optimal
         if self.chains % self.size != 0:
             self.message(
                 "The number of chains should be divisible by "
-                "the number of processors!"
+                "the number of processors!",
+                is_warning=True,
             )
+        return self
+
+    def set_seed(self, seed=None, **kwargs):
+        # Set the seed for the class
+        super().set_seed(seed=seed, **kwargs)
+        # Set the seed for the method
+        if hasattr(self, "method"):
+            self.method.set_seed(seed=seed, **kwargs)
+            # Set the seed for each method
+            if isinstance(seed, int):
+                for method in self.methods:
+                    method.set_seed(seed=seed, **kwargs)
+                    seed += 1
+            else:
+                for chain, method in enumerate(self.methods):
+                    method.set_seed(seed=seed, **kwargs)
+                    method.rng.random(size=chain)
         return self
 
     def setup_optimizable(self, **kwargs):
         self.optimizable = self.method.get_optimizable()
-        self.structures = self.method.get_structures()
-        self.candidates = self.method.get_candidates()
         self.reset_optimization()
-        return self
-
-    def change_seed(self, chain, **kwargs):
-        "Change the random seed for the given chain."
-        if isinstance(self.seed, int):
-            seed = self.seed + chain
-            self.set_seed(seed=seed)
-        else:
-            [self.rng.random() for _ in range(chain)]
         return self
 
     def get_arguments(self):

@@ -7,7 +7,10 @@ class Structure(Atoms):
     def __init__(self, atoms, *args, **kwargs):
         self.atoms = atoms
         self.__dict__.update(atoms.__dict__)
-        self.store_results()
+        if atoms.calc is not None and len(atoms.calc.results):
+            self.store_results()
+        else:
+            self.reset()
 
     def set_positions(self, *args, **kwargs):
         self.atoms.set_positions(*args, **kwargs)

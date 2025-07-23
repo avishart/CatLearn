@@ -2,12 +2,18 @@ from .local import LocalOptimizer
 from ase.parallel import world, broadcast
 from ase.optimize import FIRE
 from numpy import asarray
+from ..structures.neb import OriginalNEB
 
 
 class LocalNEB(LocalOptimizer):
+    """
+    The LocalNEB is used to run a local optimization of NEB.
+    The LocalNEB is applicable to be used with active learning.
+    """
+
     def __init__(
         self,
-        neb,
+        optimizable,
         local_opt=FIRE,
         local_opt_kwargs={},
         parallel_run=False,
@@ -17,11 +23,10 @@ class LocalNEB(LocalOptimizer):
         **kwargs,
     ):
         """
-        The LocalNEB is used to run a local optimization of NEB.
-        The LocalNEB is applicable to be used with active learning.
+        Initialize the OptimizerMethod instance.
 
         Parameters:
-            neb: NEB instance
+            optimizable: NEB instance
                 The NEB object to be optimized.
             local_opt: ASE optimizer object
                 The local optimizer object.
@@ -41,7 +46,7 @@ class LocalNEB(LocalOptimizer):
         """
         # Set the parameters
         self.update_arguments(
-            neb=neb,
+            optimizable=optimizable,
             local_opt=local_opt,
             local_opt_kwargs=local_opt_kwargs,
             parallel_run=parallel_run,
@@ -57,31 +62,89 @@ class LocalNEB(LocalOptimizer):
         positions = asarray(positions).reshape(-1, 3)
         # Set the positions of the NEB images
         self.optimizable.set_positions(positions)
+        # Find the minimum path length if possible and requested
+        if isinstance(self.optimizable, OriginalNEB):
+            self.optimizable.permute_images()
         # Reset the optimization
         self.reset_optimization()
         return self
 
-    def get_structures(self, get_all=True, **kwargs):
+    def get_structures(
+        self,
+        get_all=True,
+        properties=[],
+        allow_calculation=True,
+        **kwargs,
+    ):
         # Get only the first image
         if not get_all:
-            return self.copy_atoms(self.optimizable.images[0])
+            return self.copy_atoms(
+                self.optimizable.images[0],
+                allow_calculation=False,
+                **kwargs,
+            )
         # Get all the images
         if self.is_parallel_used():
-            return self.get_structures_parallel(**kwargs)
+            return self.get_structures_parallel(
+                properties=properties,
+                allow_calculation=allow_calculation,
+                **kwargs,
+            )
         structures = [
-            self.copy_atoms(image) for image in self.optimizable.images
+            self.copy_atoms(
+                self.optimizable.images[0], allow_calculation=False, **kwargs
+            )
+        ]
+        structures += [
+            self.copy_atoms(
+                image,
+                properties=properties,
+                allow_calculation=allow_calculation,
+                **kwargs,
+            )
+            for image in self.optimizable.images[1:-1]
+        ]
+        structures += [
+            self.copy_atoms(
+                self.optimizable.images[-1], allow_calculation=False, **kwargs
+            )
         ]
         return structures
 
-    def get_structures_parallel(self, **kwargs):
-        # Get the structures in parallel
-        structures = [self.copy_atoms(self.optimizable.images[0])]
+    def get_structures_parallel(
+        self,
+        properties=[],
+        allow_calculation=True,
+        **kwargs,
+    ):
+        "Get the structures in parallel."
+        # Get the initial structure
+        structures = [
+            self.copy_atoms(
+                self.optimizable.images[0],
+                allow_calculation=False,
+                **kwargs,
+            )
+        ]
+        # Get the moving images in parallel
         for i, image in enumerate(self.optimizable.images[1:-1]):
             root = i % self.size
             if self.rank == root:
-                image = self.copy_atoms(image)
+                image = self.copy_atoms(
+                    image,
+                    properties=properties,
+                    allow_calculation=allow_calculation,
+                    **kwargs,
+                )
             structures.append(broadcast(image, root=root, comm=self.comm))
-        structures.append(self.copy_atoms(self.optimizable.images[-1]))
+        # Get the final structure
+        structures.append(
+            self.copy_atoms(
+                self.optimizable.images[-1],
+                allow_calculation=False,
+                **kwargs,
+            )
+        )
         return structures
 
     def get_candidates(self, **kwargs):
@@ -118,7 +181,7 @@ class LocalNEB(LocalOptimizer):
 
     def update_arguments(
         self,
-        neb=None,
+        optimizable=None,
         local_opt=None,
         local_opt_kwargs={},
         parallel_run=None,
@@ -132,7 +195,7 @@ class LocalNEB(LocalOptimizer):
         The existing arguments are used if they are not given.
 
         Parameters:
-            neb: NEB instance
+            optimizable: NEB instance
                 The NEB object to be optimized.
             local_opt: ASE optimizer object
                 The local optimizer object.
@@ -152,7 +215,7 @@ class LocalNEB(LocalOptimizer):
         """
         # Set the parameters in the parent class
         super().update_arguments(
-            optimizable=neb,
+            optimizable=optimizable,
             local_opt=local_opt,
             local_opt_kwargs=local_opt_kwargs,
             parallel_run=parallel_run,
@@ -166,7 +229,7 @@ class LocalNEB(LocalOptimizer):
         "Get the arguments of the class itself."
         # Get the arguments given to the class in the initialization
         arg_kwargs = dict(
-            neb=self.optimizable,
+            optimizable=self.optimizable,
             local_opt=self.local_opt,
             local_opt_kwargs=self.local_opt_kwargs,
             parallel_run=self.parallel_run,

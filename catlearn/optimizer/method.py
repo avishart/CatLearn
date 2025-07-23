@@ -1,12 +1,22 @@
-from numpy import max as max_
-from numpy.linalg import norm
+from numpy import einsum, max as max_, sqrt
 from numpy.random import default_rng, Generator, RandomState
 from ase.parallel import world, broadcast
-from ..regression.gp.calculator.copy_atoms import copy_atoms
+import warnings
+from ..regression.gp.calculator.copy_atoms import (
+    copy_atoms,
+    StoredDataCalculator,
+)
 from ..structures.structure import Structure
 
 
 class OptimizerMethod:
+    """
+    The OptimizerMethod class is a base class for all optimization methods.
+    The OptimizerMethod is used to run an optimization on a given
+    optimizable.
+    The OptimizerMethod is applicable to be used with active learning.
+    """
+
     def __init__(
         self,
         optimizable,
@@ -17,10 +27,7 @@ class OptimizerMethod:
         **kwargs,
     ):
         """
-        The OptimizerMethod class is a base class for all optimization methods.
-        The OptimizerMethod is used to run an optimization on a given
-        optimizable.
-        The OptimizerMethod is applicable to be used with active learning.
+        Initialize the OptimizerMethod instance.
 
         Parameters:
             optimizable: optimizable instance
@@ -79,20 +86,36 @@ class OptimizerMethod:
         """
         return self.optimizable
 
-    def get_structures(self, get_all=True, **kwargs):
+    def get_structures(
+        self,
+        get_all=True,
+        properties=[],
+        allow_calculation=True,
+        **kwargs,
+    ):
         """
         Get the structures that optimizable instance is dependent on.
 
         Parameters:
             get_all: bool
                 If True, all structures are returned.
-                Else, only the first structure is returned
+                Else, only the first structure is returned.
+            properties: list of str
+                The names of the requested properties.
+                If not given, the properties is not calculated.
+            allow_calculation: bool
+                Whether the properties are allowed to be calculated.
 
         Returns:
             structures: Atoms instance or list of Atoms instances
                 The structures that the optimizable instance is dependent on.
         """
-        return self.copy_atoms(self.optimizable)
+        return self.copy_atoms(
+            self.optimizable,
+            properties=properties,
+            allow_calculation=allow_calculation,
+            **kwargs,
+        )
 
     def get_candidates(self, **kwargs):
         """
@@ -103,7 +126,7 @@ class OptimizerMethod:
 
     def copy_candidates(
         self,
-        properties=["energy", "forces"],
+        properties=["forces", "energy"],
         allow_calculation=True,
         **kwargs,
     ):
@@ -128,19 +151,14 @@ class OptimizerMethod:
             # Check the rank of the process
             atoms_new = None
             root = i % self.size
-            if self.rank == root:
+            if not is_parallel or self.rank == root:
                 # Get the properties of the atoms instance
-                results = {}
-                for name in properties:
-                    self.get_atoms_property(
-                        atoms=atoms,
-                        name=name,
-                        allow_calculation=allow_calculation,
-                        **kwargs,
-                    )
-                    results.update(atoms.calc.results)
-                # Copy the atoms instance with all the properties
-                atoms_new = copy_atoms(atoms, results=results)
+                atoms_new = self.copy_atoms(
+                    atoms=atoms,
+                    properties=properties,
+                    allow_calculation=allow_calculation,
+                    **kwargs,
+                )
             # Broadcast the atoms instance to all processes
             if is_parallel:
                 atoms_new = broadcast(atoms_new, root=root, comm=self.comm)
@@ -297,8 +315,11 @@ class OptimizerMethod:
             fmax: float or list
                 The maximum force of the optimizable.
         """
-        force = self.get_forces(per_candidate=per_candidate, **kwargs)
-        fmax = norm(force, axis=-1).max(axis=-1)
+        forces = self.get_forces(per_candidate=per_candidate, **kwargs)
+        if per_candidate:
+            fmax = sqrt(einsum("ijk,ijk->ij", forces, forces)).max(-1)
+        else:
+            fmax = sqrt(einsum("ij,ij->i", forces, forces)).max()
         return fmax
 
     def get_uncertainty(self, per_candidate=False, **kwargs):
@@ -391,7 +412,7 @@ class OptimizerMethod:
                 # Check the rank of the process
                 result = None
                 root = i % self.size
-                if self.rank == root:
+                if not is_parallel or self.rank == root:
                     # Get the properties of the atoms instance
                     result = self.get_atoms_property(
                         atoms=atoms,
@@ -405,27 +426,12 @@ class OptimizerMethod:
                 output.append(result)
         else:
             # Get the property of the optimizable instance
-            if name == "energy":
-                output = self.get_potential_energy(
-                    per_candidate=per_candidate,
-                    **kwargs,
-                )
-            elif name == "forces":
-                output = self.get_forces(per_candidate=per_candidate, **kwargs)
-            elif name == "fmax":
-                output = self.get_fmax(per_candidate=per_candidate, **kwargs)
-            elif name == "uncertainty":
-                output = self.get_uncertainty(
-                    per_candidate=per_candidate,
-                    **kwargs,
-                )
-            else:
-                output = self.optimizable.calc.get_property(
-                    name,
-                    atoms=self.optimizable,
-                    allow_calculation=allow_calculation,
-                    **kwargs,
-                )
+            output = self.get_atoms_property(
+                atoms=self.optimizable,
+                name=name,
+                allow_calculation=allow_calculation,
+                **kwargs,
+            )
         return output
 
     def get_properties(
@@ -459,7 +465,7 @@ class OptimizerMethod:
                 root = i % self.size
                 for name in properties:
                     result = None
-                    if self.rank == root:
+                    if not is_parallel or self.rank == root:
                         # Get the properties of the atoms instance
                         result = self.get_atoms_property(
                             atoms=atoms,
@@ -507,8 +513,8 @@ class OptimizerMethod:
         elif name == "forces":
             result = atoms.get_forces(**kwargs)
         elif name == "fmax":
-            force = atoms.get_forces(**kwargs)
-            result = norm(force, axis=-1).max()
+            forces = atoms.get_forces(**kwargs)
+            result = sqrt(einsum("ij,ij->i", forces, forces)).max()
         elif name == "uncertainty" and isinstance(
             atoms,
             Structure,
@@ -621,6 +627,9 @@ class OptimizerMethod:
             coverged: bool
                 Whether the optimization is converged.
         """
+        # Check if the optimization can take any steps
+        if steps <= 0:
+            return self._converged
         raise NotImplementedError("The run method is not implemented")
 
     def run_max_unc(self, **kwargs):
@@ -675,6 +684,25 @@ class OptimizerMethod:
                 return False
         return converged
 
+    def save_method(self, filename="method.pkl", **kwargs):
+        """
+        Save the method instance to a file.
+
+        Parameters:
+            filename: str
+                The name of the file where the instance is saved.
+
+        Returns:
+            self: The instance itself.
+        """
+        import pickle
+
+        method_copy = self.copy()
+        method_copy.remove_parallel_setup()
+        with open(filename, "wb") as file:
+            pickle.dump(method_copy, file)
+        return self
+
     def update_arguments(
         self,
         optimizable=None,
@@ -705,15 +733,18 @@ class OptimizerMethod:
                 The seed can also be a RandomState or Generator instance.
                 If not given, the default random number generator is used.
         """
+        # Set and check the parallelization
+        if parallel_run is not None:
+            self.parallel_run = parallel_run
+            self.check_parallel()
         # Set the communicator
         if comm is not None:
-            self.comm = comm
-            self.rank = comm.rank
-            self.size = comm.size
+            self.parallel_setup(comm=comm)
         elif not hasattr(self, "comm"):
-            self.comm = None
-            self.rank = 0
-            self.size = 1
+            if self.parallel_run:
+                self.parallel_setup(comm=None)
+            else:
+                self.remove_parallel_setup()
         # Set the seed
         if seed is not None or not hasattr(self, "seed"):
             self.set_seed(seed)
@@ -723,10 +754,23 @@ class OptimizerMethod:
         # Set the optimizable
         if optimizable is not None:
             self.setup_optimizable(optimizable)
-        # Set and check the parallelization
-        if parallel_run is not None:
-            self.parallel_run = parallel_run
-            self.check_parallel()
+        return self
+
+    def parallel_setup(self, comm, **kwargs):
+        "Setup the parallelization."
+        if comm is None:
+            self.comm = world
+        else:
+            self.comm = comm
+        self.rank = self.comm.rank
+        self.size = self.comm.size
+        return self
+
+    def remove_parallel_setup(self):
+        "Remove the parallelization by removing the communicator."
+        self.comm = None
+        self.rank = 0
+        self.size = 1
         return self
 
     def set_seed(self, seed=None, **kwargs):
@@ -753,29 +797,51 @@ class OptimizerMethod:
             self.rng = default_rng()
         return self
 
-    def copy_atoms(self, atoms):
+    def copy_atoms(
+        self,
+        atoms,
+        properties=[],
+        allow_calculation=True,
+        **kwargs,
+    ):
         "Copy an atoms instance."
-        # Enforce the correct results in the calculator
-        if atoms.calc is not None:
-            if hasattr(atoms.calc, "results"):
-                if len(atoms.calc.results):
-                    if "forces" in atoms.calc.results:
-                        atoms.get_forces()
-                    else:
-                        atoms.get_potential_energy()
-        # Save the structure with saved properties
-        return copy_atoms(atoms)
+        # Get the properties of the atoms instance
+        results = {}
+        if (
+            allow_calculation
+            and atoms.calc is not None
+            and (
+                atoms.calc is not StoredDataCalculator
+                or isinstance(atoms, Structure)
+            )
+        ):
+            for name in properties:
+                self.get_atoms_property(
+                    atoms=atoms,
+                    name=name,
+                    allow_calculation=allow_calculation,
+                    **kwargs,
+                )
+                results.update(atoms.calc.results)
+        # Copy the atoms instance with all the properties
+        return copy_atoms(atoms, results=results)
 
-    def message(self, message):
+    def message(self, message, is_warning=False):
         "Print a message."
         if self.verbose and self.rank == 0:
-            print(message)
+            if is_warning:
+                warnings.warn(message)
+            else:
+                print(message)
         return self
 
     def check_parallel(self):
         "Check if the parallelization is allowed."
         if self.parallel_run and not self.is_parallel_allowed():
-            self.message("Parallel run is not supported for this method!")
+            self.message(
+                "Parallel run is not supported for this method!",
+                is_warning=True,
+            )
         return self
 
     def get_arguments(self):
