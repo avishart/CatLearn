@@ -1,10 +1,13 @@
 from numpy import (
+    arange,
     argmax,
     array,
     asarray,
     einsum,
+    empty,
     full,
     nanmax,
+    ones,
     sqrt,
     vdot,
     zeros,
@@ -13,7 +16,6 @@ from ase.calculators.singlepoint import SinglePointCalculator
 from ase.build import minimize_rotation_and_translation
 from ase.parallel import world, broadcast
 import warnings
-from .interpolate_band import interpolate
 from ..structure import Structure
 from ...regression.gp.fingerprint.geometry import mic_distance
 from ...regression.gp.calculator.copy_atoms import compare_atoms
@@ -35,10 +37,11 @@ class OriginalNEB:
         climb=False,
         remove_rotation_and_translation=False,
         mic=True,
+        use_image_permutation=False,
         save_properties=False,
         parallel=False,
         comm=world,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize the NEB instance.
@@ -59,6 +62,12 @@ class OriginalNEB:
             mic: bool
                 Minimum Image Convention (Shortest distances when
                 periodic boundary conditions are used).
+            use_image_permutation: bool
+                Whether to permute images to minimize the path length.
+                It assumes a greedy algorithm to find the minimum path length
+                by selecting the next image that is closest to the previous
+                image.
+                It is only used in the initialization of the NEB.
             save_properties: bool
                 Whether to save the properties by making a copy of the images.
             parallel: bool
@@ -86,6 +95,9 @@ class OriginalNEB:
         self.rm_rot_trans = remove_rotation_and_translation
         self.mic = mic
         self.save_properties = save_properties
+        self.use_image_permutation = use_image_permutation
+        # Find the minimum path length if requested
+        self.permute_images()
         # Set the parallelization
         self.parallel = parallel
         if parallel:
@@ -136,6 +148,8 @@ class OriginalNEB:
         Returns:
             self: The instance itself.
         """
+        from .interpolate_band import interpolate
+
         self.images = interpolate(
             self.images[0],
             self.images[-1],
@@ -143,7 +157,7 @@ class OriginalNEB:
             method=method,
             mic=mic,
             remove_rotation_and_translation=self.rm_rot_trans,
-            **kwargs
+            **kwargs,
         )
         return self
 
@@ -312,14 +326,14 @@ class OriginalNEB:
         """
         positions = self.get_image_positions()
         position_diff = positions[1:] - positions[:-1]
-        pbc = asarray(self.images[0].get_pbc())
+        pbc = self.get_pbc()
         if self.mic and pbc.any():
-            cell = asarray(self.images[0].get_cell())
+            cell = self.get_cell()
             _, position_diff = mic_distance(
                 position_diff,
-                cell,
-                pbc,
-                vector=True,
+                cell=cell,
+                pbc=pbc,
+                use_vector=True,
             )
         return position_diff[1:], position_diff[:-1]
 
@@ -343,6 +357,90 @@ class OriginalNEB:
     def get_spring_constants(self, **kwargs):
         "Get the spring constants for the images."
         return self.k
+
+    def get_path_length(self, **kwargs):
+        "Get the path length of the NEB."
+        # Get the distances between the images
+        pos_p, pos_m = self.get_position_diff()
+        # Calculate the path length
+        path_len = sqrt(einsum("ijk,ijk->i", pos_p, pos_p)).sum()
+        path_len += sqrt(einsum("ij,ij->", pos_m[0], pos_m[0]))
+        return path_len
+
+    def permute_images(self, **kwargs):
+        """
+        Set the minimum path length by minimizing the distance between
+        the images by permuting the images.
+        """
+        # Check if there are enough images to optimize
+        if self.nimages <= 3 or not self.use_image_permutation:
+            return self
+        # Find the minimum path length
+        selected_indices = self.find_minimum_path_length(**kwargs)
+        # Set the images to the selected indices
+        self.images = [self.images[i] for i in selected_indices]
+        # Reset energies and forces
+        self.reset()
+        return self
+
+    def find_minimum_path_length(self, **kwargs):
+        """
+        Find the minimum path length by minimizing the distance between
+        the images.
+        """
+        # Get the positions of the images
+        positions = self.get_image_positions()
+        positions = positions.reshape(self.nimages, -1)
+        # Get the periodic boundary conditions
+        pbc = self.get_pbc()
+        cell = self.get_cell()
+        use_mic = self.mic and pbc.any()
+        # Set the indices for the selected images
+        indices = arange(self.nimages, dtype=int)
+        selected_indices = empty(self.nimages, dtype=int)
+        selected_indices[0] = 0
+        selected_indices[-1] = self.nimages - 1
+        i_f = 1
+        i_b = self.nimages - 2
+        i_min_f = 0
+        i_min_b = self.nimages - 1
+        is_forward = True
+        i_min = i_min_f
+        # Create a boolean array to keep track of available images
+        available = ones(self.nimages, dtype=bool)
+        available[0] = available[-1] = False
+        # Loop until all images are selected
+        while available.any():
+            candidates = indices[available]
+            # Find the minimum distance to the current images
+            dist = positions[candidates] - positions[i_min, None]
+            if use_mic:
+                dist, _ = mic_distance(
+                    dist,
+                    cell=cell,
+                    pbc=pbc,
+                    use_vector=False,
+                )
+            else:
+                dist = sqrt(einsum("ij,ij->i", dist, dist))
+            i_min = dist.argmin()
+            if is_forward:
+                # Find the minimum distance from the start image
+                i_min_f = candidates[i_min]
+                selected_indices[i_f] = i_min_f
+                available[i_min_f] = False
+                i_f += 1
+                i_min = i_min_b
+            else:
+                # Find the minimum distance from the end image
+                i_min_b = candidates[i_min]
+                selected_indices[i_b] = i_min_b
+                available[i_min_b] = False
+                i_b -= 1
+                i_min = i_min_f
+            # Switch the direction for the next iteration
+            is_forward = not is_forward
+        return selected_indices
 
     def reset(self):
         "Reset the stored properties."
@@ -441,3 +539,64 @@ class OriginalNEB:
                     forces=self.real_forces[i],
                 )
                 yield atoms
+
+    def get_pbc(self):
+        """
+        Get the periodic boundary conditions of the images.
+
+        Returns:
+            (3,) array: The periodic boundary conditions of the images.
+        """
+        return asarray(self.images[0].get_pbc())
+
+    def get_cell(self):
+        """
+        Get the cell of the images.
+
+        Returns:
+            (3,3) array: The cell of the images.
+        """
+        return asarray(self.images[0].get_cell())
+
+    def get_arguments(self):
+        "Get the arguments of the class itself."
+        # Get the arguments given to the class in the initialization
+        arg_kwargs = dict(
+            images=self.images,
+            k=self.k,
+            climb=self.climb,
+            remove_rotation_and_translation=self.rm_rot_trans,
+            mic=self.mic,
+            use_image_permutation=self.use_image_permutation,
+            save_properties=self.save_properties,
+            parallel=self.parallel,
+            comm=self.comm,
+        )
+        # Get the constants made within the class
+        constant_kwargs = dict()
+        # Get the objects made within the class
+        object_kwargs = dict()
+        return arg_kwargs, constant_kwargs, object_kwargs
+
+    def copy(self):
+        "Copy the object."
+        # Get all arguments
+        arg_kwargs, constant_kwargs, object_kwargs = self.get_arguments()
+        # Make a clone
+        clone = self.__class__(**arg_kwargs)
+        # Check if constants have to be saved
+        if len(constant_kwargs.keys()):
+            for key, value in constant_kwargs.items():
+                clone.__dict__[key] = value
+        # Check if objects have to be saved
+        if len(object_kwargs.keys()):
+            for key, value in object_kwargs.items():
+                clone.__dict__[key] = value.copy()
+        return clone
+
+    def __repr__(self):
+        arg_kwargs = self.get_arguments()[0]
+        str_kwargs = ",".join(
+            [f"{key}={value}" for key, value in arg_kwargs.items()]
+        )
+        return "{}({})".format(self.__class__.__name__, str_kwargs)

@@ -21,6 +21,7 @@ class MaxEWNEB(ImprovedTangentNEB):
         climb=False,
         remove_rotation_and_translation=False,
         mic=True,
+        use_image_permutation=False,
         save_properties=False,
         parallel=False,
         comm=world,
@@ -52,6 +53,12 @@ class MaxEWNEB(ImprovedTangentNEB):
             mic: bool
                 Minimum Image Convention (Shortest distances when
                 periodic boundary conditions are used).
+            use_image_permutation: bool
+                Whether to permute images to minimize the path length.
+                It assumes a greedy algorithm to find the minimum path length
+                by selecting the next image that is closest to the previous
+                image.
+                It is only used in the initialization of the NEB.
             save_properties: bool
                 Whether to save the properties by making a copy of the images.
             parallel: bool
@@ -65,6 +72,7 @@ class MaxEWNEB(ImprovedTangentNEB):
             climb=climb,
             remove_rotation_and_translation=remove_rotation_and_translation,
             mic=mic,
+            use_image_permutation=use_image_permutation,
             save_properties=save_properties,
             parallel=parallel,
             comm=comm,
@@ -88,3 +96,25 @@ class MaxEWNEB(ImprovedTangentNEB):
         else:
             k = k_l
         return k
+
+    def get_arguments(self):
+        "Get the arguments of the class itself."
+        # Get the arguments given to the class in the initialization
+        arg_kwargs = dict(
+            images=self.images,
+            k=self.k,
+            kl_scale=self.kl_scale,
+            dE=self.dE,
+            climb=self.climb,
+            remove_rotation_and_translation=self.rm_rot_trans,
+            mic=self.mic,
+            use_image_permutation=self.use_image_permutation,
+            save_properties=self.save_properties,
+            parallel=self.parallel,
+            comm=self.comm,
+        )
+        # Get the constants made within the class
+        constant_kwargs = dict()
+        # Get the objects made within the class
+        object_kwargs = dict()
+        return arg_kwargs, constant_kwargs, object_kwargs
