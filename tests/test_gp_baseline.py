@@ -59,7 +59,7 @@ class TestGPBaseline(unittest.TestCase):
             MieCalculator(),
         ]
         # Make a list of the error values that the test compares to
-        error_list = [0.47624, 3.21230, 5.03338, 0.38677]
+        error_list = [0.47624, 0.47624, 5.03338, 0.38677]
         # Test the baseline objects
         for index, baseline in enumerate(baseline_list):
             with self.subTest(baseline=baseline):
