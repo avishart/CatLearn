@@ -33,7 +33,7 @@ class DatabaseReduction(Database):
         seed=None,
         dtype=float,
         npoints=25,
-        initial_indicies=[0],
+        initial_indices=[0],
         include_last=1,
         **kwargs,
     ):
@@ -62,16 +62,16 @@ class DatabaseReduction(Database):
                 The data type of the arrays.
             npoints: int
                 Number of points that are used from the database.
-            initial_indicies: list
-                The indicies of the data points that must be included
+            initial_indices: list
+                The indices of the data points that must be included
                 in the used data base.
             include_last: int
                 Number of last data point to include in the used data base.
         """
         # The negative forces have to be used since the derivatives are used
         self.use_negative_forces = True
-        # Set initial indicies
-        self.indicies = []
+        # Set initial indices
+        self.indices = []
         # Use default fingerprint if it is not given
         if fingerprint is None:
             self.set_default_fp(
@@ -89,7 +89,7 @@ class DatabaseReduction(Database):
             seed=seed,
             dtype=dtype,
             npoints=npoints,
-            initial_indicies=initial_indicies,
+            initial_indices=initial_indices,
             include_last=include_last,
             **kwargs,
         )
@@ -104,7 +104,7 @@ class DatabaseReduction(Database):
         seed=None,
         dtype=None,
         npoints=None,
-        initial_indicies=None,
+        initial_indices=None,
         include_last=None,
         **kwargs,
     ):
@@ -134,8 +134,8 @@ class DatabaseReduction(Database):
                 The data type of the arrays.
             npoints: int
                 Number of points that are used from the database.
-            initial_indicies: list
-                The indicies of the data points that must be included
+            initial_indices: list
+                The indices of the data points that must be included
                 in the used data base.
             include_last: int
                 Number of last data point to include in the used data base.
@@ -156,18 +156,18 @@ class DatabaseReduction(Database):
         # Set the number of points to use
         if npoints is not None:
             self.npoints = int(npoints)
-        # Set the initial indicies to keep fixed
-        if initial_indicies is not None:
-            self.initial_indicies = array(initial_indicies, dtype=int)
+        # Set the initial indices to keep fixed
+        if initial_indices is not None:
+            self.initial_indices = array(initial_indices, dtype=int)
         # Set the number of last points to include
         if include_last is not None:
             self.include_last = int(abs(include_last))
         # Check that too many last points are not included
-        n_extra = self.npoints - len(self.initial_indicies)
+        n_extra = self.npoints - len(self.initial_indices)
         if self.include_last > n_extra:
             self.include_last = n_extra if n_extra >= 0 else 0
         # Store that the data base has changed
-        self.update_indicies = True
+        self.update_indices = True
         return self
 
     def get_all_data_atoms(self, **kwargs):
@@ -186,12 +186,9 @@ class DatabaseReduction(Database):
         Returns:
             list: A list of the saved ASE Atoms objects.
         """
-        indicies = self.get_reduction_indicies()
-        return [
-            atoms
-            for i, atoms in enumerate(self.get_all_data_atoms(**kwargs))
-            if i in indicies
-        ]
+        indices = self.get_reduction_indices()
+        atoms_list = self.get_all_data_atoms(**kwargs)
+        return [atoms_list[i] for i in indices]
 
     def get_features(self, **kwargs):
         """
@@ -200,10 +197,10 @@ class DatabaseReduction(Database):
         Returns:
             array: A matrix array with the saved features or fingerprints.
         """
-        indicies = self.get_reduction_indicies()
+        indices = self.get_reduction_indices()
         if self.use_fingerprint:
-            return array(self.features)[indicies]
-        return array(self.features, dtype=self.dtype)[indicies]
+            return array(self.features)[indices]
+        return array(self.features, dtype=self.dtype)[indices]
 
     def get_all_feature_vectors(self, **kwargs):
         "Get all the features in numpy array form."
@@ -219,8 +216,8 @@ class DatabaseReduction(Database):
         Returns:
             array: A matrix array with the saved targets.
         """
-        indicies = self.get_reduction_indicies()
-        return array(self.targets, dtype=self.dtype)[indicies]
+        indices = self.get_reduction_indices()
+        return array(self.targets, dtype=self.dtype)[indices]
 
     def get_all_targets(self, **kwargs):
         """
@@ -231,77 +228,77 @@ class DatabaseReduction(Database):
         """
         return array(self.targets, dtype=self.dtype)
 
-    def get_initial_indicies(self, **kwargs):
+    def get_initial_indices(self, **kwargs):
         """
-        Get the initial indicies of the used atoms in the database.
+        Get the initial indices of the used atoms in the database.
 
         Returns:
-            array: The initial indicies of the atoms used.
+            array: The initial indices of the atoms used.
         """
-        return self.initial_indicies.copy()
+        return array(self.initial_indices, dtype=int)
 
-    def get_last_indicies(self, indicies, not_indicies, **kwargs):
+    def get_last_indices(self, indices, not_indices, **kwargs):
         """
-        Include the last indicies that are not in the used indicies list.
+        Include the last indices that are not in the used indices list.
 
         Parameters:
-            indicies: list
-                A list of used indicies.
-            not_indicies: list
-                A list of indicies that not used yet.
+            indices: list
+                A list of used indices.
+            not_indices: list
+                A list of indices that not used yet.
 
         Returns:
-            list: A list of the used indicies including the last indicies.
+            list: A list of the used indices including the last indices.
         """
         if self.include_last != 0:
             last = -self.include_last
-            indicies = append(
-                indicies,
-                [not_indicies[last:]],
+            indices = append(
+                indices,
+                [not_indices[last:]],
             )
-        return indicies
+        return indices
 
-    def get_not_indicies(self, indicies, all_indicies, **kwargs):
+    def get_not_indices(self, indices, all_indices, **kwargs):
         """
-        Get a list of the indicies that are not in the used indicies list.
+        Get a list of the indices that are not in the used indices list.
 
         Parameters:
-            indicies: list
-                A list of indicies.
-            all_indicies: list
-                A list of all indicies.
+            indices: list
+                A list of indices.
+            all_indices: list
+                A list of all indices.
 
         Returns:
-            list: A list of indicies that not used.
+            list: A list of indices that not used.
         """
-        return list(set(all_indicies).difference(indicies))
+        return list(set(all_indices).difference(indices))
 
     def append(self, atoms, **kwargs):
         "Append the atoms object, the fingerprint, and target(s) to lists."
         # Store that the data base has changed
-        self.update_indicies = True
+        self.update_indices = True
         # Append to the data base
         super().append(atoms, **kwargs)
         return self
 
-    def get_reduction_indicies(self, **kwargs):
-        "Get the indicies of the reduced data used."
-        # If the indicies is already calculated then give them
-        if not self.update_indicies:
-            return self.indicies
-        # Set up all the indicies
-        self.update_indicies = False
+    def get_reduction_indices(self, **kwargs):
+        "Get the indices of the reduced data used."
+        # If the indices is already calculated then give them
+        if not self.update_indices:
+            return self.indices
+        # Set up all the indices
+        self.update_indices = False
         data_len = self.__len__()
-        all_indicies = arange(data_len)
+        all_indices = arange(data_len)
         # No reduction is needed if the database is not large
         if data_len <= self.npoints:
-            self.indicies = all_indicies.copy()
-            return self.indicies
+            self.indices = all_indices.copy()
+            return self.indices
         # Reduce the data base
-        self.indicies = self.make_reduction(all_indicies)
-        return self.indicies
+        self.indices = self.make_reduction(all_indices)
+        return self.indices
 
-    def make_reduction(self, all_indicies, **kwargs):
+    def make_reduction(self, all_indices, **kwargs):
         "Make the reduction of the data base with a chosen method."
         raise NotImplementedError()
 
@@ -317,17 +314,17 @@ class DatabaseReduction(Database):
             seed=self.seed,
             dtype=self.dtype,
             npoints=self.npoints,
-            initial_indicies=self.initial_indicies,
+            initial_indices=self.initial_indices,
             include_last=self.include_last,
         )
         # Get the constants made within the class
-        constant_kwargs = dict(update_indicies=self.update_indicies)
+        constant_kwargs = dict(update_indices=self.update_indices)
         # Get the objects made within the class
         object_kwargs = dict(
             atoms_list=self.atoms_list.copy(),
             features=self.features.copy(),
             targets=self.targets.copy(),
-            indicies=self.indicies.copy(),
+            indices=self.indices.copy(),
         )
         return arg_kwargs, constant_kwargs, object_kwargs
 
@@ -341,32 +338,33 @@ class DatabaseDistance(DatabaseReduction):
     largest distances from each other.
     """
 
-    def make_reduction(self, all_indicies, **kwargs):
+    def make_reduction(self, all_indices, **kwargs):
         "Reduce the training set with the points farthest from each other."
-        # Get the fixed indicies
-        indicies = self.get_initial_indicies()
-        # Get the indicies for the system not already included
-        not_indicies = self.get_not_indicies(indicies, all_indicies)
+        # Get the fixed indices
+        indices = self.get_initial_indices()
+        # Get the indices for the system not already included
+        not_indices = self.get_not_indices(indices, all_indices)
         # Include the last point
-        indicies = self.get_last_indicies(indicies, not_indicies)
+        indices = self.get_last_indices(indices, not_indices)
         # Get a random index if no fixed index exist
-        if len(indicies) == 0:
-            indicies = asarray([self.rng.choice(not_indicies)])
+        if len(indices) == 0:
+            indices = asarray([self.rng.choice(not_indices)], dtype=int)
+            not_indices = self.get_not_indices(indices, all_indices)
         # Get all the features
         features = self.get_all_feature_vectors()
         fdim = len(features[0])
-        for i in range(len(indicies), self.npoints):
-            # Get the indicies for the system not already included
-            not_indicies = self.get_not_indicies(indicies, all_indicies)
+        for i in range(len(indices), self.npoints):
+            # Get the indices for the system not already included
+            not_indices = self.get_not_indices(indices, all_indices)
             # Calculate the distances to the points already used
             dist = cdist(
-                features[indicies].reshape(-1, fdim),
-                features[not_indicies].reshape(-1, fdim),
+                features[indices].reshape(-1, fdim),
+                features[not_indices].reshape(-1, fdim),
             )
             # Choose the point furthest from the points already used
             i_max = argmax(nanmin(dist, axis=0))
-            indicies = append(indicies, [not_indicies[i_max]])
-        return array(indicies, dtype=int)
+            indices = append(indices, [not_indices[i_max]])
+        return array(indices, dtype=int)
 
 
 class DatabaseRandom(DatabaseReduction):
@@ -377,24 +375,24 @@ class DatabaseRandom(DatabaseReduction):
     The reduction is done by selecting the points randomly.
     """
 
-    def make_reduction(self, all_indicies, **kwargs):
+    def make_reduction(self, all_indices, **kwargs):
         "Random select the training points."
-        # Get the fixed indicies
-        indicies = self.get_initial_indicies()
-        # Get the indicies for the system not already included
-        not_indicies = self.get_not_indicies(indicies, all_indicies)
+        # Get the fixed indices
+        indices = self.get_initial_indices()
+        # Get the indices for the system not already included
+        not_indices = self.get_not_indices(indices, all_indices)
         # Include the last point
-        indicies = self.get_last_indicies(indicies, not_indicies)
-        # Get the indicies for the system not already included
-        not_indicies = self.get_not_indicies(indicies, all_indicies)
+        indices = self.get_last_indices(indices, not_indices)
+        # Get the indices for the system not already included
+        not_indices = self.get_not_indices(indices, all_indices)
         # Get the number of missing points
-        npoints = int(self.npoints - len(indicies))
-        # Randomly get the indicies
-        indicies = append(
-            indicies,
-            self.rng.permutation(not_indicies)[:npoints],
+        npoints = int(self.npoints - len(indices))
+        # Randomly get the indices
+        indices = append(
+            indices,
+            self.rng.permutation(not_indices)[:npoints],
         )
-        return array(indicies, dtype=int)
+        return array(indices, dtype=int)
 
 
 class DatabaseHybrid(DatabaseReduction):
@@ -417,7 +415,7 @@ class DatabaseHybrid(DatabaseReduction):
         seed=None,
         dtype=float,
         npoints=25,
-        initial_indicies=[0],
+        initial_indices=[0],
         include_last=1,
         random_fraction=3,
         **kwargs,
@@ -447,8 +445,8 @@ class DatabaseHybrid(DatabaseReduction):
                 The data type of the arrays.
             npoints: int
                 Number of points that are used from the database.
-            initial_indicies: list
-                The indicies of the data points that must be included
+            initial_indices: list
+                The indices of the data points that must be included
                 in the used data base.
             include_last: int
                 Number of last data point to include in the used data base.
@@ -464,7 +462,7 @@ class DatabaseHybrid(DatabaseReduction):
             seed=seed,
             dtype=dtype,
             npoints=npoints,
-            initial_indicies=initial_indicies,
+            initial_indices=initial_indices,
             include_last=include_last,
             random_fraction=random_fraction,
             **kwargs,
@@ -480,7 +478,7 @@ class DatabaseHybrid(DatabaseReduction):
         seed=None,
         dtype=None,
         npoints=None,
-        initial_indicies=None,
+        initial_indices=None,
         include_last=None,
         random_fraction=None,
         **kwargs,
@@ -511,8 +509,8 @@ class DatabaseHybrid(DatabaseReduction):
                 The data type of the arrays.
             npoints: int
                 Number of points that are used from the database.
-            initial_indicies: list
-                The indicies of the data points that must be included
+            initial_indices: list
+                The indices of the data points that must be included
                 in the used data base.
             include_last: int
                 Number of last data point to include in the used data base.
@@ -532,7 +530,7 @@ class DatabaseHybrid(DatabaseReduction):
             seed=seed,
             dtype=dtype,
             npoints=npoints,
-            initial_indicies=initial_indicies,
+            initial_indices=initial_indices,
             include_last=include_last,
         )
         # Set the random fraction
@@ -542,39 +540,40 @@ class DatabaseHybrid(DatabaseReduction):
                 self.random_fraction = 1
         return self
 
-    def make_reduction(self, all_indicies, **kwargs):
+    def make_reduction(self, all_indices, **kwargs):
         """
         Use a combination of random sampling and
         farthest distance to reduce training set.
         """
-        # Get the fixed indicies
-        indicies = self.get_initial_indicies()
-        # Get the indicies for the system not already included
-        not_indicies = self.get_not_indicies(indicies, all_indicies)
+        # Get the fixed indices
+        indices = self.get_initial_indices()
+        # Get the indices for the system not already included
+        not_indices = self.get_not_indices(indices, all_indices)
         # Include the last point
-        indicies = self.get_last_indicies(indicies, not_indicies)
+        indices = self.get_last_indices(indices, not_indices)
         # Get a random index if no fixed index exist
-        if len(indicies) == 0:
-            indicies = [self.rng.choice(not_indicies)]
+        if len(indices) == 0:
+            indices = asarray([self.rng.choice(not_indices)], dtype=int)
+            not_indices = self.get_not_indices(indices, all_indices)
         # Get all the features
         features = self.get_all_feature_vectors()
         fdim = len(features[0])
-        for i in range(len(indicies), self.npoints):
-            # Get the indicies for the system not already included
-            not_indicies = self.get_not_indicies(indicies, all_indicies)
+        for i in range(len(indices), self.npoints):
+            # Get the indices for the system not already included
+            not_indices = self.get_not_indices(indices, all_indices)
             if i % self.random_fraction == 0:
                 # Get a random index
-                indicies = append(indicies, [self.rng.choice(not_indicies)])
+                indices = append(indices, [self.rng.choice(not_indices)])
             else:
                 # Calculate the distances to the points already used
                 dist = cdist(
-                    features[indicies].reshape(-1, fdim),
-                    features[not_indicies].reshape(-1, fdim),
+                    features[indices].reshape(-1, fdim),
+                    features[not_indices].reshape(-1, fdim),
                 )
                 # Choose the point furthest from the points already used
                 i_max = argmax(nanmin(dist, axis=0))
-                indicies = append(indicies, [not_indicies[i_max]])
-        return array(indicies, dtype=int)
+                indices = append(indices, [not_indices[i_max]])
+        return array(indices, dtype=int)
 
     def get_arguments(self):
         "Get the arguments of the class itself."
@@ -588,18 +587,18 @@ class DatabaseHybrid(DatabaseReduction):
             seed=self.seed,
             dtype=self.dtype,
             npoints=self.npoints,
-            initial_indicies=self.initial_indicies,
+            initial_indices=self.initial_indices,
             include_last=self.include_last,
             random_fraction=self.random_fraction,
         )
         # Get the constants made within the class
-        constant_kwargs = dict(update_indicies=self.update_indicies)
+        constant_kwargs = dict(update_indices=self.update_indices)
         # Get the objects made within the class
         object_kwargs = dict(
             atoms_list=self.atoms_list.copy(),
             features=self.features.copy(),
             targets=self.targets.copy(),
-            indicies=self.indicies.copy(),
+            indices=self.indices.copy(),
         )
         return arg_kwargs, constant_kwargs, object_kwargs
 
@@ -623,7 +622,7 @@ class DatabaseMin(DatabaseReduction):
         seed=None,
         dtype=float,
         npoints=25,
-        initial_indicies=[0],
+        initial_indices=[0],
         include_last=1,
         force_targets=False,
         **kwargs,
@@ -653,8 +652,8 @@ class DatabaseMin(DatabaseReduction):
                 The data type of the arrays.
             npoints: int
                 Number of points that are used from the database.
-            initial_indicies: list
-                The indicies of the data points that must be included
+            initial_indices: list
+                The indices of the data points that must be included
                 in the used data base.
             include_last: int
                 Number of last data point to include in the used data base.
@@ -671,7 +670,7 @@ class DatabaseMin(DatabaseReduction):
             seed=seed,
             dtype=dtype,
             npoints=npoints,
-            initial_indicies=initial_indicies,
+            initial_indices=initial_indices,
             include_last=include_last,
             force_targets=force_targets,
             **kwargs,
@@ -687,7 +686,7 @@ class DatabaseMin(DatabaseReduction):
         seed=None,
         dtype=None,
         npoints=None,
-        initial_indicies=None,
+        initial_indices=None,
         include_last=None,
         force_targets=None,
         **kwargs,
@@ -718,8 +717,8 @@ class DatabaseMin(DatabaseReduction):
                 The data type of the arrays.
             npoints: int
                 Number of points that are used from the database.
-            initial_indicies: list
-                The indicies of the data points that must be included
+            initial_indices: list
+                The indices of the data points that must be included
                 in the used data base.
             include_last: int
                 Number of last data point to include in the used data base.
@@ -740,7 +739,7 @@ class DatabaseMin(DatabaseReduction):
             seed=seed,
             dtype=dtype,
             npoints=npoints,
-            initial_indicies=initial_indicies,
+            initial_indices=initial_indices,
             include_last=include_last,
         )
         # Set the force targets
@@ -748,18 +747,18 @@ class DatabaseMin(DatabaseReduction):
             self.force_targets = force_targets
         return self
 
-    def make_reduction(self, all_indicies, **kwargs):
+    def make_reduction(self, all_indices, **kwargs):
         "Use the targets with smallest norms in the training set."
-        # Get the fixed indicies
-        indicies = self.get_initial_indicies()
-        # Get the indicies for the system not already included
-        not_indicies = self.get_not_indicies(indicies, all_indicies)
+        # Get the fixed indices
+        indices = self.get_initial_indices()
+        # Get the indices for the system not already included
+        not_indices = self.get_not_indices(indices, all_indices)
         # Include the last point
-        indicies = self.get_last_indicies(indicies, not_indicies)
-        # Get the indicies for the system not already included
-        not_indicies = array(self.get_not_indicies(indicies, all_indicies))
+        indices = self.get_last_indices(indices, not_indices)
+        # Get the indices for the system not already included
+        not_indices = array(self.get_not_indices(indices, all_indices))
         # Get the targets
-        targets = self.get_all_targets()[not_indicies]
+        targets = self.get_all_targets()[not_indices]
         # Get sorting of the targets
         if self.force_targets:
             # Get the points with the lowest norm of the targets
@@ -769,11 +768,11 @@ class DatabaseMin(DatabaseReduction):
             # Get the points with the lowest energies
             i_sort = argsort(targets[:, 0])
         # Get the number of missing points
-        npoints = int(self.npoints - len(indicies))
-        # Get the indicies for the system not already included
+        npoints = int(self.npoints - len(indices))
+        # Get the indices for the system not already included
         i_sort = i_sort[:npoints]
-        indicies = append(indicies, not_indicies[i_sort])
-        return array(indicies, dtype=int)
+        indices = append(indices, not_indices[i_sort])
+        return array(indices, dtype=int)
 
     def get_arguments(self):
         "Get the arguments of the class itself."
@@ -787,18 +786,18 @@ class DatabaseMin(DatabaseReduction):
             seed=self.seed,
             dtype=self.dtype,
             npoints=self.npoints,
-            initial_indicies=self.initial_indicies,
+            initial_indices=self.initial_indices,
             include_last=self.include_last,
             force_targets=self.force_targets,
         )
         # Get the constants made within the class
-        constant_kwargs = dict(update_indicies=self.update_indicies)
+        constant_kwargs = dict(update_indices=self.update_indices)
         # Get the objects made within the class
         object_kwargs = dict(
             atoms_list=self.atoms_list.copy(),
             features=self.features.copy(),
             targets=self.targets.copy(),
-            indicies=self.indicies.copy(),
+            indices=self.indices.copy(),
         )
         return arg_kwargs, constant_kwargs, object_kwargs
 
@@ -811,18 +810,18 @@ class DatabaseLast(DatabaseReduction):
     The reduction is done by selecting the last points in the database.
     """
 
-    def make_reduction(self, all_indicies, **kwargs):
+    def make_reduction(self, all_indices, **kwargs):
         "Use the last data points."
-        # Get the fixed indicies
-        indicies = self.get_initial_indicies()
-        # Get the indicies for the system not already included
-        not_indicies = self.get_not_indicies(indicies, all_indicies)
+        # Get the fixed indices
+        indices = self.get_initial_indices()
+        # Get the indices for the system not already included
+        not_indices = self.get_not_indices(indices, all_indices)
         # Get the number of missing points
-        npoints = int(self.npoints - len(indicies))
+        npoints = int(self.npoints - len(indices))
         # Get the last points in the database
         if npoints > 0:
-            indicies = append(indicies, not_indicies[-npoints:])
-        return array(indicies, dtype=int)
+            indices = append(indices, not_indices[-npoints:])
+        return array(indices, dtype=int)
 
 
 class DatabaseRestart(DatabaseReduction):
@@ -831,35 +830,35 @@ class DatabaseRestart(DatabaseReduction):
     into stored fingerprints and targets.
     The used Database is a reduced set of the full Database.
     The reduced data set is selected from restarts after npoints are used.
-    The initial indicies and the last data point is used at each restart.
+    The initial indices and the last data point is used at each restart.
     """
 
-    def make_reduction(self, all_indicies, **kwargs):
+    def make_reduction(self, all_indices, **kwargs):
         "Make restart of used data set."
-        # Get the fixed indicies
-        indicies = self.get_initial_indicies()
+        # Get the fixed indices
+        indices = self.get_initial_indices()
         # Get the data set size
-        data_len = len(all_indicies)
+        data_len = len(all_indices)
         # Check how many last points are used
         lasts = self.include_last
         if lasts == 0:
             lasts = 1
         # Get the minimum number of points in the database
-        n_initial = len(indicies)
+        n_initial = len(indices)
         if lasts > 1:
             n_initial += lasts - 1
         # Get the number of data point after the first restart
         n_use = data_len - self.npoints - 1
-        # Get the number of points that are not initial or last indicies
+        # Get the number of points that are not initial or last indices
         nfree = self.npoints - n_initial
         # Get the excess of data points after each restart
         n_extra = int(n_use % nfree)
-        # Get the indicies for the system not already included
-        not_indicies = self.get_not_indicies(indicies, all_indicies)
-        # Include the indicies
+        # Get the indices for the system not already included
+        not_indices = self.get_not_indices(indices, all_indices)
+        # Include the indices
         lasts_i = -(n_extra + lasts)
-        indicies = append(indicies, not_indicies[lasts_i:])
-        return array(indicies, dtype=int)
+        indices = append(indices, not_indices[lasts_i:])
+        return array(indices, dtype=int)
 
 
 class DatabasePointsInterest(DatabaseLast):
@@ -883,7 +882,7 @@ class DatabasePointsInterest(DatabaseLast):
         seed=None,
         dtype=float,
         npoints=25,
-        initial_indicies=[0],
+        initial_indices=[0],
         include_last=1,
         feature_distance=True,
         point_interest=[],
@@ -910,8 +909,8 @@ class DatabasePointsInterest(DatabaseLast):
                 The data type of the arrays.
             npoints: int
                 Number of points that are used from the database.
-            initial_indicies: list
-                The indicies of the data points that must be included
+            initial_indices: list
+                The indices of the data points that must be included
                 in the used data base.
             include_last: int
                 Number of last data point to include in the used data base.
@@ -930,7 +929,7 @@ class DatabasePointsInterest(DatabaseLast):
             seed=seed,
             dtype=dtype,
             npoints=npoints,
-            initial_indicies=initial_indicies,
+            initial_indices=initial_indices,
             include_last=include_last,
             feature_distance=feature_distance,
             point_interest=point_interest,
@@ -988,13 +987,13 @@ class DatabasePointsInterest(DatabaseLast):
         """
         return self.get_positions(self.get_all_data_atoms())
 
-    def get_distances(self, not_indicies, **kwargs):
+    def get_distances(self, not_indices, **kwargs):
         """
         Calculate the distances to the points of interest.
 
         Parameters:
-            not_indicies: list
-                A list of indicies that not used yet.
+            not_indices: list
+                A list of indices that not used yet.
 
         Returns:
             array: The distances to the points of interest.
@@ -1012,7 +1011,7 @@ class DatabasePointsInterest(DatabaseLast):
         fdim = len(features[0])
         # Calculate the minimum distances to the points of interest
         dist = cdist(
-            features_interest, features[not_indicies].reshape(-1, fdim)
+            features_interest, features[not_indices].reshape(-1, fdim)
         )
         return dist
 
@@ -1026,7 +1025,7 @@ class DatabasePointsInterest(DatabaseLast):
         seed=None,
         dtype=None,
         npoints=None,
-        initial_indicies=None,
+        initial_indices=None,
         include_last=None,
         feature_distance=None,
         point_interest=None,
@@ -1058,8 +1057,8 @@ class DatabasePointsInterest(DatabaseLast):
                 The data type of the arrays.
             npoints: int
                 Number of points that are used from the database.
-            initial_indicies: list
-                The indicies of the data points that must be included
+            initial_indices: list
+                The indices of the data points that must be included
                 in the used data base.
             include_last: int
                 Number of last data point to include in the used data base.
@@ -1082,7 +1081,7 @@ class DatabasePointsInterest(DatabaseLast):
             seed=seed,
             dtype=dtype,
             npoints=npoints,
-            initial_indicies=initial_indicies,
+            initial_indices=initial_indices,
             include_last=include_last,
         )
         # Set the feature distance
@@ -1096,32 +1095,32 @@ class DatabasePointsInterest(DatabaseLast):
             ]
         return self
 
-    def make_reduction(self, all_indicies, **kwargs):
+    def make_reduction(self, all_indices, **kwargs):
         """
         Reduce the training set with the points closest to
         the points of interests.
         """
         # Check if there are points of interest else use the Parent class
         if len(self.point_interest) == 0:
-            return super().make_reduction(all_indicies, **kwargs)
-        # Get the fixed indicies
-        indicies = self.get_initial_indicies()
-        # Get the indicies for the system not already included
-        not_indicies = self.get_not_indicies(indicies, all_indicies)
+            return super().make_reduction(all_indices, **kwargs)
+        # Get the fixed indices
+        indices = self.get_initial_indices()
+        # Get the indices for the system not already included
+        not_indices = self.get_not_indices(indices, all_indices)
         # Include the last point
-        indicies = self.get_last_indicies(indicies, not_indicies)
-        # Get the indicies for the system not already included
-        not_indicies = array(self.get_not_indicies(indicies, all_indicies))
+        indices = self.get_last_indices(indices, not_indices)
+        # Get the indices for the system not already included
+        not_indices = array(self.get_not_indices(indices, all_indices))
         # Get the number of missing points
-        npoints = int(self.npoints - len(indicies))
+        npoints = int(self.npoints - len(indices))
         # Calculate the distances to the points of interest
-        dist = self.get_distances(not_indicies)
+        dist = self.get_distances(not_indices)
         # Get the minimum distances to the points of interest
         dist = dist.min(axis=0)
         i_min = argsort(dist)[:npoints]
-        # Get the indicies
-        indicies = append(indicies, [not_indicies[i_min]])
-        return array(indicies, dtype=int)
+        # Get the indices
+        indices = append(indices, [not_indices[i_min]])
+        return array(indices, dtype=int)
 
     def get_arguments(self):
         "Get the arguments of the class itself."
@@ -1135,19 +1134,19 @@ class DatabasePointsInterest(DatabaseLast):
             seed=self.seed,
             dtype=self.dtype,
             npoints=self.npoints,
-            initial_indicies=self.initial_indicies,
+            initial_indices=self.initial_indices,
             include_last=self.include_last,
             feature_distance=self.feature_distance,
             point_interest=self.point_interest,
         )
         # Get the constants made within the class
-        constant_kwargs = dict(update_indicies=self.update_indicies)
+        constant_kwargs = dict(update_indices=self.update_indices)
         # Get the objects made within the class
         object_kwargs = dict(
             atoms_list=self.atoms_list.copy(),
             features=self.features.copy(),
             targets=self.targets.copy(),
-            indicies=self.indicies.copy(),
+            indices=self.indices.copy(),
         )
         return arg_kwargs, constant_kwargs, object_kwargs
 
@@ -1163,38 +1162,38 @@ class DatabasePointsInterestEach(DatabasePointsInterest):
     and it is performed iteratively.
     """
 
-    def make_reduction(self, all_indicies, **kwargs):
+    def make_reduction(self, all_indices, **kwargs):
         """
         Reduce the training set with the points closest to
         the points of interests.
         """
         # Check if there are points of interest else use the Parent class
         if len(self.point_interest) == 0:
-            return super().make_reduction(all_indicies, **kwargs)
-        # Get the fixed indicies
-        indicies = self.get_initial_indicies()
-        # Get the indicies for the system not already included
-        not_indicies = self.get_not_indicies(indicies, all_indicies)
+            return super().make_reduction(all_indices, **kwargs)
+        # Get the fixed indices
+        indices = self.get_initial_indices()
+        # Get the indices for the system not already included
+        not_indices = self.get_not_indices(indices, all_indices)
         # Include the last point
-        indicies = self.get_last_indicies(indicies, not_indicies)
-        # Get the indicies for the system not already included
-        not_indicies = array(self.get_not_indicies(indicies, all_indicies))
+        indices = self.get_last_indices(indices, not_indices)
+        # Get the indices for the system not already included
+        not_indices = array(self.get_not_indices(indices, all_indices))
         # Calculate the distances to the points of interest
-        dist = self.get_distances(not_indicies)
+        dist = self.get_distances(not_indices)
         # Get the number of points of interest
         n_points_interest = len(dist)
         # Iterate over the points of interests
         p = 0
-        while len(indicies) < self.npoints:
+        while len(indices) < self.npoints:
             # Get the point with the minimum distance
             i_min = argmin(dist[p])
             # Get and append the index
-            indicies = append(indicies, [not_indicies[i_min]])
+            indices = append(indices, [not_indices[i_min]])
             # Remove the index
-            not_indicies = delete(not_indicies, i_min)
+            not_indices = delete(not_indices, i_min)
             dist = delete(dist, i_min, axis=1)
             # Use the next point
             p += 1
             if p >= n_points_interest:
                 p = 0
-        return array(indicies, dtype=int)
+        return array(indices, dtype=int)

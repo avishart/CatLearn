@@ -103,9 +103,9 @@ class MLModel:
             self: The updated object itself.
         """
         # Get data from the data base
-        features, targets = self.get_data()
+        features, targets, atoms_list = self.get_data()
         # Correct targets with the baseline
-        targets = self.get_baseline_corrected_targets(targets)
+        targets = self.get_baseline_corrected_targets(atoms_list, targets)
         # Train model
         if self.optimize:
             # Optimize the hyperparameters and train the ML model
@@ -529,14 +529,12 @@ class MLModel:
             targets += asarray(y_base, dtype=self.dtype)[0]
         return targets
 
-    def get_baseline_corrected_targets(self, targets, **kwargs):
+    def get_baseline_corrected_targets(self, atoms_list, targets, **kwargs):
         """
         Get the baseline corrected targets if a baseline is used.
         The baseline correction is subtracted from training targets.
         """
         if self.use_baseline:
-            # Get the ASE atoms list from the database
-            atoms_list = self.get_data_atoms()
             # Calculate the baseline for each ASE atoms instance
             y_base = self.calculate_baseline(
                 atoms_list,
@@ -565,7 +563,7 @@ class MLModel:
     def not_masked_reshape(self, nm_array, not_masked, natoms, **kwargs):
         """
         Reshape an array so that it works for all atom coordinates and
-        set constrained indicies to 0.
+        set constrained indices to 0.
         """
         full_array = zeros((natoms, 3), dtype=self.dtype)
         full_array[not_masked] = nm_array.reshape(-1, 3)
@@ -575,7 +573,8 @@ class MLModel:
         "Get data from the data base."
         features = self.database.get_features()
         targets = self.database.get_targets()
-        return features, targets
+        atoms_list = self.get_data_atoms()
+        return features, targets, atoms_list
 
     def get_data_atoms(self, **kwargs):
         """
@@ -606,7 +605,7 @@ class MLModel:
 
     def get_constraints(self, atoms, **kwargs):
         """
-        Get the number of atoms and the indicies of
+        Get the number of atoms and the indices of
         the atoms without constraints.
         """
         natoms = len(atoms)
@@ -784,6 +783,7 @@ def get_default_model(
     parallel=False,
     n_reduced=None,
     round_hp=3,
+    seed=None,
     dtype=float,
     model_kwargs={},
     prior_kwargs={},
@@ -821,6 +821,10 @@ def get_default_model(
         round_hp: int (optional)
             The number of decimals to round the hyperparameters to.
             If None, the hyperparameters are not rounded.
+        seed: int (optional)
+            The random seed for the optimization.
+            The seed an also be a RandomState or Generator instance.
+            If not given, the default random number generator is used.
         dtype: type
             The data type of the arrays.
         model_kwargs: dict (optional)
@@ -1009,6 +1013,10 @@ def get_default_model(
             **hpfitter_kwargs,
         )
     model.update_arguments(hpfitter=hpfitter)
+    # Set the seed for the model
+    if seed is not None:
+        model.set_seed(seed=seed)
+    # Return the model
     return model
 
 
@@ -1017,6 +1025,7 @@ def get_default_database(
     use_derivatives=True,
     database_reduction=False,
     round_targets=5,
+    seed=None,
     dtype=float,
     **database_kwargs,
 ):
@@ -1035,6 +1044,10 @@ def get_default_database(
         round_targets: int (optional)
             The number of decimals to round the targets to.
             If None, the targets are not rounded.
+        seed: int (optional)
+            The random seed for the optimization.
+            The seed an also be a RandomState or Generator instance.
+            If not given, the default random number generator is used.
         dtype: type
             The data type of the arrays.
         database_kwargs: dict (optional)
@@ -1062,9 +1075,10 @@ def get_default_database(
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
             round_targets=round_targets,
+            seed=seed,
             dtype=dtype,
             npoints=50,
-            initial_indicies=[0, 1],
+            initial_indices=[0, 1],
             include_last=1,
         )
         data_kwargs.update(database_kwargs)
@@ -1112,6 +1126,7 @@ def get_default_database(
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
             round_targets=round_targets,
+            seed=seed,
             dtype=dtype,
             **data_kwargs,
         )
@@ -1136,6 +1151,7 @@ def get_default_mlmodel(
     round_targets=5,
     database_kwargs={},
     verbose=False,
+    seed=None,
     dtype=float,
     **kwargs,
 ):
@@ -1193,6 +1209,10 @@ def get_default_mlmodel(
             if it is used.
         verbose: bool
             Whether to print statements in the optimization.
+        seed: int (optional)
+            The random seed for the optimization.
+            The seed an also be a RandomState or Generator instance.
+            If not given, the default random number generator is used.
         dtype: type
             The data type of the arrays.
         kwargs: dict (optional)
@@ -1218,6 +1238,7 @@ def get_default_mlmodel(
             parallel=parallel,
             n_reduced=n_reduced,
             round_hp=round_hp,
+            seed=seed,
             dtype=dtype,
             **all_model_kwargs,
         )
@@ -1227,6 +1248,7 @@ def get_default_mlmodel(
         use_derivatives=use_derivatives,
         database_reduction=database_reduction,
         round_targets=round_targets,
+        seed=seed,
         dtype=dtype,
         **database_kwargs,
     )
