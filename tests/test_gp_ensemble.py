@@ -80,6 +80,7 @@ class TestGPEnsemble(unittest.TestCase):
             K_means,
             K_means_auto,
             K_means_number,
+            K_means_enumeration,
             FixedClustering,
             RandomClustering,
             RandomClustering_number,
@@ -116,6 +117,7 @@ class TestGPEnsemble(unittest.TestCase):
                 data_number=12,
                 maxiter=20,
             ),
+            K_means_enumeration(data_number=12),
             FixedClustering(
                 centroids=np.array([[-30.0], [60.0]]),
             ),
@@ -123,7 +125,15 @@ class TestGPEnsemble(unittest.TestCase):
             RandomClustering_number(data_number=12),
         ]
         # Make a list of the error values that the test compares to
-        error_list = [0.48256, 0.63066, 0.62649, 0.62650, 0.70163, 0.67975]
+        error_list = [
+            0.48256,
+            0.63066,
+            0.62649,
+            0.91445,
+            0.62650,
+            0.70163,
+            0.67975,
+        ]
         # Test the baseline objects
         for index, clustering in enumerate(clustering_list):
             with self.subTest(clustering=clustering):
@@ -223,6 +233,7 @@ class TestGPEnsembleDerivatives(unittest.TestCase):
             K_means,
             K_means_auto,
             K_means_number,
+            K_means_enumeration,
             FixedClustering,
             RandomClustering,
             RandomClustering_number,
@@ -256,12 +267,21 @@ class TestGPEnsembleDerivatives(unittest.TestCase):
                 maxiter=20,
             ),
             K_means_number(data_number=12, maxiter=20),
+            K_means_enumeration(data_number=12),
             FixedClustering(centroids=np.array([[-30.0], [60.0]])),
             RandomClustering(n_clusters=4, equal_size=True),
             RandomClustering_number(data_number=12),
         ]
         # Make a list of the error values that the test compares to
-        error_list = [0.37817, 0.38854, 0.38641, 0.38640, 0.47864, 0.36700]
+        error_list = [
+            0.37817,
+            0.38854,
+            0.38641,
+            0.52753,
+            0.38640,
+            0.47864,
+            0.36700,
+        ]
         # Test the baseline objects
         for index, clustering in enumerate(clustering_list):
             with self.subTest(clustering=clustering):
