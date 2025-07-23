@@ -9,6 +9,17 @@ from scipy.optimize import dual_annealing
 
 
 class AdsorptionOptimizer(OptimizerMethod):
+    """
+    The AdsorptionOptimizer is used to run a global optimization of
+    an adsorption on a surface.
+    A single structure will be created and optimized.
+    Simulated annealing will be used to global optimize the structure.
+    The adsorbate is optimized on a surface, where the bond-lengths of the
+    adsorbate atoms are fixed and the slab atoms are fixed.
+    The AdsorptionOptimizer is applicable to be used with
+    active learning.
+    """
+
     def __init__(
         self,
         slab,
@@ -24,12 +35,7 @@ class AdsorptionOptimizer(OptimizerMethod):
         **kwargs,
     ):
         """
-        The AdsorptionOptimizer is used to run an global optimization of
-        an adsorption on a surface.
-        A single structure will be created and optimized.
-        Simulated annealing will be used to global optimize the structure.
-        The AdsorptionOptimizer is applicable to be used with
-        active learning.
+        Initialize the OptimizerMethod instance.
 
         Parameters:
             slab: Atoms instance
@@ -38,7 +44,7 @@ class AdsorptionOptimizer(OptimizerMethod):
                 The adsorbate structure.
             adsorbate2: Atoms instance (optional)
                 The second adsorbate structure.
-            bounds : (6,2) or (12,2) ndarray (optional).
+            bounds: (6,2) or (12,2) ndarray (optional).
                 The boundary conditions used for the global optimization in
                 form of the simulated annealing.
                 The boundary conditions are the x, y, and z coordinates of
@@ -61,6 +67,8 @@ class AdsorptionOptimizer(OptimizerMethod):
                 The seed an also be a RandomState or Generator instance.
                 If not given, the default random number generator is used.
         """
+        # Set the verbose
+        self.verbose = verbose
         # Create the atoms object from the slab and adsorbate
         self.create_slab_ads(slab, adsorbate, adsorbate2, bond_tol=bond_tol)
         # Create the boundary conditions
@@ -75,8 +83,19 @@ class AdsorptionOptimizer(OptimizerMethod):
             **kwargs,
         )
 
-    def get_structures(self, get_all=True, **kwargs):
-        structures = self.copy_atoms(self.optimizable)
+    def get_structures(
+        self,
+        get_all=True,
+        properties=[],
+        allow_calculation=True,
+        **kwargs,
+    ):
+        structures = self.copy_atoms(
+            self.optimizable,
+            properties=properties,
+            allow_calculation=allow_calculation,
+            **kwargs,
+        )
         structures.set_constraint(self.constraints_org)
         return structures
 
@@ -107,7 +126,7 @@ class AdsorptionOptimizer(OptimizerMethod):
         """
         # Check the slab and adsorbate are given
         if slab is None or adsorbate is None:
-            raise Exception("The slab and adsorbate must be given!")
+            raise ValueError("The slab and adsorbate must be given!")
         # Save the bond length tolerance
         self.bond_tol = float(bond_tol)
         # Setup the slab
@@ -199,7 +218,7 @@ class AdsorptionOptimizer(OptimizerMethod):
         Setup the boundary conditions for the global optimization.
 
         Parameters:
-            bounds : (6,2) or (12,2) ndarray (optional).
+            bounds: (6,2) or (12,2) ndarray (optional).
                 The boundary conditions used for the global optimization in
                 form of the simulated annealing.
                 The boundary conditions are the x, y, and z coordinates of
@@ -227,8 +246,12 @@ class AdsorptionOptimizer(OptimizerMethod):
         else:
             self.bounds = bounds.copy()
         # Check the bounds have the correct shape
-        if self.bounds.shape != (6, 2) and self.bounds.shape != (12, 2):
-            raise Exception("The bounds must have shape (6,2) or (12,2)!")
+        if self.n_ads2 == 0 and self.bounds.shape != (6, 2):
+            raise ValueError("The bounds must have shape (6,2)!")
+        elif self.n_ads2 > 0 and not (
+            self.bounds.shape == (6, 2) or self.bounds.shape == (12, 2)
+        ):
+            raise ValueError("The bounds must have shape (6,2) or (12,2)!")
         # Check if the bounds are for two adsorbates
         if self.n_ads2 > 0 and self.bounds.shape[0] == 6:
             self.bounds = concatenate([self.bounds, self.bounds], axis=0)
@@ -299,7 +322,7 @@ class AdsorptionOptimizer(OptimizerMethod):
                 The adsorbate structure.
             adsorbate2: Atoms instance (optional)
                 The second adsorbate structure.
-            bounds : (6,2) or (12,2) ndarray (optional).
+            bounds: (6,2) or (12,2) ndarray (optional).
                 The boundary conditions used for the global optimization in
                 form of the simulated annealing.
                 The boundary conditions are the x, y, and z coordinates of
@@ -322,6 +345,11 @@ class AdsorptionOptimizer(OptimizerMethod):
                 The seed an also be a RandomState or Generator instance.
                 If not given, the default random number generator is used.
         """
+        # Set the optimizer kwargs
+        if opt_kwargs is not None:
+            self.opt_kwargs = opt_kwargs.copy()
+        if bond_tol is not None:
+            self.bond_tol = float(bond_tol)
         # Set the parameters in the parent class
         super().update_arguments(
             optimizable=None,
@@ -330,13 +358,14 @@ class AdsorptionOptimizer(OptimizerMethod):
             verbose=verbose,
             seed=seed,
         )
-        # Set the optimizer kwargs
-        if opt_kwargs is not None:
-            self.opt_kwargs = opt_kwargs.copy()
-        if bond_tol is not None:
-            self.bond_tol = float(bond_tol)
         # Create the atoms object from the slab and adsorbate
-        if slab is not None and adsorbate is not None:
+        if slab is not None or adsorbate is not None or adsorbate2 is not None:
+            if slab is None:
+                slab = self.slab.copy()
+            if adsorbate is None:
+                adsorbate = self.adsorbate.copy()
+            if adsorbate2 is None and self.adsorbate2 is not None:
+                adsorbate2 = self.adsorbate2.copy()
             self.create_slab_ads(
                 slab,
                 adsorbate,
@@ -388,8 +417,8 @@ class AdsorptionOptimizer(OptimizerMethod):
         positions = matmul(positions, R)
         return positions
 
-    def evaluate_value(self, x, **kwargs):
-        "Evaluate the value of the adsorption."
+    def get_new_positions(self, x, **kwargs):
+        "Get the new positions of the adsorbate."
         # Get the positions
         pos = self.positions0.copy()
         # Calculate the positions of the adsorbate
@@ -405,6 +434,12 @@ class AdsorptionOptimizer(OptimizerMethod):
             pos_ads2 = self.rotation_matrix(x[9:12], pos_ads2)
             pos_ads2 += (self.cell * x[6:9].reshape(-1, 1)).sum(axis=0)
             pos[n_all:] = pos_ads2
+        return pos
+
+    def evaluate_value(self, x, **kwargs):
+        "Evaluate the value of the adsorption."
+        # Get the new positions of the adsorption
+        pos = self.get_new_positions(x, **kwargs)
         # Set the positions
         self.optimizable.set_positions(pos)
         # Get the potential energy
