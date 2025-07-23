@@ -1,14 +1,31 @@
-from numpy import asarray, max as max_, mean as mean_, nan, nanmax, ndarray
+from numpy import (
+    asarray,
+    max as max_,
+    mean as mean_,
+    nan,
+    nanmax,
+    ndarray,
+    sqrt,
+)
 from numpy.linalg import norm
 from numpy.random import default_rng, Generator, RandomState
 from ase.io import read
 from ase.parallel import world, broadcast
 from ase.io.trajectory import TrajectoryWriter
 import datetime
-from ..regression.gp.calculator.copy_atoms import copy_atoms
+from time import time
+import warnings
+from ..regression.gp.calculator import BOCalculator, compare_atoms, copy_atoms
+from ..regression.gp.means.max import Prior_max
+from ..regression.gp.baseline import BornRepulsionCalculator
 
 
 class ActiveLearning:
+    """
+    An active learner that is used for accelerating quantum mechanincal
+    simulation methods with an active learning approach.
+    """
+
     def __init__(
         self,
         method,
@@ -16,7 +33,6 @@ class ActiveLearning:
         mlcalc=None,
         acq=None,
         is_minimization=True,
-        use_database_check=True,
         save_memory=False,
         parallel_run=False,
         copy_calc=False,
@@ -25,29 +41,37 @@ class ActiveLearning:
         force_consistent=False,
         scale_fmax=0.8,
         use_fmax_convergence=True,
-        unc_convergence=0.05,
+        unc_convergence=0.02,
         use_method_unc_conv=True,
         use_restart=True,
         check_unc=True,
         check_energy=True,
         check_fmax=True,
+        max_unc_restart=0.05,
         n_evaluations_each=1,
         min_data=3,
+        use_database_check=True,
+        data_perturb=0.001,
+        data_tol=1e-8,
         save_properties_traj=True,
+        to_save_mlcalc=False,
+        save_mlcalc_kwargs={},
         trajectory="predicted.traj",
         trainingset="evaluated.traj",
+        pred_evaluated="predicted_evaluated.traj",
         converged_trajectory="converged.traj",
         initial_traj="initial_struc.traj",
         tabletxt="ml_summary.txt",
+        timetxt="ml_time.txt",
         prev_calculations=None,
         restart=False,
-        seed=None,
+        seed=1,
+        dtype=float,
         comm=world,
         **kwargs,
     ):
         """
-        An active learner that is used for accelerating quantum mechanincal
-        simulation methods with an active learning approach.
+        Initialize the ActiveLearning instance.
 
         Parameters:
             method: OptimizationMethod instance
@@ -64,9 +88,6 @@ class ActiveLearning:
             is_minimization: bool
                 Whether it is a minimization that is performed.
                 Alternative is a maximization.
-            use_database_check: bool
-                Whether to check if the new structure is within the database.
-                If it is in the database, the structure is rattled.
             save_memory: bool
                 Whether to only train the ML calculator and store all objects
                 on one CPU.
@@ -97,8 +118,8 @@ class ActiveLearning:
             use_fmax_convergence: bool
                 Whether to use the maximum force as an convergence criterion.
             unc_convergence: float
-                Maximum uncertainty for convergence in
-                the active learning (in eV).
+                Maximum uncertainty for convergence in the active learning
+                (in eV).
             use_method_unc_conv: bool
                 Whether to use the unc_convergence as a convergence criterion
                 in the optimization method.
@@ -113,13 +134,35 @@ class ActiveLearning:
             check_fmax: bool
                 Check if the maximum force is larger for the restarted result
                 than the initial interpolation and if so then replace it.
+            max_unc_restart: float (optional)
+                Maximum uncertainty (in eV) for using the structure(s) as
+                the restart in the optimization method.
+                If max_unc_restart is None, then the optimization is performed
+                without the maximum uncertainty.
             n_evaluations_each: int
                 Number of evaluations for each iteration.
             min_data: int
                 The minimum number of data points in the training set before
                 the active learning can converge.
+            use_database_check: bool
+                Whether to check if the new structure is within the database.
+                If it is in the database, the structure is rattled.
+                Please be aware that the predicted structure will differ from
+                the structure in the database if the rattling is applied.
+            data_perturb: float
+                The perturbation of the data structure if it is in the database
+                and use_database_check is True.
+                data_perturb is the standard deviation of the normal
+                distribution used to rattle the structure.
+            data_tol: float
+                The tolerance for the data structure if it is in the database
+                and use_database_check is True.
             save_properties_traj: bool
                 Whether to save the calculated properties to the trajectory.
+            to_save_mlcalc: bool
+                Whether to save the ML calculator to a file after training.
+            save_mlcalc_kwargs: dict
+                Arguments for saving the ML calculator, like the filename.
             trajectory: str or TrajectoryWriter instance
                 Trajectory filename to store the predicted data.
                 Or the TrajectoryWriter instance to store the predicted data.
@@ -127,6 +170,13 @@ class ActiveLearning:
                 Trajectory filename to store the evaluated training data.
                 Or the TrajectoryWriter instance to store the evaluated
                 training data.
+            pred_evaluated: str or TrajectoryWriter instance (optional)
+                Trajectory filename to store the evaluated training data
+                with predicted properties.
+                Or the TrajectoryWriter instance to store the evaluated
+                training data with predicted properties.
+                If pred_evaluated is None, then the predicted data is
+                not saved.
             converged_trajectory: str or TrajectoryWriter instance
                 Trajectory filename to store the converged structure(s).
                 Or the TrajectoryWriter instance to store the converged
@@ -135,9 +185,12 @@ class ActiveLearning:
                 Trajectory filename to store the initial structure(s).
                 Or the TrajectoryWriter instance to store the initial
                 structure(s).
-            tabletxt: str
+            tabletxt: str (optional)
                 Name of the .txt file where the summary table is printed.
                 It is not saved to the file if tabletxt=None.
+            timetxt: str (optional)
+                Name of the .txt file where the time table is printed.
+                It is not saved to the file if timetxt=None.
             prev_calculations: Atoms list or ASE Trajectory file.
                 The user can feed previously calculated data
                 for the same hypersurface.
@@ -149,6 +202,8 @@ class ActiveLearning:
                 The random seed for the optimization.
                 The seed an also be a RandomState or Generator instance.
                 If not given, the default random number generator is used.
+            dtype: type
+                The data type of the arrays.
             comm: MPI communicator.
                 The MPI communicator.
         """
@@ -174,6 +229,8 @@ class ActiveLearning:
         self.update_arguments(
             is_minimization=is_minimization,
             use_database_check=use_database_check,
+            data_perturb=data_perturb,
+            data_tol=data_tol,
             save_memory=save_memory,
             parallel_run=parallel_run,
             copy_calc=copy_calc,
@@ -188,15 +245,21 @@ class ActiveLearning:
             check_unc=check_unc,
             check_energy=check_energy,
             check_fmax=check_fmax,
+            max_unc_restart=max_unc_restart,
             n_evaluations_each=n_evaluations_each,
             min_data=min_data,
             save_properties_traj=save_properties_traj,
+            to_save_mlcalc=to_save_mlcalc,
+            save_mlcalc_kwargs=save_mlcalc_kwargs,
             trajectory=trajectory,
             trainingset=trainingset,
+            pred_evaluated=pred_evaluated,
             converged_trajectory=converged_trajectory,
             initial_traj=initial_traj,
             tabletxt=tabletxt,
+            timetxt=timetxt,
             seed=seed,
+            dtype=dtype,
             comm=comm,
             **kwargs,
         )
@@ -299,6 +362,9 @@ class ActiveLearning:
         self.energy_pred = nan
         self.pred_energies = []
         self.uncertainties = []
+        self.ml_train_time = nan
+        self.method_time = nan
+        self.eval_time = nan
         # Set the header for the summary table
         self.make_hdr_table()
         # Set the writing mode
@@ -320,16 +386,16 @@ class ActiveLearning:
         self.method = method
         # Set the seed for the method
         if hasattr(self, "seed"):
-            self.method.set_seed(self.seed)
+            self.set_method_seed(self.seed)
         # Get the structures
-        self.structures = self.get_structures()
+        self.structures = self.get_structures(allow_calculation=False)
         if isinstance(self.structures, list):
             self.n_structures = len(self.structures)
             self.natoms = len(self.structures[0])
         else:
             self.n_structures = 1
             self.natoms = len(self.structures)
-        self.best_structures = self.get_structures()
+        self.best_structures = self.get_structures(allow_calculation=False)
         self._converged = self.method.converged()
         # Set the evaluated candidate and its calculator
         self.candidate = self.get_candidates()[0].copy()
@@ -368,7 +434,7 @@ class ActiveLearning:
             self.mlcalc = mlcalc
             # Set the verbose for the ML calculator
             if verbose is not None:
-                self.mlcalc.mlmodel.update_arguments(verbose=verbose)
+                self.set_verbose(verbose=verbose)
         else:
             self.mlcalc = self.setup_default_mlcalc(
                 verbose=verbose,
@@ -377,7 +443,11 @@ class ActiveLearning:
         # Check if the seed is given
         if hasattr(self, "seed"):
             # Set the seed for the ML calculator
-            self.mlcalc.set_seed(self.seed)
+            self.set_mlcalc_seed(self.seed)
+        # Check if the dtype is given
+        if hasattr(self, "dtype"):
+            # Set the dtype for the ML calculator
+            self.mlcalc.set_dtype(self.dtype)
         return self
 
     def setup_default_mlcalc(
@@ -385,11 +455,12 @@ class ActiveLearning:
         save_memory=False,
         fp=None,
         atoms=None,
-        prior=None,
-        baseline=None,
+        prior=Prior_max(add=1.0),
+        baseline=BornRepulsionCalculator(),
         use_derivatives=True,
         database_reduction=False,
         calc_forces=True,
+        round_pred=5,
         optimize_hp=True,
         bayesian=True,
         kappa=2.0,
@@ -419,16 +490,19 @@ class ActiveLearning:
                 It is used to setup the fingerprint if it is None.
             prior: Prior class instance (optional)
                 The prior mean instance used for the ML model.
-                The default Prior_max instance is used if prior is None.
+                The default prior is the Prior_max.
             baseline: Baseline class instance (optional)
                 The baseline instance used for the ML model.
-                The default is None.
-            use_derivatives : bool
+                The default is the BornRepulsionCalculator.
+            use_derivatives: bool
                 Whether to use derivatives of the targets in the ML model.
             database_reduction: bool
                 Whether to reduce the database.
             calc_forces: bool
                 Whether to calculate the forces for all energy predictions.
+            round_pred: int (optional)
+                The number of decimals to round the predictions to.
+                If None, the predictions are not rounded.
             optimize_hp: bool
                 Whether to optimize the hyperparameters when the model is
                 trained.
@@ -450,9 +524,7 @@ class ActiveLearning:
         """
         # Create the ML calculator
         from ..regression.gp.calculator.mlmodel import get_default_mlmodel
-        from ..regression.gp.calculator.bocalc import BOCalculator
         from ..regression.gp.calculator.mlcalc import MLCalculator
-        from ..regression.gp.means.max import Prior_max
         from ..regression.gp.fingerprint.invdistances import InvDistances
 
         # Check if the save_memory is given
@@ -466,7 +538,10 @@ class ActiveLearning:
             # Check if the Atoms object is given
             if atoms is None:
                 try:
-                    atoms = self.get_structures(get_all=False)
+                    atoms = self.get_structures(
+                        get_all=False,
+                        allow_calculation=False,
+                    )
                 except NameError:
                     raise NameError("The Atoms object is not given or stored.")
             # Can only use distances if there are more than one atom
@@ -479,11 +554,8 @@ class ActiveLearning:
                     reduce_dimensions=True,
                     use_derivatives=True,
                     periodic_softmax=periodic_softmax,
-                    wrap=False,
+                    wrap=True,
                 )
-        # Setup the prior mean
-        if prior is None:
-            prior = Prior_max(add=1.0)
         # Setup the ML model
         mlmodel = get_default_mlmodel(
             model="tp",
@@ -508,13 +580,14 @@ class ActiveLearning:
             mlcalc = BOCalculator(
                 mlmodel=mlmodel,
                 calc_forces=calc_forces,
+                round_pred=round_pred,
                 kappa=kappa,
                 **calc_kwargs,
             )
             if not use_derivatives and kappa > 0.0:
                 if world.rank == 0:
-                    print(
-                        "Warning: The Bayesian optimization calculator "
+                    warnings.warn(
+                        "The Bayesian optimization calculator "
                         "with a positive kappa value and no derivatives "
                         "is not recommended!"
                     )
@@ -522,6 +595,7 @@ class ActiveLearning:
             mlcalc = MLCalculator(
                 mlmodel=mlmodel,
                 calc_forces=calc_forces,
+                round_pred=round_pred,
                 **calc_kwargs,
             )
         # Reuse the data from a previous mlcalc if requested
@@ -542,15 +616,15 @@ class ActiveLearning:
         Setup the acquisition function.
 
         Parameters:
-            acq : Acquisition class instance.
+            acq: Acquisition class instance.
                 The Acquisition instance used for calculating the acq. function
                 and choose a candidate to calculate next.
                 The default AcqUME instance is used if acq is None.
-            is_minimization : bool
+            is_minimization: bool
                 Whether it is a minimization that is performed.
-            kappa : float
+            kappa: float
                 The kappa parameter in the acquisition function.
-            unc_convergence : float
+            unc_convergence: float
                 Maximum uncertainty for convergence (in eV).
         """
         # Select an acquisition function
@@ -583,25 +657,37 @@ class ActiveLearning:
                 )
         # Set the seed for the acquisition function
         if hasattr(self, "seed"):
-            self.acq.set_seed(self.seed)
+            self.set_acq_seed(self.seed)
         return self
 
     def get_structures(
         self,
         get_all=True,
+        properties=["forces", "energy", "uncertainty"],
+        allow_calculation=True,
         **kwargs,
     ):
         """
         Get the list of ASE Atoms object from the method.
 
         Parameters:
-            get_all : bool
+            get_all: bool
                 Whether to get all structures or just the first one.
+            properties: list of str
+                The names of the requested properties.
+                If not given, the properties is not calculated.
+            allow_calculation: bool
+                Whether the properties are allowed to be calculated.
 
         Returns:
             Atoms object or list of Atoms objects.
         """
-        return self.method.get_structures(get_all=get_all, **kwargs)
+        return self.method.get_structures(
+            get_all=get_all,
+            properties=properties,
+            allow_calculation=allow_calculation,
+            **kwargs,
+        )
 
     def get_candidates(self):
         """
@@ -612,6 +698,32 @@ class ActiveLearning:
             List of Atoms objects.
         """
         return self.method.get_candidates()
+
+    def copy_candidates(
+        self,
+        properties=["fmax", "forces", "energy", "uncertainty"],
+        allow_calculation=True,
+        **kwargs,
+    ):
+        """
+        Get the candidate structure instances with copied properties.
+        It is used for active learning.
+
+        Parameters:
+            properties: list of str
+                The names of the requested properties.
+            allow_calculation: bool
+                Whether the properties are allowed to be calculated.
+
+        Returns:
+            candidates_copy: list of Atoms instances
+                The candidates with copied properties.
+        """
+        return self.method.copy_candidates(
+            properties=properties,
+            allow_calculation=allow_calculation,
+            **kwargs,
+        )
 
     def use_prev_calculations(self, prev_calculations=None, **kwargs):
         """
@@ -628,6 +740,8 @@ class ActiveLearning:
             return self
         if isinstance(prev_calculations, str):
             prev_calculations = read(prev_calculations, ":")
+        if isinstance(prev_calculations, list) and len(prev_calculations) == 0:
+            return self
         # Add calculations to the ML model
         self.add_training(prev_calculations)
         return self
@@ -635,6 +749,7 @@ class ActiveLearning:
     def update_method(self, structures, **kwargs):
         """
         Update the method with structures.
+        Add the ML calculator to the structures in the optimization method.
 
         Parameters:
             structures: Atoms instance or list of Atoms instances
@@ -645,6 +760,17 @@ class ActiveLearning:
         """
         # Initiate the method with given structure(s)
         self.method.update_optimizable(structures)
+        # Set the ML calculator in the method
+        self.set_mlcalc()
+        return self
+
+    def reset_method(self, **kwargs):
+        """
+        Reset the stps and convergence of the optimization method.
+        Add the ML calculator to the structures in the optimization method.
+        """
+        # Reset the optimization method
+        self.method.reset_optimization()
         # Set the ML calculator in the method
         self.set_mlcalc()
         return self
@@ -676,7 +802,6 @@ class ActiveLearning:
         mlcalc=None,
         acq=None,
         is_minimization=None,
-        use_database_check=None,
         save_memory=None,
         parallel_run=None,
         copy_calc=None,
@@ -691,15 +816,24 @@ class ActiveLearning:
         check_unc=None,
         check_energy=None,
         check_fmax=None,
+        max_unc_restart=None,
         n_evaluations_each=None,
         min_data=None,
+        use_database_check=None,
+        data_perturb=None,
+        data_tol=None,
         save_properties_traj=None,
+        to_save_mlcalc=None,
+        save_mlcalc_kwargs=None,
         trajectory=None,
         trainingset=None,
+        pred_evaluated=None,
         converged_trajectory=None,
         initial_traj=None,
         tabletxt=None,
+        timetxt=None,
         seed=None,
+        dtype=None,
         comm=None,
         **kwargs,
     ):
@@ -722,9 +856,6 @@ class ActiveLearning:
             is_minimization: bool
                 Whether it is a minimization that is performed.
                 Alternative is a maximization.
-            use_database_check: bool
-                Whether to check if the new structure is within the database.
-                If it is in the database, the structure is rattled.
             save_memory: bool
                 Whether to only train the ML calculator and store all objects
                 on one CPU.
@@ -771,13 +902,35 @@ class ActiveLearning:
             check_fmax: bool
                 Check if the maximum force is larger for the restarted result
                 than the initial interpolation and if so then replace it.
+            max_unc_restart: float (optional)
+                Maximum uncertainty (in eV) for using the structure(s) as
+                the restart in the optimization method.
+                If max_unc_restart is None, then the optimization is performed
+                without the maximum uncertainty.
             n_evaluations_each: int
                 Number of evaluations for each iteration.
             min_data: int
                 The minimum number of data points in the training set before
                 the active learning can converge.
+            use_database_check: bool
+                Whether to check if the new structure is within the database.
+                If it is in the database, the structure is rattled.
+                Please be aware that the predicted structure will differ from
+                the structure in the database if the rattling is applied.
+            data_perturb: float
+                The perturbation of the data structure if it is in the database
+                and use_database_check is True.
+                data_perturb is the standard deviation of the normal
+                distribution used to rattle the structure.
+            data_tol: float
+                The tolerance for the data structure if it is in the database
+                and use_database_check is True.
             save_properties_traj: bool
                 Whether to save the calculated properties to the trajectory.
+            to_save_mlcalc: bool
+                Whether to save the ML calculator to a file after training.
+            save_mlcalc_kwargs: dict
+                Arguments for saving the ML calculator, like the filename.
             trajectory: str or TrajectoryWriter instance
                 Trajectory filename to store the predicted data.
                 Or the TrajectoryWriter instance to store the predicted data.
@@ -785,6 +938,13 @@ class ActiveLearning:
                 Trajectory filename to store the evaluated training data.
                 Or the TrajectoryWriter instance to store the evaluated
                 training data.
+            pred_evaluated: str or TrajectoryWriter instance (optional)
+                Trajectory filename to store the evaluated training data
+                with predicted properties.
+                Or the TrajectoryWriter instance to store the evaluated
+                training data with predicted properties.
+                If pred_evaluated is None, then the predicted data is
+                not saved.
             converged_trajectory: str or TrajectoryWriter instance
                 Trajectory filename to store the converged structure(s).
                 Or the TrajectoryWriter instance to store the converged
@@ -793,9 +953,12 @@ class ActiveLearning:
                 Trajectory filename to store the initial structure(s).
                 Or the TrajectoryWriter instance to store the initial
                 structure(s).
-            tabletxt: str
+            tabletxt: str (optional)
                 Name of the .txt file where the summary table is printed.
                 It is not saved to the file if tabletxt=None.
+            timetxt: str (optional)
+                Name of the .txt file where the time table is printed.
+                It is not saved to the file if timetxt=None.
             prev_calculations: Atoms list or ASE Trajectory file.
                 The user can feed previously calculated data
                 for the same hypersurface.
@@ -807,17 +970,15 @@ class ActiveLearning:
                 The random seed for the optimization.
                 The seed an also be a RandomState or Generator instance.
                 If not given, the default random number generator is used.
+            dtype: type
+                The data type of the arrays.
             comm: MPI communicator.
                 The MPI communicator.
 
         Returns:
             self: The updated object itself.
         """
-        # Fixed parameters
-        if is_minimization is not None:
-            self.is_minimization = is_minimization
-        if use_database_check is not None:
-            self.use_database_check = use_database_check
+        # Set parallelization
         if save_memory is not None:
             self.save_memory = save_memory
         if comm is not None or not hasattr(self, "comm"):
@@ -825,15 +986,35 @@ class ActiveLearning:
             self.parallel_setup(comm)
         if parallel_run is not None:
             self.parallel_run = parallel_run
-        if copy_calc is not None:
-            self.copy_calc = copy_calc
+            if self.parallel_run and self.save_memory:
+                raise ValueError(
+                    "The save_memory and parallel_run can not "
+                    "be True at the same time!"
+                )
+        # Set the verbose
         if verbose is not None:
             # Whether to have the full output
-            self.verbose = verbose
             self.set_verbose(verbose=verbose)
         elif not hasattr(self, "verbose"):
-            self.verbose = False
             self.set_verbose(verbose=False)
+        # Set parameters
+        if is_minimization is not None:
+            self.is_minimization = is_minimization
+        if use_database_check is not None:
+            self.use_database_check = use_database_check
+        if data_perturb is not None:
+            self.data_perturb = abs(float(data_perturb))
+        if data_tol is not None:
+            self.data_tol = abs(float(data_tol))
+        if self.use_database_check:
+            if self.data_perturb < self.data_tol:
+                self.message_system(
+                    "It is not recommended that the data_perturb "
+                    "is smaller than the data_tol.",
+                    is_warning=True,
+                )
+        if copy_calc is not None:
+            self.copy_calc = copy_calc
         if apply_constraint is not None:
             self.apply_constraint = apply_constraint
         elif not hasattr(self, "apply_constraint"):
@@ -858,6 +1039,8 @@ class ActiveLearning:
             self.check_energy = check_energy
         if check_fmax is not None:
             self.check_fmax = check_fmax
+        if max_unc_restart is not None:
+            self.max_unc_restart = abs(float(max_unc_restart))
         if n_evaluations_each is not None:
             self.n_evaluations_each = int(abs(n_evaluations_each))
             if self.n_evaluations_each < 1:
@@ -866,26 +1049,30 @@ class ActiveLearning:
             self.min_data = int(abs(min_data))
         if save_properties_traj is not None:
             self.save_properties_traj = save_properties_traj
-        if trajectory is not None:
+        if to_save_mlcalc is not None:
+            self.to_save_mlcalc = to_save_mlcalc
+        if save_mlcalc_kwargs is not None:
+            self.save_mlcalc_kwargs = save_mlcalc_kwargs
+        if trajectory is not None or not hasattr(self, "trajectory"):
             self.trajectory = trajectory
-        elif not hasattr(self, "trajectory"):
-            self.trajectory = None
-        if trainingset is not None:
+        if trainingset is not None or not hasattr(self, "trainingset"):
             self.trainingset = trainingset
-        elif not hasattr(self, "trainingset"):
-            self.trainingset = None
-        if converged_trajectory is not None:
+        if pred_evaluated is not None or not hasattr(self, "pred_evaluated"):
+            self.pred_evaluated = pred_evaluated
+        if converged_trajectory is not None or not hasattr(
+            self, "converged_trajectory"
+        ):
             self.converged_trajectory = converged_trajectory
-        elif not hasattr(self, "converged_trajectory"):
-            self.converged_trajectory = None
-        if initial_traj is not None:
+        if initial_traj is not None or not hasattr(self, "initial_traj"):
             self.initial_traj = initial_traj
-        elif not hasattr(self, "initial_traj"):
-            self.initial_traj = None
         if tabletxt is not None:
             self.tabletxt = str(tabletxt)
         elif not hasattr(self, "tabletxt"):
             self.tabletxt = None
+        if timetxt is not None:
+            self.timetxt = str(timetxt)
+        elif not hasattr(self, "timetxt"):
+            self.timetxt = None
         # Set ASE calculator
         if ase_calc is not None:
             self.ase_calc = ase_calc
@@ -907,6 +1094,9 @@ class ActiveLearning:
         # Set the seed
         if seed is not None or not hasattr(self, "seed"):
             self.set_seed(seed)
+        # Set the data type
+        if dtype is not None or not hasattr(self, "dtype"):
+            self.set_dtype(dtype)
         # Check if the method and BO is compatible
         self.check_attributes()
         return self
@@ -953,6 +1143,8 @@ class ActiveLearning:
             unc_convergence = self.unc_convergence
         else:
             unc_convergence = None
+        # Start the method time
+        self.method_time = time()
         # Run the method
         self.method.run(
             fmax=fmax,
@@ -962,14 +1154,14 @@ class ActiveLearning:
             unc_convergence=unc_convergence,
             **kwargs,
         )
+        # Store the method time
+        self.method_time = time() - self.method_time
         # Check if the method converged
         method_converged = self.method.converged()
         # Get the atoms from the method run
         self.structures = self.get_structures()
         # Write atoms to trajectory
         self.save_trajectory(self.trajectory, self.structures, mode=self.mode)
-        # Set the mode to append
-        self.mode = "a"
         return method_converged
 
     def initiate_structure(self, step=1, **kwargs):
@@ -987,7 +1179,7 @@ class ActiveLearning:
             uncmax_tmp, energy_tmp, fmax_tmp = self.get_predictions()
             # Check uncertainty is low enough
             if self.check_unc:
-                if uncmax_tmp > self.unc_convergence:
+                if uncmax_tmp > self.max_unc_restart:
                     self.message_system(
                         "The uncertainty is too large to "
                         "use the last structure."
@@ -1011,10 +1203,10 @@ class ActiveLearning:
                     use_tmp = False
         # Check if the temporary structure passed the tests
         if use_tmp:
-            self.copy_best_structures()
+            self.update_method(self.structures)
             self.message_system("The last structure is used.")
-        # Set the best structures as the initial structures for the method
-        self.update_method(self.best_structures)
+        else:
+            self.update_method(self.best_structures)
         # Store the best structures with the ML calculator
         self.copy_best_structures()
         # Save the initial trajectory
@@ -1035,22 +1227,28 @@ class ActiveLearning:
             fmax = max_(self.method.get_fmax())
         return uncmax, energy, fmax
 
-    def get_candidate_predictions(self, **kwargs):
+    def get_candidate_predictions(self, candidates, **kwargs):
         """
         Get the energies, uncertainties, and fmaxs with the ML calculator
         for the candidates.
         """
-        properties = ["fmax", "uncertainty", "energy"]
-        results = self.method.get_properties(
-            properties=properties,
-            allow_calculation=True,
-            per_candidate=True,
-            **kwargs,
+        energies = asarray(
+            [candidate.get_potential_energy() for candidate in candidates]
         )
-        energies = asarray(results["energy"]).reshape(-1)
-        uncertainties = asarray(results["uncertainty"]).reshape(-1)
-        fmaxs = asarray(results["fmax"]).reshape(-1)
-        return energies, uncertainties, fmaxs
+        uncertainties = asarray(
+            [candidate.calc.results["uncertainty"] for candidate in candidates]
+        )
+        fmaxs = asarray(
+            [
+                sqrt((candidate.get_forces() ** 2).sum(axis=1).max())
+                for candidate in candidates
+            ]
+        )
+        return (
+            energies.reshape(-1),
+            uncertainties.reshape(-1),
+            fmaxs.reshape(-1),
+        )
 
     def parallel_setup(self, comm, **kwargs):
         "Setup the parallelization."
@@ -1062,6 +1260,13 @@ class ActiveLearning:
         self.size = self.comm.size
         return self
 
+    def remove_parallel_setup(self):
+        "Remove the parallelization by removing the communicator."
+        self.comm = None
+        self.rank = 0
+        self.size = 1
+        return self
+
     def add_training(self, atoms_list, **kwargs):
         "Add atoms_list data to ML model on rank=0."
         self.mlcalc.add_training(atoms_list)
@@ -1069,6 +1274,9 @@ class ActiveLearning:
 
     def train_mlmodel(self, point_interest=None, **kwargs):
         "Train the ML model"
+        # Start the training time
+        self.ml_train_time = time()
+        # Check if the model should be trained on all CPUs
         if self.save_memory:
             if self.rank != 0:
                 return self.mlcalc
@@ -1079,6 +1287,11 @@ class ActiveLearning:
             self.update_database_arguments(point_interest=self.best_structures)
         # Train the ML model
         self.mlcalc.train_model()
+        # Store the training time
+        self.ml_train_time = time() - self.ml_train_time
+        # Save the ML calculator if requested
+        if self.to_save_mlcalc:
+            self.save_mlcalc(**self.save_mlcalc_kwargs)
         return self.mlcalc
 
     def save_data(self, **kwargs):
@@ -1100,27 +1313,29 @@ class ActiveLearning:
             return self
         if isinstance(trajectory, str):
             with TrajectoryWriter(trajectory, mode=mode) as traj:
-                if not isinstance(structures, list):
-                    structures = [structures]
-                for struc in structures:
-                    if self.save_properties_traj:
-                        if hasattr(struc.calc, "results"):
-                            struc.info["results"] = struc.calc.results
-                    traj.write(struc)
+                self.save_traj(traj, structures, **kwargs)
         elif isinstance(trajectory, TrajectoryWriter):
-            if not isinstance(structures, list):
-                structures = [structures]
-            for struc in structures:
-                if self.save_properties_traj:
-                    if hasattr(struc.calc, "results"):
-                        struc.info["results"] = struc.calc.results
-                trajectory.write(struc)
+            self.save_traj(trajectory, structures, **kwargs)
         else:
             self.message_system(
                 "The trajectory type is not supported. "
                 "The trajectory is not saved!"
             )
         return self
+
+    def save_traj(self, traj, structures, **kwargs):
+        "Save the trajectory of the data with the TrajectoryWriter."
+        if not isinstance(structures, list):
+            structures = [structures]
+        for struc in structures:
+            if struc is not None:
+                if self.save_properties_traj:
+                    if hasattr(struc.calc, "results"):
+                        struc.info["results"] = struc.calc.results
+                    else:
+                        struc.info["results"] = {}
+                traj.write(struc)
+        return traj
 
     def evaluate_candidates(self, candidates, **kwargs):
         "Evaluate the candidates."
@@ -1129,19 +1344,29 @@ class ActiveLearning:
             candidates = [candidates]
         # Evaluate the candidates
         for candidate in candidates:
+            # Ensure that the candidate is not already in the database
+            if self.use_database_check:
+                candidate = self.ensure_candidate_not_in_database(
+                    candidate,
+                    show_message=True,
+                )
             # Broadcast the predictions
             self.broadcast_predictions()
             # Evaluate the candidate
-            self.evaluate(candidate)
+            self.evaluate(candidate, is_predicted=True)
+            # Set the mode to append
+            self.mode = "a"
         return self
 
-    def evaluate(self, candidate, **kwargs):
+    def evaluate(self, candidate, is_predicted=False, **kwargs):
         "Evaluate the ASE atoms with the ASE calculator."
         # Ensure that the candidate is not already in the database
-        if self.use_database_check:
-            candidate = self.ensure_not_in_database(candidate)
+        if self.use_database_check and not is_predicted:
+            candidate, _ = self.ensure_not_in_database(candidate)
         # Update the evaluated candidate
         self.update_candidate(candidate)
+        # Start the evaluation time
+        self.eval_time = time()
         # Calculate the energies and forces
         self.message_system("Performing evaluation.", end="\r")
         forces = self.candidate.get_forces(
@@ -1150,11 +1375,21 @@ class ActiveLearning:
         self.energy_true = self.candidate.get_potential_energy(
             force_consistent=self.force_consistent
         )
-        self.e_dev = abs(self.energy_true - self.energy_pred)
-        self.steps += 1
         self.message_system("Single-point calculation finished.")
-        # Store the data
+        # Store the evaluation time
+        self.eval_time = time() - self.eval_time
+        # Save deviation, fmax, and update steps
+        self.e_dev = abs(self.energy_true - self.energy_pred)
         self.true_fmax = nanmax(norm(forces, axis=1))
+        self.steps += 1
+        # Store the data
+        if is_predicted:
+            # Store the candidate with predicted properties
+            self.save_trajectory(
+                self.pred_evaluated,
+                candidate,
+                mode=self.mode,
+            )
         self.add_training([self.candidate])
         self.save_data()
         # Make a reference energy
@@ -1240,7 +1475,9 @@ class ActiveLearning:
         if self.get_training_set_size() >= 1:
             return self
         # Calculate the initial structure
-        self.evaluate(self.get_structures(get_all=False))
+        self.evaluate(
+            self.get_structures(get_all=False, allow_calculation=False)
+        )
         # Print summary table
         self.print_statement()
         return self
@@ -1253,26 +1490,65 @@ class ActiveLearning:
         )
         return self
 
-    def ensure_not_in_database(self, atoms, perturb=0.01, **kwargs):
-        "Ensure the ASE Atoms object is not in database by perturb it."
+    def ensure_not_in_database(
+        self,
+        atoms,
+        show_message=True,
+        **kwargs,
+    ):
+        "Ensure the ASE Atoms instance is not in database by perturb it."
         # Return atoms if it does not exist
         if atoms is None:
             return atoms
-        # Check if atoms object is in the database
-        if self.is_in_database(atoms, **kwargs):
-            # Get positions
-            pos = atoms.get_positions()
+        # Get positions
+        pos = atoms.get_positions()
+        # Boolean for checking if the atoms instance was in database
+        was_in_database = False
+        # Check if atoms instance is in the database
+        while self.is_in_database(atoms, dtol=self.data_tol, **kwargs):
+            # Atoms instance was in database
+            was_in_database = True
             # Rattle the positions
-            pos += self.rng.uniform(
-                low=-perturb,
-                high=perturb,
+            pos_new = pos + self.rng.normal(
+                loc=0.0,
+                scale=self.data_perturb,
                 size=pos.shape,
             )
-            atoms.set_positions(pos)
-            self.message_system(
-                "The system is rattled, since it is already in the database."
+            atoms.set_positions(pos_new)
+            # Print message if requested
+            if show_message:
+                self.message_system(
+                    "The system is rattled, since it is already in "
+                    "the database."
+                )
+        return atoms, was_in_database
+
+    def ensure_candidate_not_in_database(
+        self,
+        candidate,
+        show_message=True,
+        **kwargs,
+    ):
+        "Ensure the candidate is not in database by perturb it."
+        # If memeory is saved the method is only performed on one CPU
+        if not self.parallel_run and self.rank != 0:
+            return None
+        # Ensure that the candidate is not already in the database
+        candidate, was_in_database = self.ensure_not_in_database(
+            candidate,
+            show_message=show_message,
+        )
+        # Calculate the properties if it was in the database
+        if was_in_database:
+            candidate.calc = self.mlcalc
+            candidate = self.method.copy_atoms(
+                candidate,
+                properties=["fmax", "uncertainty", "energy"],
+                allow_calculation=True,
             )
-        return atoms
+            self.pred_energies[0] = candidate.get_potential_energy()
+            self.uncertainties[0] = candidate.calc.results["uncertainty"]
+        return candidate
 
     def store_best_data(self, atoms, **kwargs):
         "Store the best candidate."
@@ -1296,8 +1572,12 @@ class ActiveLearning:
 
     def choose_candidates(self, **kwargs):
         "Use acquisition functions to chose the next training points"
+        # Get the candidates
+        candidates = self.copy_candidates()
         # Get the energies and uncertainties
-        energies, uncertainties, fmaxs = self.get_candidate_predictions()
+        energies, uncertainties, fmaxs = self.get_candidate_predictions(
+            candidates
+        )
         # Store the uncertainty predictions
         self.umax = max_(uncertainties)
         self.umean = mean_(uncertainties)
@@ -1314,8 +1594,7 @@ class ActiveLearning:
         if self.n_evaluations_each > 1:
             i_cand = i_cand[::-1]
         # The next training points
-        candidates = self.get_candidates()
-        candidates = [candidates[i].copy() for i in i_cand]
+        candidates = [candidates[i] for i in i_cand]
         self.pred_energies = energies[i_cand]
         self.uncertainties = uncertainties[i_cand]
         return candidates
@@ -1348,23 +1627,45 @@ class ActiveLearning:
                     converged = False
             # Check the convergence
             if converged:
-                self.message_system("Optimization is converged.")
                 self.copy_best_structures()
         # Broadcast convergence statement if MPI is used
         converged = broadcast(converged, root=0, comm=self.comm)
         return converged
 
-    def copy_best_structures(self):
-        "Copy the best atoms."
-        self.best_structures = self.get_structures()
+    def copy_best_structures(
+        self,
+        get_all=True,
+        properties=["forces", "energy", "uncertainty"],
+        allow_calculation=True,
+        **kwargs,
+    ):
+        """
+        Copy the best structures.
+
+        Parameters:
+            properties: list of str
+                The names of the requested properties.
+                If not given, the properties is not calculated.
+            allow_calculation: bool
+                Whether the properties are allowed to be calculated.
+
+        Returns:
+            list of ASE Atoms objects: The best structures.
+        """
+        self.best_structures = self.get_structures(
+            get_all=get_all,
+            properties=properties,
+            allow_calculation=allow_calculation,
+            **kwargs,
+        )
         return self.best_structures
 
     def get_best_structures(self):
-        "Get the best atoms."
+        "Get the best structures."
         return self.best_structures
 
     def broadcast_best_structures(self):
-        "Broadcast the best atoms."
+        "Broadcast the best structures."
         self.best_structures = broadcast(
             self.best_structures,
             root=0,
@@ -1376,6 +1677,26 @@ class ActiveLearning:
         "Copy the ASE Atoms instance with calculator."
         return copy_atoms(atoms)
 
+    def compare_atoms(
+        self,
+        atoms0,
+        atoms1,
+        tol=1e-8,
+        properties_to_check=["atoms", "positions", "cell", "pbc"],
+        **kwargs,
+    ):
+        """
+        Compare two ASE Atoms instances.
+        """
+        is_same = compare_atoms(
+            atoms0,
+            atoms1,
+            tol=tol,
+            properties_to_check=properties_to_check,
+            **kwargs,
+        )
+        return is_same
+
     def get_objective_str(self, **kwargs):
         "Get what the objective is for the active learning."
         if not self.is_minimization:
@@ -1384,6 +1705,7 @@ class ActiveLearning:
 
     def set_verbose(self, verbose, **kwargs):
         "Set verbose of MLModel."
+        self.verbose = verbose
         self.mlcalc.mlmodel.update_arguments(verbose=verbose)
         return self
 
@@ -1396,7 +1718,7 @@ class ActiveLearning:
         Save the ML calculator object to a file.
 
         Parameters:
-            filename : str
+            filename: str
                 The name of the file where the object is saved.
 
         Returns:
@@ -1410,7 +1732,7 @@ class ActiveLearning:
         Get the ML calculator instance.
 
         Parameters:
-            copy_mlcalc : bool
+            copy_mlcalc: bool
                 Whether to copy the instance.
 
         Returns:
@@ -1432,8 +1754,19 @@ class ActiveLearning:
             )
         return self
 
-    def set_seed(self, seed=None):
-        "Set the random seed."
+    def set_seed(self, seed=None, **kwargs):
+        """
+        Set the random seed.
+
+        Parameters:
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+
+        Returns:
+            self: The instance itself.
+        """
         if seed is not None:
             self.seed = seed
             if isinstance(seed, int):
@@ -1444,17 +1777,106 @@ class ActiveLearning:
             self.seed = None
             self.rng = default_rng()
         # Set the random seed for the optimization method
-        self.method.set_seed(self.seed)
+        self.set_method_seed(self.seed)
         # Set the random seed for the acquisition function
-        self.acq.set_seed(self.seed)
+        self.set_acq_seed(self.seed)
         # Set the random seed for the ML calculator
-        self.mlcalc.set_seed(self.seed)
+        self.set_mlcalc_seed(self.seed)
         return self
 
-    def message_system(self, message, obj=None, end="\n"):
+    def set_method_seed(self, seed=None, **kwargs):
+        """
+        Set the random seed for the optimization method.
+
+        Parameters:
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+
+        Returns:
+            self: The instance itself.
+        """
+        self.method.set_seed(seed)
+        return self
+
+    def set_acq_seed(self, seed=None, **kwargs):
+        """
+        Set the random seed for the acquisition function.
+
+        Parameters:
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+
+        Returns:
+            self: The instance itself.
+        """
+        self.acq.set_seed(seed)
+        return self
+
+    def set_mlcalc_seed(self, seed=None, **kwargs):
+        """
+        Set the random seed for the ML calculator.
+
+        Parameters:
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+
+        Returns:
+            self: The instance itself.
+        """
+        self.mlcalc.set_seed(seed)
+        return self
+
+    def set_dtype(self, dtype, **kwargs):
+        """
+        Set the data type of the arrays.
+
+        Parameters:
+            dtype: type
+                The data type of the arrays.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Set the data type
+        self.dtype = dtype
+        # Set the data type of the mlcalc
+        self.mlcalc.set_dtype(dtype)
+        return self
+
+    def set_kappa(self, kappa, **kwargs):
+        """
+        Set the kappa value for the acquisition function.
+        Kappa is used to scale the uncertainty in the acquisition function.
+        Furthermore, set the kappa value for the ML calculator
+        if it is a BOCalculator.
+
+        Parameters:
+            kappa: float
+                The kappa value to set for the acquisition function and
+                the ML calculator.
+
+        Returns:
+            self: The instance itself.
+        """
+        # Set the kappa value for the acquisition function
+        self.acq.set_kappa()
+        # Set the kappa value for the ML calculator if it is a BOCalculator
+        if isinstance(self.mlcalc, BOCalculator):
+            self.mlcalc.set_kappa(kappa)
+        return self
+
+    def message_system(self, message, obj=None, end="\n", is_warning=False):
         "Print output once."
-        if self.verbose is True:
-            if self.rank == 0:
+        if self.verbose is True and self.rank == 0:
+            if is_warning:
+                warnings.warn(message)
+            else:
                 if obj is None:
                     print(message, end=end)
                 else:
@@ -1462,7 +1884,8 @@ class ActiveLearning:
         return
 
     def make_hdr_table(self, **kwargs):
-        "Make the header of the summary table for the optimization process."
+        "Make the header of the summary tables for the optimization process."
+        # Make the header to the summary table
         hdr_list = [
             " {:<6} ".format("Step"),
             " {:<11s} ".format("Date"),
@@ -1474,12 +1897,25 @@ class ActiveLearning:
         # Write the header
         hdr = "|" + "|".join(hdr_list) + "|"
         self.print_list = [hdr]
+        # Make the header to the time summary table
+        hdr_list = [
+            " {:<6} ".format("Step"),
+            " {:<11s} ".format("Date"),
+            " {:<16s} ".format("ML training/[s]"),
+            " {:<16s} ".format("ML run/[s]"),
+            " {:<16s} ".format("Evaluation/[s]"),
+        ]
+        # Write the header to the time summary table
+        hdr_time = "|" + "|".join(hdr_list) + "|"
+        self.print_list_time = [hdr_time]
         return hdr
 
     def make_summary_table(self, **kwargs):
         "Make the summary of the optimization process as table."
+        if self.rank != 0:
+            return None, None
         now = datetime.datetime.now().strftime("%d %H:%M:%S")
-        # Make the row
+        # Make the row for the summary table
         msg = [
             " {:<6d} ".format(self.steps),
             " {:<11s} ".format(now),
@@ -1491,7 +1927,18 @@ class ActiveLearning:
         msg = "|" + "|".join(msg) + "|"
         self.print_list.append(msg)
         msg = "\n".join(self.print_list)
-        return msg
+        # Make the row for the time summary table
+        msg_time = [
+            " {:<6d} ".format(self.steps),
+            " {:<11s} ".format(now),
+            " {:16.4f} ".format(self.ml_train_time),
+            " {:16.4f} ".format(self.method_time),
+            " {:16.4f} ".format(self.eval_time),
+        ]
+        msg_time = "|" + "|".join(msg_time) + "|"
+        self.print_list_time.append(msg_time)
+        msg_time = "\n".join(self.print_list_time)
+        return msg, msg_time
 
     def save_summary_table(self, msg=None, **kwargs):
         "Save the summary table in the .txt file."
@@ -1500,12 +1947,16 @@ class ActiveLearning:
                 if msg is None:
                     msg = "\n".join(self.print_list)
                 thefile.writelines(msg)
+        if self.timetxt is not None:
+            with open(self.timetxt, "w") as thefile:
+                msg = "\n".join(self.print_list_time)
+                thefile.writelines(msg)
         return
 
     def print_statement(self, **kwargs):
-        "Print the Global optimization process as a table"
+        "Print the active learning process as a table."
         msg = ""
-        if not self.save_memory or self.rank == 0:
+        if self.rank == 0:
             msg = "\n".join(self.print_list)
             self.save_summary_table(msg)
             self.message_system(msg)
@@ -1522,41 +1973,46 @@ class ActiveLearning:
         if not restart:
             return prev_calculations
         # Load the previous calculations from trajectory
-        try:
-            # Test if the restart is possible
-            structure = read(self.trajectory, "0")
-            assert len(structure) == self.natoms
-            # Load the predicted structures
-            if self.n_structures == 1:
-                index = "-1"
-            else:
-                index = f"-{self.n_structures}:"
-            self.structures = read(
-                self.trajectory,
-                index,
+        # Test if the restart is possible
+        structure = read(self.trajectory, "0")
+        if len(structure) != self.natoms:
+            raise ValueError(
+                "The number of atoms in the trajectory does not match "
+                "the number of atoms in given."
             )
-            # Load the previous training data
-            prev_calculations = read(self.trainingset, ":")
-            # Update the method with the structures
-            self.update_method(self.structures)
-            # Set the writing mode
-            self.mode = "a"
-            # Load the summary table
-            if self.tabletxt is not None:
-                with open(self.tabletxt, "r") as thefile:
-                    self.print_list = [
-                        line.replace("\n", "") for line in thefile
-                    ]
-                # Update the total steps
-                self.steps = len(self.print_list) - 1
-                # Make a reference energy
-                atoms_ref = copy_atoms(prev_calculations[0])
-                self.e_ref = atoms_ref.get_potential_energy()
-        except (AssertionError, FileNotFoundError, IndexError, StopIteration):
-            self.message_system(
-                "Warning: Restart is not possible! "
-                "Reinitalizing active learning."
-            )
+        # Load the predicted structures
+        if self.n_structures == 1:
+            index = "-1"
+        else:
+            index = f"-{self.n_structures}:"
+        self.structures = read(
+            self.trajectory,
+            index,
+        )
+        # Load the previous training data
+        prev_calculations = read(self.trainingset, ":")
+        # Update the method with the structures
+        self.update_method(self.structures)
+        # Set the writing mode
+        self.mode = "a"
+        # Load the summary table
+        if self.tabletxt is not None:
+            with open(self.tabletxt, "r") as thefile:
+                self.print_list = [line.replace("\n", "") for line in thefile]
+            # Update the total steps
+            self.steps = len(self.print_list) - 1
+            # Make a reference energy
+            atoms_ref = self.copy_atoms(prev_calculations[0])
+            self.e_ref = atoms_ref.get_potential_energy()
+        # Load the time summary table
+        if self.timetxt is not None:
+            with open(self.timetxt, "r") as thefile:
+                self.print_list_time = [
+                    line.replace("\n", "") for line in thefile
+                ]
+            # Update the total steps
+            if self.tabletxt is None:
+                self.steps = len(self.print_list_time) - 1
         return prev_calculations
 
     def get_arguments(self):
@@ -1568,7 +2024,6 @@ class ActiveLearning:
             mlcalc=self.mlcalc,
             acq=self.acq,
             is_minimization=self.is_minimization,
-            use_database_check=self.use_database_check,
             save_memory=self.save_memory,
             parallel_run=self.parallel_run,
             copy_calc=self.copy_calc,
@@ -1583,15 +2038,24 @@ class ActiveLearning:
             check_unc=self.check_unc,
             check_energy=self.check_energy,
             check_fmax=self.check_fmax,
+            max_unc_restart=self.max_unc_restart,
             n_evaluations_each=self.n_evaluations_each,
             min_data=self.min_data,
+            use_database_check=self.use_database_check,
+            data_perturb=self.data_perturb,
+            data_tol=self.data_tol,
             save_properties_traj=self.save_properties_traj,
+            to_save_mlcalc=self.to_save_mlcalc,
+            save_mlcalc_kwargs=self.save_mlcalc_kwargs,
             trajectory=self.trajectory,
             trainingset=self.trainingset,
+            pred_evaluated=self.pred_evaluated,
             converged_trajectory=self.converged_trajectory,
             initial_traj=self.initial_traj,
             tabletxt=self.tabletxt,
+            timetxt=self.timetxt,
             seed=self.seed,
+            dtype=self.dtype,
             comm=self.comm,
         )
         # Get the constants made within the class
