@@ -947,7 +947,7 @@ def get_default_model(
 
         model_kwargs_default = dict(
             a=1e-4,
-            b=10.0,
+            b=4.0,
         )
         model_kwargs_default.update(model_kwargs)
         model = TProcess(
