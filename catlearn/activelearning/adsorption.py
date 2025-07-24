@@ -328,7 +328,7 @@ class AdsorptionAL(ActiveLearning):
         baseline=BornRepulsionCalculator(),
         use_derivatives=True,
         calc_forces=False,
-        kappa=-3.0,
+        kappa=-1.0,
         **kwargs,
     ):
         from ..regression.gp.fingerprint import SortedInvDistances
