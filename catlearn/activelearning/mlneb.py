@@ -265,6 +265,7 @@ class MLNEB(ActiveLearning):
             parallel_run=parallel_run,
             comm=comm,
             verbose=verbose,
+            seed=seed,
             **kwargs,
         )
         # Initialize the BayesianOptimizer
@@ -390,6 +391,7 @@ class MLNEB(ActiveLearning):
         parallel_run=False,
         comm=world,
         verbose=False,
+        seed=None,
         **kwargs,
     ):
         "Build the optimization method."
@@ -406,7 +408,7 @@ class MLNEB(ActiveLearning):
         if isinstance(neb_method, str) or issubclass(neb_method, OriginalNEB):
             self.neb_kwargs.update(
                 dict(
-                    use_image_permutation=True,
+                    use_image_permutation=False,
                     save_properties=True,
                     mic=mic,
                     comm=comm,
@@ -442,6 +444,7 @@ class MLNEB(ActiveLearning):
             parallel_run=parallel_run,
             comm=comm,
             verbose=verbose,
+            seed=seed,
         )
         return method
 

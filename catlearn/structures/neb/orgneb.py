@@ -96,8 +96,6 @@ class OriginalNEB:
         self.mic = mic
         self.save_properties = save_properties
         self.use_image_permutation = use_image_permutation
-        # Find the minimum path length if requested
-        self.permute_images()
         # Set the parallelization
         self.parallel = parallel
         if parallel:
@@ -111,6 +109,8 @@ class OriginalNEB:
                     )
         else:
             self.remove_parallel_setup()
+        # Find the minimum path length if requested
+        self.permute_images()
         # Set the properties
         self.reset()
 
@@ -390,11 +390,12 @@ class OriginalNEB:
         """
         # Get the positions of the images
         positions = self.get_image_positions()
-        positions = positions.reshape(self.nimages, -1)
         # Get the periodic boundary conditions
         pbc = self.get_pbc()
         cell = self.get_cell()
         use_mic = self.mic and pbc.any()
+        if not use_mic:
+            positions = positions.reshape(self.nimages, -1)
         # Set the indices for the selected images
         indices = arange(self.nimages, dtype=int)
         selected_indices = empty(self.nimages, dtype=int)
@@ -412,17 +413,22 @@ class OriginalNEB:
         # Loop until all images are selected
         while available.any():
             candidates = indices[available]
-            # Find the minimum distance to the current images
+            # Calculate the distance vectors from the current images
             dist = positions[candidates] - positions[i_min, None]
             if use_mic:
-                dist, _ = mic_distance(
-                    dist,
-                    cell=cell,
-                    pbc=pbc,
-                    use_vector=False,
-                )
-            else:
-                dist = sqrt(einsum("ij,ij->i", dist, dist))
+                dist = [
+                    mic_distance(
+                        dis,
+                        cell=cell,
+                        pbc=pbc,
+                        use_vector=False,
+                    )[0]
+                    for dis in dist
+                ]
+                dist = asarray(dist)
+            # Calculate the distances
+            dist = sqrt(einsum("ij,ij->i", dist, dist))
+            # Find the minimum distance from the current images
             i_min = dist.argmin()
             if is_forward:
                 # Find the minimum distance from the start image
