@@ -312,12 +312,12 @@ class AdsorptionAL(ActiveLearning):
             self.method.set_calculator(MieCalculator(r_scale=1.2, denergy=0.2))
         self.method.run(fmax=0.05, steps=1000)
         atoms = self.method.get_candidates()[0]
-        # Calculate the initial structure
+        # Evaluate the structure
         self.evaluate(atoms)
         # Print summary table
-        if n_data == 1:
-            self.print_statement()
-        else:
+        self.print_statement()
+        # Check if another initial data is needed
+        if n_data == 0:
             self.extra_initial_data(**kwargs)
         return self
 

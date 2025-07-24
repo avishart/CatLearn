@@ -463,7 +463,7 @@ class MLNEB(ActiveLearning):
         else:
             i_middle = int(2.0 * (len(images) - 2) / 3.0)
         candidate = images[1 + i_middle].copy()
-        # Calculate the structure
+        # Evaluate the structure
         self.evaluate(candidate)
         # Print summary table
         self.print_statement()

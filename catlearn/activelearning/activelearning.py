@@ -1466,15 +1466,23 @@ class ActiveLearning:
         Get an initial structure for the active learning
         if the ML calculator does not have any training points.
         """
+        # Get the number of training data
+        n_data = self.get_training_set_size()
         # Check if the training set is empty
-        if self.get_training_set_size() >= 1:
+        if n_data >= 2:
             return self
-        # Calculate the initial structure
-        self.evaluate(
-            self.get_structures(get_all=False, allow_calculation=False)
-        )
+        # Get the initial structure
+        atoms = self.get_structures(get_all=False, allow_calculation=False)
+        # Rattle if the initial structure is calculated
+        if n_data == 1:
+            atoms = self.rattle_atoms(atoms, data_perturb=0.02)
+        # Evaluate the structure
+        self.evaluate(atoms)
         # Print summary table
         self.print_statement()
+        # Check if another initial data is needed
+        if n_data == 0:
+            self.extra_initial_data(**kwargs)
         return self
 
     def update_database_arguments(self, point_interest=None, **kwargs):
@@ -1502,7 +1510,7 @@ class ActiveLearning:
             # Atoms instance was in database
             was_in_database = True
             # Rattle the atoms
-            atoms = self.rattle_atoms(atoms)
+            atoms = self.rattle_atoms(atoms, data_perturb=self.data_perturb)
             # Print message if requested
             if show_message:
                 self.message_system(
@@ -1511,14 +1519,14 @@ class ActiveLearning:
                 )
         return atoms, was_in_database
 
-    def rattle_atoms(self, atoms, **kwargs):
+    def rattle_atoms(self, atoms, data_perturb, **kwargs):
         "Rattle the ASE Atoms instance positions."
         # Get positions
         pos = atoms.get_positions()
         # Rattle the positions
         pos_new = pos + self.rng.normal(
             loc=0.0,
-            scale=self.data_perturb,
+            scale=data_perturb,
             size=pos.shape,
         )
         # Set the new positions

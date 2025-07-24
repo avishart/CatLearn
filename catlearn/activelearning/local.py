@@ -32,7 +32,7 @@ class LocalAL(ActiveLearning):
         use_restart=True,
         check_unc=True,
         check_energy=True,
-        check_fmax=True,
+        check_fmax=False,
         max_unc_restart=0.05,
         n_evaluations_each=1,
         min_data=3,
@@ -278,27 +278,37 @@ class LocalAL(ActiveLearning):
         return method
 
     def extra_initial_data(self, **kwargs):
+        # Get the number of training data
+        n_data = self.get_training_set_size()
         # Check if the training set is empty
-        if self.get_training_set_size() >= 1:
+        if n_data >= 2:
             return self
-        # Get the initial structure if it is calculated
-        if self.atoms.calc is not None:
-            results = self.atoms.calc.results
-            if "energy" in results and "forces" in results:
-                if self.atoms.calc.atoms is not None:
-                    is_same = self.compare_atoms(
-                        self.atoms,
-                        self.atoms.calc.atoms,
-                    )
-                    if is_same:
-                        self.use_prev_calculations([self.atoms])
-                        return self
-        # Calculate the initial structure
-        self.evaluate(
-            self.get_structures(get_all=False, allow_calculation=False)
-        )
+        # Check if the initial structure is calculated
+        if n_data == 0:
+            if self.atoms.calc is not None:
+                results = self.atoms.calc.results
+                if "energy" in results and "forces" in results:
+                    if self.atoms.calc.atoms is not None:
+                        is_same = self.compare_atoms(
+                            self.atoms,
+                            self.atoms.calc.atoms,
+                        )
+                        if is_same:
+                            self.use_prev_calculations([self.atoms])
+                            self.extra_initial_data(**kwargs)
+                            return self
+        # Get the initial structure
+        atoms = self.atoms.copy()
+        # Rattle if the initial structure is calculated
+        if n_data == 1:
+            atoms = self.rattle_atoms(atoms, data_perturb=0.02)
+        # Evaluate the structure
+        self.evaluate(atoms)
         # Print summary table
         self.print_statement()
+        # Check if another initial data is needed
+        if n_data == 0:
+            self.extra_initial_data(**kwargs)
         return self
 
     def get_arguments(self):
