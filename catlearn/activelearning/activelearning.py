@@ -1495,21 +1495,14 @@ class ActiveLearning:
         # Return atoms if it does not exist
         if atoms is None:
             return atoms
-        # Get positions
-        pos = atoms.get_positions()
         # Boolean for checking if the atoms instance was in database
         was_in_database = False
         # Check if atoms instance is in the database
         while self.is_in_database(atoms, dtol=self.data_tol, **kwargs):
             # Atoms instance was in database
             was_in_database = True
-            # Rattle the positions
-            pos_new = pos + self.rng.normal(
-                loc=0.0,
-                scale=self.data_perturb,
-                size=pos.shape,
-            )
-            atoms.set_positions(pos_new)
+            # Rattle the atoms
+            atoms = self.rattle_atoms(atoms)
             # Print message if requested
             if show_message:
                 self.message_system(
@@ -1517,6 +1510,20 @@ class ActiveLearning:
                     "the database."
                 )
         return atoms, was_in_database
+
+    def rattle_atoms(self, atoms, **kwargs):
+        "Rattle the ASE Atoms instance positions."
+        # Get positions
+        pos = atoms.get_positions()
+        # Rattle the positions
+        pos_new = pos + self.rng.normal(
+            loc=0.0,
+            scale=self.data_perturb,
+            size=pos.shape,
+        )
+        # Set the new positions
+        atoms.set_positions(pos_new)
+        return atoms
 
     def ensure_candidate_not_in_database(
         self,
