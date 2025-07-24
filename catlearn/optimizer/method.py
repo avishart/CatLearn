@@ -200,6 +200,7 @@ class OptimizerMethod:
             self.optimizable.calc = calculator.copy()
         else:
             self.optimizable.calc = calculator
+        self.optimizable.calc.reset()
         return self
 
     def get_calculator(self):

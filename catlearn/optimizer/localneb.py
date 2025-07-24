@@ -162,12 +162,14 @@ class LocalNEB(LocalOptimizer):
                     image.calc = calc.copy()
                 else:
                     image.calc = calc
+                image.calc.reset()
         else:
             for image in self.optimizable.images[1:-1]:
                 if copy_calc:
                     image.calc = calculator.copy()
                 else:
                     image.calc = calculator
+                image.calc.reset()
         return self
 
     def get_calculator(self):
