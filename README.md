@@ -34,13 +34,13 @@ The active learning class is generalized to work for any defined optimizer metho
 Predefined active learning methods are created: `LocalAL`, `MLNEB`, `AdsorptionAL`, `MLGO`, and `RandomAdsorptionAL`.
 
 The outputs of the active learning are `predicted.traj`, `evaluated.traj`, `predicted_evaluated.traj`, `converged.traj`, `initial_struc.traj`, `ml_summary.txt`, and `ml_time.txt`:
-* The `predicted.traj` file contains the structures that the machine-learning calculator predicts after each optimization loop.
-* The training data and ASE calculator evaluated structures are within `evaluated.traj` file.
-* The `predicted_evaluated.traj` file has the exact same structures as the `evaluated.traj` file, but with machine-learning predicted properties.
-* The converged structures calculated with the machine-learning calculator are saved in the `converged.traj` file.
-* The initial structure(s) is/are saved into the `initial_struc.traj` file.
-* The summary of the active learning is saved into a table in the `ml_summary.txt` file.
-* The time spent on structure evaluation, machine-learning training, and prediction at each iteration is stored in `ml_time.txt`.
+- The `predicted.traj` file contains the structures that the machine-learning calculator predicts after each optimization loop.
+- The training data and ASE calculator evaluated structures are within `evaluated.traj` file.
+- The `predicted_evaluated.traj` file has the exact same structures as the `evaluated.traj` file, but with machine-learning predicted properties.
+- The converged structures calculated with the machine-learning calculator are saved in the `converged.traj` file.
+- The initial structure(s) is/are saved into the `initial_struc.traj` file.
+- The summary of the active learning is saved into a table in the `ml_summary.txt` file.
+- The time spent on structure evaluation, machine-learning training, and prediction at each iteration is stored in `ml_time.txt`.
 
 ### LocalAL
 The following code shows how to use `LocalAL`:
