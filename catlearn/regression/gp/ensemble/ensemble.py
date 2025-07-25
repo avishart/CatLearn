@@ -2,7 +2,7 @@ from numpy import asarray, exp
 import pickle
 import warnings
 from ..means.constant import Prior_constant
-from ..calculator.mlmodel import get_default_model
+from ..calculator.default_model import get_default_model
 
 
 class EnsembleModel:

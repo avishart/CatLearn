@@ -523,7 +523,7 @@ class ActiveLearning:
             self: The object itself.
         """
         # Create the ML calculator
-        from ..regression.gp.calculator.mlmodel import get_default_mlmodel
+        from ..regression.gp.calculator.default_model import get_default_mlmodel
         from ..regression.gp.calculator.mlcalc import MLCalculator
         from ..regression.gp.fingerprint.invdistances import InvDistances
 
