@@ -296,6 +296,7 @@ def get_default_database(
         use_fingerprint = True
     # Make the data base ready
     if isinstance(database_reduction, str):
+        # Set the default database arguments
         data_kwargs = dict(
             fingerprint=fp,
             reduce_dimensions=True,
@@ -360,14 +361,102 @@ def get_default_database(
     return database
 
 
+def get_default_ensemble(
+    model,
+    clustering="k_number",
+    clustering_kwargs={},
+    seed=None,
+    dtype=float,
+    **ensemble_kwargs,
+):
+    """
+    Get the default ensemble model with clustering and ensemble.
+
+    Parameters:
+        model: Model
+            The Machine Learning Model with kernel and prior.
+        clustering: str or Clustering class instance
+            The clustering method used to split the data to different models.
+            If a string is given, the clustering method is created from the
+            string.
+        clustering_kwargs: dict (optional)
+            A dictionary with the arguments for the clustering method.
+            If clustering is a string, the arguments are used to create the
+            clustering method.
+        seed: int (optional)
+            The random seed for the clustering.
+            The seed can be an integer, RandomState, or Generator instance.
+            If not given, the default random number generator is used.
+        dtype: type
+            The data type of the arrays.
+        ensemble_kwargs: dict (optional)
+            Additional keyword arguments for the EnsembleClustering class.
+
+    Returns:
+        ensemble_model: EnsembleClustering
+            The EnsembleClustering with clustering and ensemble.
+    """
+    from ..ensemble.ensemble_clustering import EnsembleClustering
+
+    # Check if clustering is a string and make the clustering method
+    if isinstance(clustering, str):
+        # Load the clustering methods
+        from ..ensemble.clustering import (
+            K_means_number,
+            K_means,
+            K_means_auto,
+            K_means_enumeration,
+            RandomClustering,
+            RandomClustering_number,
+            FixedClustering,
+        )
+
+        # Set the default clustering arguments
+        clustering_kwargs_default = dict(
+            seed=seed,
+            dtype=dtype,
+        )
+        # Set the data number for the specific clustering method
+        if clustering.lower() in [
+            "k_number",
+            "k_enumeration",
+            "random_number",
+        ]:
+            clustering_kwargs_default.update(dict(data_number=25))
+        clustering_kwargs_default.update(clustering_kwargs)
+        if clustering.lower() == "k_number":
+            clustering = K_means_number(**clustering_kwargs_default)
+        elif clustering.lower() == "k_means":
+            clustering = K_means(**clustering_kwargs_default)
+        elif clustering.lower() == "k_auto":
+            clustering = K_means_auto(**clustering_kwargs_default)
+        elif clustering.lower() == "k_enumeration":
+            clustering = K_means_enumeration(**clustering_kwargs_default)
+        elif clustering.lower() == "random":
+            clustering = RandomClustering(**clustering_kwargs_default)
+        elif clustering.lower() == "random_number":
+            clustering = RandomClustering_number(**clustering_kwargs_default)
+        elif clustering.lower() == "fixed":
+            clustering = FixedClustering(**clustering_kwargs_default)
+        else:
+            raise ValueError(f"Clustering {clustering} is not implemented!")
+    # Create the ensemble model
+    return EnsembleClustering(
+        model=model,
+        clustering=clustering,
+        dtype=dtype,
+        **ensemble_kwargs,
+    )
+
+
 def get_default_mlmodel(
     model="tp",
     fp=None,
     baseline=None,
+    prior="median",
     optimize_hp=True,
     use_pdis=True,
     pdis=None,
-    prior="median",
     use_derivatives=True,
     global_optimization=True,
     parallel=False,
@@ -378,24 +467,29 @@ def get_default_mlmodel(
     round_targets=5,
     database_kwargs={},
     use_ensemble=False,
+    clustering="k_number",
+    cluster_kwargs=dict(),
+    ensemble_kwargs={},
     verbose=False,
     seed=None,
     dtype=float,
-    **kwargs,
+    **mlmodel_kwargs,
 ):
     """
     Get the default ML model with a database for the ASE Atoms
     from the simple given arguments.
 
     Parameters:
-        model: str
-            Either the tp that gives the Studen T process or
+        model: str or Model class instance
+            Either the tp that gives the Students T process or
             gp that gives the Gaussian process.
-        fp: Fingerprint class object or None
-            The fingerprint object used to generate the fingerprints.
+        fp: Fingerprint class instance or None
+            The fingerprint instance used to generate the fingerprints.
             Cartesian coordinates are used if it is None.
-        baseline: Baseline object
-            The Baseline object calculator that calculates energy and forces.
+        baseline: Baseline class instance
+            The Baseline instance used to calculate energy and forces.
+        prior: str
+            Specify what prior mean should be used.
         optimize_hp: bool
             Whether to optimize the hyperparameters when the model is trained.
         use_pdis: bool
@@ -404,8 +498,6 @@ def get_default_mlmodel(
             A dict of prior distributions for each hyperparameter type.
             If None, the default prior distributions are used.
             No prior distributions are used if use_pdis=False or pdis is {}.
-        prior: str
-            Specify what prior mean should be used.
         use_derivatives: bool
             Whether to use derivatives of the targets.
         global_optimization: bool
@@ -435,6 +527,20 @@ def get_default_mlmodel(
         database_kwargs: dict
             A dictionary with the arguments for the database
             if it is used.
+        use_ensemble: bool
+            Whether to use an ensemble model with clustering.
+            The use of ensemble models can avoid memory issues and speed up
+            the training.
+        clustering: str or Clustering class instance
+            The clustering method used to split the data to different models.
+            If a string is given, the clustering method is created from the
+            string.
+        cluster_kwargs: dict (optional)
+            A dictionary with the arguments for the clustering method.
+            If clustering is a string, the arguments are used to create the
+            clustering method.
+        ensemble_kwargs: dict (optional)
+            Additional keyword arguments for the EnsembleClustering class.
         verbose: bool
             Whether to print statements in the optimization.
         seed: int (optional)
@@ -443,11 +549,11 @@ def get_default_mlmodel(
             If not given, the default random number generator is used.
         dtype: type
             The data type of the arrays.
-        kwargs: dict (optional)
+        mlmodel_kwargs: dict (optional)
             Additional keyword arguments for the MLModel class.
 
     Returns:
-        mlmodel: MLModel class object
+        mlmodel: MLModel class instance
             Machine Learning model used for ASE Atoms and calculator.
     """
     from .mlmodel import MLModel
@@ -471,6 +577,20 @@ def get_default_mlmodel(
             seed=seed,
             dtype=dtype,
             **all_model_kwargs,
+        )
+    # Make the model as an ensemble model if specified
+    if use_ensemble:
+        if database_reduction:
+            warnings.warn(
+                "Database reduction is not allowed with ensemble models!"
+            )
+        model = get_default_ensemble(
+            model=model,
+            clustering=clustering,
+            clustering_kwargs=cluster_kwargs,
+            seed=seed,
+            dtype=dtype,
+            **ensemble_kwargs,
         )
     # Make the database
     database = get_default_database(
@@ -501,5 +621,5 @@ def get_default_mlmodel(
         pdis=pdis,
         verbose=verbose,
         dtype=dtype,
-        **kwargs,
+        **mlmodel_kwargs,
     )

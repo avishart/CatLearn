@@ -15,6 +15,7 @@ from .mlmodel import MLModel
 from .default_model import (
     get_default_model,
     get_default_database,
+    get_default_ensemble,
     get_default_mlmodel,
 )
 from .hiermodel import HierarchicalMLModel
@@ -37,6 +38,7 @@ __all__ = [
     "MLModel",
     "get_default_model",
     "get_default_database",
+    "get_default_ensemble",
     "get_default_mlmodel",
     "HierarchicalMLModel",
     "MLCalculator",
