@@ -23,7 +23,7 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
         adsorbate2=None,
         bounds=None,
         n_random_draws=50,
-        use_initial_opt=True,
+        use_initial_opt=False,
         initial_fmax=0.2,
         use_repulsive_check=True,
         repulsive_tol=0.1,
