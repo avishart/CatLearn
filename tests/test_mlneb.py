@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 from .functions import get_endstructures, check_image_fmax
 
 
@@ -13,10 +12,10 @@ class TestMLNEB(unittest.TestCase):
         from catlearn.activelearning.mlneb import MLNEB
         from ase.calculators.emt import EMT
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Get the initial and final states
         initial, final = get_endstructures()
-        # Set random seed
-        np.random.seed(1)
         # Initialize MLNEB
         MLNEB(
             start=initial,
@@ -28,6 +27,7 @@ class TestMLNEB(unittest.TestCase):
             use_restart=True,
             check_unc=True,
             verbose=False,
+            seed=seed,
         )
 
     def test_mlneb_run(self):
@@ -35,10 +35,10 @@ class TestMLNEB(unittest.TestCase):
         from catlearn.activelearning.mlneb import MLNEB
         from ase.calculators.emt import EMT
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Get the initial and final states
         initial, final = get_endstructures()
-        # Set random seed
-        np.random.seed(1)
         # Initialize MLNEB
         mlneb = MLNEB(
             start=initial,
@@ -51,46 +51,7 @@ class TestMLNEB(unittest.TestCase):
             check_unc=True,
             verbose=False,
             local_opt_kwargs=dict(logfile=None),
-            tabletxt=None,
-        )
-        # Test if the MLNEB can be run
-        mlneb.run(
-            fmax=0.05,
-            steps=50,
-            ml_steps=250,
-            max_unc=0.05,
-        )
-        # Check that MLNEB converged
-        self.assertTrue(mlneb.converged() is True)
-        # Check that MLNEB gives a saddle point
-        images = mlneb.get_best_structures()
-        self.assertTrue(check_image_fmax(images, EMT(), fmax=0.05))
-
-    def test_mlneb_run_idpp(self):
-        """
-        Test if the MLNEB can run and converge with
-        restart of path from IDPP.
-        """
-        from catlearn.activelearning.mlneb import MLNEB
-        from ase.calculators.emt import EMT
-
-        # Get the initial and final states
-        initial, final = get_endstructures()
-        # Set random seed
-        np.random.seed(1)
-        # Initialize MLNEB
-        mlneb = MLNEB(
-            start=initial,
-            end=final,
-            ase_calc=EMT(),
-            neb_interpolation="idpp",
-            n_images=11,
-            unc_convergence=0.05,
-            use_restart=True,
-            check_unc=True,
-            verbose=False,
-            local_opt_kwargs=dict(logfile=None),
-            tabletxt=None,
+            seed=seed,
         )
         # Test if the MLNEB can be run
         mlneb.run(
@@ -113,13 +74,13 @@ class TestMLNEB(unittest.TestCase):
         from catlearn.activelearning.mlneb import MLNEB
         from ase.calculators.emt import EMT
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Get the initial and final states
         initial, final = get_endstructures()
-        interpolations = ["idpp", "rep", "ends"]
+        interpolations = ["born", "ends", "idpp", "rep"]
         for interpolation in interpolations:
             with self.subTest(interpolation=interpolation):
-                # Set random seed
-                np.random.seed(1)
                 # Initialize MLNEB
                 mlneb = MLNEB(
                     start=initial,
@@ -132,7 +93,7 @@ class TestMLNEB(unittest.TestCase):
                     check_unc=True,
                     verbose=False,
                     local_opt_kwargs=dict(logfile=None),
-                    tabletxt=None,
+                    seed=seed,
                 )
                 # Test if the MLNEB can be run
                 mlneb.run(
@@ -152,10 +113,10 @@ class TestMLNEB(unittest.TestCase):
         from catlearn.activelearning.mlneb import MLNEB
         from ase.calculators.emt import EMT
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Get the initial and final states
         initial, final = get_endstructures()
-        # Set random seed
-        np.random.seed(1)
         # Initialize MLNEB
         mlneb = MLNEB(
             start=initial,
@@ -167,7 +128,7 @@ class TestMLNEB(unittest.TestCase):
             use_restart=False,
             verbose=False,
             local_opt_kwargs=dict(logfile=None),
-            tabletxt=None,
+            seed=seed,
         )
         # Test if the MLNEB can be run
         mlneb.run(
@@ -187,10 +148,10 @@ class TestMLNEB(unittest.TestCase):
         from catlearn.activelearning.mlneb import MLNEB
         from ase.calculators.emt import EMT
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Get the initial and final states
         initial, final = get_endstructures()
-        # Set random seed
-        np.random.seed(1)
         # Initialize MLNEB
         mlneb = MLNEB(
             start=initial,
@@ -204,7 +165,7 @@ class TestMLNEB(unittest.TestCase):
             save_memory=True,
             verbose=False,
             local_opt_kwargs=dict(logfile=None),
-            tabletxt=None,
+            seed=seed,
         )
         # Test if the MLNEB can be run
         mlneb.run(
@@ -224,10 +185,10 @@ class TestMLNEB(unittest.TestCase):
         from catlearn.activelearning.mlneb import MLNEB
         from ase.calculators.emt import EMT
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Get the initial and final states
         initial, final = get_endstructures()
-        # Set random seed
-        np.random.seed(1)
         # Initialize MLNEB
         mlneb = MLNEB(
             start=initial,
@@ -240,7 +201,7 @@ class TestMLNEB(unittest.TestCase):
             check_unc=True,
             verbose=False,
             local_opt_kwargs=dict(logfile=None),
-            tabletxt=None,
+            seed=seed,
         )
         # Test if the MLNEB can be run
         mlneb.run(
@@ -255,42 +216,117 @@ class TestMLNEB(unittest.TestCase):
         images = mlneb.get_best_structures()
         self.assertTrue(check_image_fmax(images, EMT(), fmax=0.05))
 
+    def test_mlneb_run_dtrust(self):
+        "Test if the MLNEB can run and converge when it use a trust distance."
+        from catlearn.activelearning.mlneb import MLNEB
+        from ase.calculators.emt import EMT
 
-def test_mlneb_run_dtrust(self):
-    "Test if the MLNEB can run and converge when it use a trust distance."
-    from catlearn.activelearning.mlneb import MLNEB
-    from ase.calculators.emt import EMT
+        # Set random seed to give the same results every time
+        seed = 1
+        # Get the initial and final states
+        initial, final = get_endstructures()
+        # Initialize MLNEB
+        mlneb = MLNEB(
+            start=initial,
+            end=final,
+            ase_calc=EMT(),
+            neb_interpolation="linear",
+            n_images=11,
+            unc_convergence=0.05,
+            use_restart=True,
+            check_unc=True,
+            verbose=False,
+            local_opt_kwargs=dict(logfile=None),
+            seed=seed,
+        )
+        # Test if the MLNEB can be run
+        mlneb.run(
+            fmax=0.05,
+            steps=50,
+            ml_steps=250,
+            dtrust=0.5,
+        )
+        # Check that MLNEB converged
+        self.assertTrue(mlneb.converged() is True)
+        # Check that MLNEB gives a saddle point
+        images = mlneb.get_best_structures()
+        self.assertTrue(check_image_fmax(images, EMT(), fmax=0.05))
 
-    # Get the initial and final states
-    initial, final = get_endstructures()
-    # Set random seed
-    np.random.seed(1)
-    # Initialize MLNEB
-    mlneb = MLNEB(
-        start=initial,
-        end=final,
-        ase_calc=EMT(),
-        neb_interpolation="linear",
-        n_images=11,
-        unc_convergence=0.05,
-        use_restart=True,
-        check_unc=True,
-        verbose=False,
-        local_opt_kwargs=dict(logfile=None),
-        tabletxt=None,
-    )
-    # Test if the MLNEB can be run
-    mlneb.run(
-        fmax=0.05,
-        steps=50,
-        ml_steps=250,
-        dtrust=0.5,
-    )
-    # Check that MLNEB converged
-    self.assertTrue(mlneb.converged() is True)
-    # Check that MLNEB gives a saddle point
-    images = mlneb.get_best_structures()
-    self.assertTrue(check_image_fmax(images, EMT(), fmax=0.05))
+    def test_mlneb_run_start_with_ci(self):
+        """
+        Test if the MLNEB can run and converge without starting
+        without climbing image.
+        """
+        from catlearn.activelearning.mlneb import MLNEB
+        from ase.calculators.emt import EMT
+
+        # Set random seed to give the same results every time
+        seed = 1
+        # Get the initial and final states
+        initial, final = get_endstructures()
+        # Initialize MLNEB
+        mlneb = MLNEB(
+            start=initial,
+            end=final,
+            ase_calc=EMT(),
+            neb_interpolation="linear",
+            start_without_ci=False,
+            n_images=11,
+            unc_convergence=0.05,
+            use_restart=True,
+            check_unc=True,
+            verbose=False,
+            local_opt_kwargs=dict(logfile=None),
+            seed=seed,
+        )
+        # Test if the MLNEB can be run
+        mlneb.run(
+            fmax=0.05,
+            steps=50,
+            ml_steps=250,
+            max_unc=0.05,
+        )
+        # Check that MLNEB converged
+        self.assertTrue(mlneb.converged() is True)
+        # Check that MLNEB gives a saddle point
+        images = mlneb.get_best_structures()
+        self.assertTrue(check_image_fmax(images, EMT(), fmax=0.05))
+
+    def test_mlneb_run_no_ci(self):
+        """
+        Test if the MLNEB can run and converge without climbing image.
+        """
+        from catlearn.activelearning.mlneb import MLNEB
+        from ase.calculators.emt import EMT
+
+        # Set random seed to give the same results every time
+        seed = 1
+        # Get the initial and final states
+        initial, final = get_endstructures()
+        # Initialize MLNEB
+        mlneb = MLNEB(
+            start=initial,
+            end=final,
+            ase_calc=EMT(),
+            neb_interpolation="linear",
+            n_images=11,
+            climb=False,
+            unc_convergence=0.05,
+            use_restart=True,
+            check_unc=True,
+            verbose=False,
+            local_opt_kwargs=dict(logfile=None),
+            seed=seed,
+        )
+        # Test if the MLNEB can be run
+        mlneb.run(
+            fmax=0.05,
+            steps=50,
+            ml_steps=250,
+            max_unc=0.05,
+        )
+        # Check that MLNEB converged
+        self.assertTrue(mlneb.converged() is True)
 
 
 if __name__ == "__main__":

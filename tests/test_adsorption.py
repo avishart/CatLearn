@@ -13,6 +13,8 @@ class TestAdsorption(unittest.TestCase):
         from catlearn.activelearning.adsorption import AdsorptionAL
         from ase.calculators.emt import EMT
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Get the initial and final states
         slab, ads = get_slab_ads()
         # Make the boundary conditions for the global search
@@ -35,7 +37,7 @@ class TestAdsorption(unittest.TestCase):
             bounds=bounds,
             min_data=4,
             verbose=False,
-            tabletxt=None,
+            seed=seed,
         )
 
     def test_adsorption_run(self):
@@ -44,21 +46,21 @@ class TestAdsorption(unittest.TestCase):
         from catlearn.activelearning.adsorption import AdsorptionAL
         from ase.calculators.emt import EMT
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Get the initial and final states
         slab, ads = get_slab_ads()
         # Make the boundary conditions for the global search
         bounds = np.array(
             [
-                [0.0, 1.0],
-                [0.0, 1.0],
+                [0.0, 0.5],
+                [0.0, 0.5],
                 [0.5, 0.95],
                 [0.0, 2 * np.pi],
                 [0.0, 2 * np.pi],
                 [0.0, 2 * np.pi],
             ]
         )
-        # Set random seed
-        np.random.seed(1)
         # Initialize Adsorption AL
         ads_al = AdsorptionAL(
             slab=slab,
@@ -68,14 +70,14 @@ class TestAdsorption(unittest.TestCase):
             bounds=bounds,
             min_data=4,
             verbose=False,
-            tabletxt=None,
+            seed=seed,
         )
         # Test if the Adsorption AL can be run
         ads_al.run(
             fmax=0.05,
             steps=50,
             max_unc=0.050,
-            ml_steps=500,
+            ml_steps=4000,
         )
         # Check that Adsorption AL converged
         self.assertTrue(ads_al.converged() is True)

@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 from .functions import get_endstructures, check_fmax
 
 
@@ -14,6 +13,8 @@ class TestLocal(unittest.TestCase):
         from catlearn.activelearning.local import LocalAL
         from ase.calculators.emt import EMT
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Get the atoms from initial and final states
         atoms, _ = get_endstructures()
         # Move the gold atom up to prepare optimization
@@ -21,8 +22,6 @@ class TestLocal(unittest.TestCase):
         pos[-1, 2] += 0.5
         atoms.set_positions(pos)
         atoms.get_forces()
-        # Set random seed
-        np.random.seed(1)
         # Initialize Local AL optimization
         LocalAL(
             atoms=atoms,
@@ -31,6 +30,7 @@ class TestLocal(unittest.TestCase):
             use_restart=True,
             check_unc=True,
             verbose=False,
+            seed=seed,
         )
 
     def test_local_run(self):
@@ -38,6 +38,8 @@ class TestLocal(unittest.TestCase):
         from catlearn.activelearning.local import LocalAL
         from ase.calculators.emt import EMT
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Get the atoms from initial and final states
         atoms, _ = get_endstructures()
         # Move the gold atom up to prepare optimization
@@ -45,8 +47,6 @@ class TestLocal(unittest.TestCase):
         pos[-1, 2] += 0.5
         atoms.set_positions(pos)
         atoms.get_forces()
-        # Set random seed
-        np.random.seed(1)
         # Initialize Local AL optimization
         local_al = LocalAL(
             atoms=atoms,
@@ -55,6 +55,7 @@ class TestLocal(unittest.TestCase):
             use_restart=True,
             check_unc=True,
             verbose=False,
+            seed=seed,
         )
         # Test if the Local AL optimization can be run
         local_al.run(

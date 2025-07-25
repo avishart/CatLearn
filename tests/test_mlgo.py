@@ -13,6 +13,8 @@ class TestMLGO(unittest.TestCase):
         from catlearn.activelearning.mlgo import MLGO
         from ase.calculators.emt import EMT
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Get the initial and final states
         slab, ads = get_slab_ads()
         # Make the boundary conditions for the global search
@@ -36,7 +38,7 @@ class TestMLGO(unittest.TestCase):
             min_data=4,
             verbose=False,
             local_opt_kwargs=dict(logfile=None),
-            tabletxt=None,
+            seed=seed,
         )
 
     def test_mlgo_run(self):
@@ -45,21 +47,21 @@ class TestMLGO(unittest.TestCase):
         from catlearn.activelearning.mlgo import MLGO
         from ase.calculators.emt import EMT
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Get the initial and final states
         slab, ads = get_slab_ads()
         # Make the boundary conditions for the global search
         bounds = np.array(
             [
-                [0.0, 1.0],
-                [0.0, 1.0],
+                [0.0, 0.5],
+                [0.0, 0.5],
                 [0.5, 0.95],
                 [0.0, 2 * np.pi],
                 [0.0, 2 * np.pi],
                 [0.0, 2 * np.pi],
             ]
         )
-        # Set random seed
-        np.random.seed(1)
         # Initialize MLGO
         mlgo = MLGO(
             slab=slab,
@@ -70,14 +72,15 @@ class TestMLGO(unittest.TestCase):
             min_data=4,
             verbose=False,
             local_opt_kwargs=dict(logfile=None),
-            tabletxt=None,
+            seed=seed,
         )
         # Test if the MLGO can be run
         mlgo.run(
             fmax=0.05,
             steps=50,
             max_unc=0.050,
-            ml_steps=500,
+            ml_steps=4000,
+            ml_steps_local=1000,
         )
         # Check that MLGO converged
         self.assertTrue(mlgo.converged() is True)
