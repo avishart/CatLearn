@@ -51,6 +51,7 @@ class MLNEB(ActiveLearning):
         save_properties_traj=True,
         to_save_mlcalc=True,
         save_mlcalc_kwargs={},
+        default_mlcalc_kwargs={},
         trajectory="predicted.traj",
         trainingset="evaluated.traj",
         pred_evaluated="predicted_evaluated.traj",
@@ -204,6 +205,8 @@ class MLNEB(ActiveLearning):
                 Whether to save the ML calculator to a file after training.
             save_mlcalc_kwargs: dict
                 Arguments for saving the ML calculator, like the filename.
+            default_mlcalc_kwargs: dict
+                The default keyword arguments for the ML calculator.
             trajectory: str or TrajectoryWriter instance
                 Trajectory filename to store the predicted data.
                 Or the TrajectoryWriter instance to store the predicted data.
@@ -298,6 +301,7 @@ class MLNEB(ActiveLearning):
             save_properties_traj=save_properties_traj,
             to_save_mlcalc=to_save_mlcalc,
             save_mlcalc_kwargs=save_mlcalc_kwargs,
+            default_mlcalc_kwargs=default_mlcalc_kwargs,
             trajectory=trajectory,
             trainingset=trainingset,
             pred_evaluated=pred_evaluated,

@@ -56,6 +56,7 @@ class ActiveLearning:
         save_properties_traj=True,
         to_save_mlcalc=False,
         save_mlcalc_kwargs={},
+        default_mlcalc_kwargs={},
         trajectory="predicted.traj",
         trainingset="evaluated.traj",
         pred_evaluated="predicted_evaluated.traj",
@@ -163,6 +164,8 @@ class ActiveLearning:
                 Whether to save the ML calculator to a file after training.
             save_mlcalc_kwargs: dict
                 Arguments for saving the ML calculator, like the filename.
+            default_mlcalc_kwargs: dict
+                The default keyword arguments for the ML calculator.
             trajectory: str or TrajectoryWriter instance
                 Trajectory filename to store the predicted data.
                 Or the TrajectoryWriter instance to store the predicted data.
@@ -218,6 +221,7 @@ class ActiveLearning:
             mlcalc,
             save_memory=save_memory,
             verbose=verbose,
+            **default_mlcalc_kwargs,
         )
         # Setup the acquisition function
         self.setup_acq(
@@ -413,7 +417,7 @@ class ActiveLearning:
         self,
         mlcalc=None,
         verbose=True,
-        **kwargs,
+        **default_mlcalc_kwargs,
     ):
         """
         Setup the ML calculator.
@@ -425,6 +429,8 @@ class ActiveLearning:
             verbose: bool
                 Whether to print on screen the full output (True) or
                 not (False).
+            default_mlcalc_kwargs: dict
+                The default keyword arguments for the ML calculator.
 
         Returns:
             self: The object itself.
@@ -438,7 +444,7 @@ class ActiveLearning:
         else:
             self.mlcalc = self.setup_default_mlcalc(
                 verbose=verbose,
-                **kwargs,
+                **default_mlcalc_kwargs,
             )
         # Check if the seed is given
         if hasattr(self, "seed"):
@@ -452,60 +458,67 @@ class ActiveLearning:
 
     def setup_default_mlcalc(
         self,
-        save_memory=False,
-        fp=None,
         atoms=None,
-        prior=Prior_max(add=1.0),
+        save_memory=False,
+        model="tp",
+        fp=None,
         baseline=BornRepulsionCalculator(),
+        prior=Prior_max(add=1.0),
         use_derivatives=True,
+        optimize_hp=True,
         database_reduction=False,
+        use_ensemble=False,
         calc_forces=True,
         round_pred=5,
-        optimize_hp=True,
         bayesian=True,
         kappa=2.0,
         reuse_mlcalc_data=False,
         verbose=True,
         calc_kwargs={},
-        **kwargs,
+        **mlmodel_kwargs,
     ):
         """
         Setup the ML calculator.
 
         Parameters:
-            mlcalc: ML-calculator instance (optional)
-                The ML-calculator instance used as surrogate surface.
-                A default ML-model is used if mlcalc is None.
+            atoms: Atoms instance (optional if fp is not None)
+                The Atoms instance from the optimization method.
+                It is used to setup the fingerprint if it is None.
             save_memory: bool
                 Whether to only train the ML calculator and store
-                all objects on one CPU.
+                all instances on one CPU.
                 If save_memory==True then parallel optimization of
                 the hyperparameters can not be achived.
-                If save_memory==False no MPI object is used.
+                If save_memory==False no MPI instance is used.
+            model: str or Model class instance
+                Either the tp that gives the Students T process or
+                gp that gives the Gaussian process.
             fp: Fingerprint class instance (optional)
                 The fingerprint instance used for the ML model.
                 The default InvDistances instance is used if fp is None.
-            atoms: Atoms object (optional if fp is not None)
-                The Atoms object from the optimization method.
-                It is used to setup the fingerprint if it is None.
-            prior: Prior class instance (optional)
-                The prior mean instance used for the ML model.
-                The default prior is the Prior_max.
             baseline: Baseline class instance (optional)
                 The baseline instance used for the ML model.
                 The default is the BornRepulsionCalculator.
+            prior: Prior class instance (optional)
+                The prior mean instance used for the ML model.
+                The default prior is the Prior_max.
             use_derivatives: bool
                 Whether to use derivatives of the targets in the ML model.
+            optimize_hp: bool
+                Whether to optimize the hyperparameters when the model is
+                trained.
             database_reduction: bool
-                Whether to reduce the database.
+                Whether to reduce the training database size.
+                A reduction can avoid memory issues and speed up the training.
+            use_ensemble: bool
+                Whether to use an ensemble model with clustering.
+                The use of ensemble models can avoid memory issues and speed up
+                the training.
             calc_forces: bool
                 Whether to calculate the forces for all energy predictions.
             round_pred: int (optional)
                 The number of decimals to round the predictions to.
                 If None, the predictions are not rounded.
-            optimize_hp: bool
-                Whether to optimize the hyperparameters when the model is
-                trained.
             bayesian: bool
                 Whether to use the Bayesian optimization calculator.
             kappa: float
@@ -518,12 +531,17 @@ class ActiveLearning:
                 not (False).
             calc_kwargs: dict
                 The keyword arguments for the ML calculator.
+            mlmodel_kwargs: dict
+                Additional keyword arguments for the function
+                to create the MLModel instance.
 
         Returns:
-            self: The object itself.
+            self: The instance itself.
         """
         # Create the ML calculator
-        from ..regression.gp.calculator.default_model import get_default_mlmodel
+        from ..regression.gp.calculator.default_model import (
+            get_default_mlmodel,
+        )
         from ..regression.gp.calculator.mlcalc import MLCalculator
         from ..regression.gp.fingerprint.invdistances import InvDistances
 
@@ -535,7 +553,7 @@ class ActiveLearning:
                 raise NameError("The save_memory is not given.")
         # Setup the fingerprint
         if fp is None:
-            # Check if the Atoms object is given
+            # Check if the Atoms instance is given
             if atoms is None:
                 try:
                     atoms = self.get_structures(
@@ -558,16 +576,17 @@ class ActiveLearning:
                 )
         # Setup the ML model
         mlmodel = get_default_mlmodel(
-            model="tp",
+            model=model,
             prior=prior,
             fp=fp,
             baseline=baseline,
             use_derivatives=use_derivatives,
             parallel=(not save_memory),
-            database_reduction=database_reduction,
             optimize_hp=optimize_hp,
+            database_reduction=database_reduction,
+            use_ensemble=use_ensemble,
             verbose=verbose,
-            **kwargs,
+            **mlmodel_kwargs,
         )
         # Get the data from a previous mlcalc if requested and it exist
         if reuse_mlcalc_data:

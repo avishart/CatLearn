@@ -55,6 +55,8 @@ class MLGO(AdsorptionAL):
         save_properties_traj=True,
         to_save_mlcalc=False,
         save_mlcalc_kwargs={},
+        default_mlcalc_kwargs={},
+        default_mlcalc_local_kwargs={},
         trajectory="predicted.traj",
         trainingset="evaluated.traj",
         pred_evaluated="predicted_evaluated.traj",
@@ -196,6 +198,10 @@ class MLGO(AdsorptionAL):
                 Whether to save the ML calculator to a file after training.
             save_mlcalc_kwargs: dict
                 Arguments for saving the ML calculator, like the filename.
+            default_mlcalc_kwargs: dict
+                The default keyword arguments for the ML calculator.
+            default_mlcalc_local_kwargs: dict
+                The default keyword arguments for the local ML calculator.
             trajectory: str or TrajectoryWriter instance
                 Trajectory filename to store the predicted data.
                 Or the TrajectoryWriter instance to store the predicted data.
@@ -244,6 +250,7 @@ class MLGO(AdsorptionAL):
         self.reuse_data_local = reuse_data_local
         # Save the local ML-calculator
         self.mlcalc_local = mlcalc_local
+        self.default_mlcalc_local_kwargs = default_mlcalc_local_kwargs
         # Initialize the AdsorptionBO
         super().__init__(
             slab=slab,
@@ -278,6 +285,7 @@ class MLGO(AdsorptionAL):
             save_properties_traj=save_properties_traj,
             to_save_mlcalc=to_save_mlcalc,
             save_mlcalc_kwargs=save_mlcalc_kwargs,
+            default_mlcalc_kwargs=default_mlcalc_kwargs,
             trajectory=trajectory,
             trainingset=trainingset,
             pred_evaluated=pred_evaluated,
@@ -424,12 +432,12 @@ class MLGO(AdsorptionAL):
         )
         # Setup the ML-calculator for the local optimization
         self.setup_mlcalc_local(
-            mlcalc_local=self.mlcalc_local,
+            mlcalc=self.mlcalc_local,
             save_memory=self.save_memory,
             atoms=structures,
             reuse_mlcalc_data=False,
             verbose=self.verbose,
-            **kwargs,
+            **self.default_mlcalc_local_kwargs,
         )
         # Add the training data to the local ML-calculator
         self.use_prev_calculations(data)
@@ -561,6 +569,7 @@ class MLGO(AdsorptionAL):
             save_properties_traj=self.save_properties_traj,
             to_save_mlcalc=self.to_save_mlcalc,
             save_mlcalc_kwargs=self.save_mlcalc_kwargs,
+            default_mlcalc_local_kwargs=self.default_mlcalc_local_kwargs,
             trajectory=self.trajectory,
             trainingset=self.trainingset,
             pred_evaluated=self.pred_evaluated,
