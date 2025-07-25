@@ -1113,7 +1113,7 @@ class ActiveLearning:
         "Run the method on the ML surrogate surface."
         # Convergence of the NEB
         method_converged = False
-        # If memeory is saved the method is only performed on one CPU
+        # Check if the method is running in parallel
         if not self.parallel_run and self.rank != 0:
             return None, method_converged
         # Check if the previous structure were better
@@ -1540,7 +1540,7 @@ class ActiveLearning:
         **kwargs,
     ):
         "Ensure the candidate is not in database by perturb it."
-        # If memeory is saved the method is only performed on one CPU
+        # Check if the method is running in parallel
         if not self.parallel_run and self.rank != 0:
             return None
         # Ensure that the candidate is not already in the database
@@ -1635,11 +1635,11 @@ class ActiveLearning:
                 e_dif = abs(self.energy_true - self.bests_data["energy"])
                 if e_dif > uci:
                     converged = False
-            # Check the convergence
-            if converged:
-                self.copy_best_structures()
         # Broadcast convergence statement if MPI is used
         converged = broadcast(converged, root=0, comm=self.comm)
+        # Check the convergence
+        if converged:
+            self.copy_best_structures()
         return converged
 
     def copy_best_structures(
@@ -1662,6 +1662,10 @@ class ActiveLearning:
         Returns:
             list of ASE Atoms objects: The best structures.
         """
+        # Check if the method is running in parallel
+        if not self.parallel_run and self.rank != 0:
+            return self.best_structures
+        # Get the best structures with calculated properties
         self.best_structures = self.get_structures(
             get_all=get_all,
             properties=properties,
