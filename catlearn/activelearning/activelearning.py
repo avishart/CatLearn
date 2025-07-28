@@ -620,7 +620,7 @@ class ActiveLearning:
         # Reuse the data from a previous mlcalc if requested
         if reuse_mlcalc_data:
             if len(data):
-                self.add_training(data)
+                mlcalc.add_training(data)
         return mlcalc
 
     def setup_acq(
