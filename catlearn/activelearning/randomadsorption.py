@@ -148,8 +148,9 @@ class RandomAdsorptionAL(ActiveLearning):
                 extrapolated to 0 K).
                 By default force_consistent=False.
             scale_fmax: float
-                The scaling of the fmax for the ML-NEB runs.
-                It makes the path converge tighter on surrogate surface.
+                The scaling of the fmax convergence criteria.
+                It makes the structure(s) converge tighter on surrogate
+                surface.
             use_fmax_convergence: bool
                 Whether to use the maximum force as an convergence criterion.
             unc_convergence: float
@@ -393,7 +394,7 @@ class RandomAdsorptionAL(ActiveLearning):
             method_extra.set_calculator(
                 MieCalculator(r_scale=1.2, denergy=0.2)
             )
-        method_extra.run(fmax=0.1, steps=21)
+        method_extra.run(fmax=0.1, steps=25)
         atoms = method_extra.get_candidates()[0]
         # Evaluate the structure
         self.evaluate(atoms)
