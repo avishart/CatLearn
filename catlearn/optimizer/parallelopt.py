@@ -187,7 +187,7 @@ class ParallelOptimizer(OptimizerMethod):
                 )
             )
         # Get the number of steps
-        self.steps += sum(
+        self.steps += max(
             [
                 broadcast(
                     method.get_number_of_steps(),
