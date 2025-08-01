@@ -30,7 +30,7 @@ class MLGO(AdsorptionAL):
         chains=None,
         local_opt=FIRE,
         local_opt_kwargs={},
-        reuse_data_local=True,
+        reuse_data_local=False,
         acq=None,
         save_memory=False,
         parallel_run=False,
