@@ -1089,6 +1089,9 @@ class DatabasePointsInterest(DatabaseLast):
             self.feature_distance = feature_distance
         # Set the points of interest
         if point_interest is not None:
+            # Ensure point_interest is a list of ASE Atoms instances
+            if not isinstance(point_interest, list):
+                point_interest = [point_interest]
             self.point_interest = [atoms.copy() for atoms in point_interest]
             self.fp_interest = [
                 self.make_atoms_feature(atoms) for atoms in self.point_interest
