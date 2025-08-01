@@ -147,8 +147,9 @@ class MLGO(AdsorptionAL):
                 extrapolated to 0 K).
                 By default force_consistent=False.
             scale_fmax: float
-                The scaling of the fmax for the ML-NEB runs.
-                It makes the path converge tighter on surrogate surface.
+                The scaling of the fmax convergence criteria.
+                It makes the structure(s) converge tighter on surrogate
+                surface.
             use_fmax_convergence: bool
                 Whether to use the maximum force as an convergence criterion.
             unc_convergence: float

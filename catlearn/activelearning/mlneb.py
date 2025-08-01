@@ -157,8 +157,9 @@ class MLNEB(ActiveLearning):
                 extrapolated to 0 K).
                 By default force_consistent=False.
             scale_fmax: float
-                The scaling of the fmax for the ML-NEB runs.
-                It makes the path converge tighter on surrogate surface.
+                The scaling of the fmax convergence criteria.
+                It makes the structure(s) converge tighter on surrogate
+                surface.
             unc_convergence: float
                 Maximum uncertainty for convergence in
                 the active learning (in eV).
