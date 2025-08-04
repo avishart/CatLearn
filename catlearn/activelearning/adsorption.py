@@ -119,9 +119,12 @@ class AdsorptionAL(ActiveLearning):
                 extrapolated to 0 K).
                 By default force_consistent=False.
             scale_fmax: float
-                The scaling of the fmax convergence criteria.
+                The scaling of the fmax convergence criterion.
                 It makes the structure(s) converge tighter on surrogate
                 surface.
+                If use_database_check is True and the structure is in the
+                database, then the scale_fmax is multiplied by the original
+                scale_fmax to give tighter convergence.
             use_fmax_convergence: bool
                 Whether to use the maximum force as an convergence criterion.
             unc_convergence: float
@@ -140,6 +143,9 @@ class AdsorptionAL(ActiveLearning):
                 If it is in the database, the structure is rattled.
                 Please be aware that the predicted structure will differ from
                 the structure in the database if the rattling is applied.
+                If use_database_check is True and the structure is in the
+                database, then the scale_fmax is multiplied by the original
+                scale_fmax to give tighter convergence.
             data_perturb: float
                 The perturbation of the data structure if it is in the database
                 and use_database_check is True.
@@ -402,7 +408,7 @@ class AdsorptionAL(ActiveLearning):
             verbose=self.verbose,
             apply_constraint=self.apply_constraint,
             force_consistent=self.force_consistent,
-            scale_fmax=self.scale_fmax,
+            scale_fmax=self.scale_fmax_org,
             use_fmax_convergence=self.use_fmax_convergence,
             unc_convergence=self.unc_convergence,
             use_method_unc_conv=self.use_method_unc_conv,

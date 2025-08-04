@@ -114,9 +114,12 @@ class ActiveLearning:
                 extrapolated to 0 K).
                 By default force_consistent=False.
             scale_fmax: float
-                The scaling of the fmax convergence criteria.
+                The scaling of the fmax convergence criterion.
                 It makes the structure(s) converge tighter on surrogate
                 surface.
+                If use_database_check is True and the structure is in the
+                database, then the scale_fmax is multiplied by the original
+                scale_fmax to give tighter convergence.
             use_fmax_convergence: bool
                 Whether to use the maximum force as an convergence criterion.
             unc_convergence: float
@@ -151,6 +154,9 @@ class ActiveLearning:
                 If it is in the database, the structure is rattled.
                 Please be aware that the predicted structure will differ from
                 the structure in the database if the rattling is applied.
+                If use_database_check is True and the structure is in the
+                database, then the scale_fmax is multiplied by the original
+                scale_fmax to give tighter convergence.
             data_perturb: float
                 The perturbation of the data structure if it is in the database
                 and use_database_check is True.
@@ -901,9 +907,12 @@ class ActiveLearning:
                 extrapolated to 0 K).
                 By default force_consistent=False.
             scale_fmax: float
-                The scaling of the fmax convergence criteria.
+                The scaling of the fmax convergence criterion.
                 It makes the structure(s) converge tighter on surrogate
                 surface.
+                If use_database_check is True and the structure is in the
+                database, then the scale_fmax is multiplied by the original
+                scale_fmax to give tighter convergence.
             use_fmax_convergence: bool
                 Whether to use the maximum force as an convergence criterion.
             unc_convergence: float
@@ -938,6 +947,9 @@ class ActiveLearning:
                 If it is in the database, the structure is rattled.
                 Please be aware that the predicted structure will differ from
                 the structure in the database if the rattling is applied.
+                If use_database_check is True and the structure is in the
+                database, then the scale_fmax is multiplied by the original
+                scale_fmax to give tighter convergence.
             data_perturb: float
                 The perturbation of the data structure if it is in the database
                 and use_database_check is True.
@@ -1044,8 +1056,11 @@ class ActiveLearning:
             self.force_consistent = force_consistent
         elif not hasattr(self, "force_consistent"):
             self.force_consistent = False
+        if scale_fmax is None and not hasattr(self, "scale_fmax"):
+            scale_fmax = 1.0
         if scale_fmax is not None:
             self.scale_fmax = abs(float(scale_fmax))
+            self.scale_fmax_org = self.scale_fmax
         if use_fmax_convergence is not None:
             self.use_fmax_convergence = use_fmax_convergence
         if unc_convergence is not None:
@@ -1579,6 +1594,8 @@ class ActiveLearning:
             )
             self.pred_energies[0] = self.get_true_predicted_energy(candidate)
             self.uncertainties[0] = candidate.calc.results["uncertainty"]
+            # Rescale the fmax criterion
+            self.scale_fmax *= self.scale_fmax_org
         return candidate
 
     def store_best_data(self, atoms, **kwargs):
@@ -2077,7 +2094,7 @@ class ActiveLearning:
             verbose=self.verbose,
             apply_constraint=self.apply_constraint,
             force_consistent=self.force_consistent,
-            scale_fmax=self.scale_fmax,
+            scale_fmax=self.scale_fmax_org,
             use_fmax_convergence=self.use_fmax_convergence,
             unc_convergence=self.unc_convergence,
             use_method_unc_conv=self.use_method_unc_conv,
