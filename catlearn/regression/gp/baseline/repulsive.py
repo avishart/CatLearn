@@ -28,7 +28,7 @@ class RepulsionCalculator(BaselineCalculator):
         mic=False,
         all_ncells=True,
         cell_cutoff=4.0,
-        use_cutoff=False,
+        use_cutoff=True,
         rs_cutoff=3.0,
         re_cutoff=4.0,
         r_scale=0.7,
