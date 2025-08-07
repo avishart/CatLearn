@@ -1,4 +1,5 @@
 from .mlcalc import MLCalculator
+from ..fingerprint.geometry import sine_activation
 from ase.calculators.calculator import Calculator, all_changes
 
 
@@ -33,6 +34,8 @@ class BOCalculator(MLCalculator):
         calc_kwargs={},
         round_pred=None,
         kappa=2.0,
+        max_unc=None,
+        max_unc_scale=0.95,
         **kwargs,
     ):
         """
@@ -63,6 +66,12 @@ class BOCalculator(MLCalculator):
             kappa: float
                 The weight of the uncertainty relative to the energy.
                 If kappa>0, the uncertainty is added to the predicted energy.
+            max_unc: float (optional)
+                The maximum uncertainty value that can be added to the energy.
+                If the uncertainty is larger than the max_unc_scale times this
+                value, the cutoff is activated to limit the uncertainty.
+            max_unc_scale: float (optional)
+                The scale of the maximum uncertainty value to start the cutoff.
         """
         super().__init__(
             mlmodel=mlmodel,
@@ -73,6 +82,8 @@ class BOCalculator(MLCalculator):
             calc_kwargs=calc_kwargs,
             round_pred=round_pred,
             kappa=kappa,
+            max_unc=max_unc,
+            max_unc_scale=max_unc_scale,
             **kwargs,
         )
 
@@ -167,11 +178,23 @@ class BOCalculator(MLCalculator):
             self.results["predicted forces"] = self.results["forces"].copy()
         # Calculate the acquisition function and its derivative
         if self.kappa != 0.0:
-            self.results["energy"] += self.kappa * self.results["uncertainty"]
+            # Get the uncertainty and its derivatives
+            unc = self.results["uncertainty"]
             if get_forces:
-                self.results["forces"] -= (
-                    self.kappa * self.results["uncertainty derivatives"]
+                unc_deriv = self.results["uncertainty derivatives"]
+            else:
+                unc_deriv = None
+            # Limit the uncertainty to the maximum uncertainty
+            if self.max_unc is not None and unc > self.max_unc_start:
+                unc, unc_deriv = self.max_unc_activation(
+                    unc,
+                    unc_deriv=unc_deriv,
+                    use_derivatives=get_forces,
                 )
+            # Add the uncertainty to the energy and forces
+            self.results["energy"] += self.kappa * unc
+            if get_forces:
+                self.results["forces"] -= self.kappa * unc_deriv
         return self.results
 
     def update_arguments(
@@ -184,6 +207,8 @@ class BOCalculator(MLCalculator):
         calc_kwargs=None,
         round_pred=None,
         kappa=None,
+        max_unc=None,
+        max_unc_scale=None,
         **kwargs,
     ):
         """
@@ -214,6 +239,12 @@ class BOCalculator(MLCalculator):
                 If None, the predictions are not rounded.
             kappa: float
                 The weight of the uncertainty relative to the energy.
+            max_unc: float (optional)
+                The maximum uncertainty value that can be added to the energy.
+                If the uncertainty is larger than the max_unc_scale times this
+                value, the cutoff is activated to limit the uncertainty.
+            max_unc_scale: float (optional)
+                The scale of the maximum uncertainty value to start the cutoff.
 
         Returns:
             self: The updated object itself.
@@ -231,6 +262,21 @@ class BOCalculator(MLCalculator):
         # Set the kappa value
         if kappa is not None:
             self.set_kappa(kappa)
+        elif not hasattr(self, "kappa"):
+            self.set_kappa(0.0)
+        # Set the maximum uncertainty value
+        if max_unc is not None:
+            self.max_unc = abs(float(max_unc))
+        elif not hasattr(self, "max_unc"):
+            self.max_unc = None
+        if max_unc_scale is not None:
+            self.max_unc_scale = float(max_unc_scale)
+            if self.max_unc_scale > 1.0:
+                raise ValueError(
+                    "max_unc_scale must be less than or equal to 1.0"
+                )
+        if self.max_unc is not None:
+            self.max_unc_start = self.max_unc_scale * self.max_unc
         return self
 
     def set_kappa(self, kappa, **kwargs):
@@ -282,6 +328,22 @@ class BOCalculator(MLCalculator):
             get_unc_derivatives,
         )
 
+    def max_unc_activation(self, unc, unc_deriv=None, use_derivatives=False):
+        # Calculate the activation function
+        fc, gc = sine_activation(
+            unc,
+            use_derivatives=use_derivatives,
+            xs_activation=self.max_unc_start,
+            xe_activation=self.max_unc,
+        )
+        # Calculate the derivative of the uncertainty
+        if use_derivatives:
+            unc_deriv = unc_deriv * (1.0 - fc)
+            unc_deriv += gc * (self.max_unc_start - unc)
+        # Apply the activation function to the uncertainty
+        unc = (unc * (1.0 - fc)) + (self.max_unc * fc)
+        return unc, unc_deriv
+
     def get_arguments(self):
         "Get the arguments of the class itself."
         # Get the arguments given to the class in the initialization
@@ -294,6 +356,8 @@ class BOCalculator(MLCalculator):
             calc_kwargs=self.calc_kwargs,
             round_pred=self.round_pred,
             kappa=self.kappa,
+            max_unc=self.max_unc,
+            max_unc_scale=self.max_unc_scale,
         )
         # Get the constants made within the class
         constant_kwargs = dict()
