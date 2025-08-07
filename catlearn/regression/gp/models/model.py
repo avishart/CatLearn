@@ -412,6 +412,77 @@ class ModelProcess:
         # Rearrange derivative of variance
         return var_deriv.reshape(m_data, -1, order="F")
 
+    def predict_covariance(
+        self,
+        features,
+        KQX=None,
+        get_derivatives=False,
+        include_noise=False,
+        **kwargs,
+    ):
+        """
+        Calculate the predicted covariance matrix of the test targets.
+
+        Parameters:
+            features: (M,D) array or (M) list of fingerprint objects
+                Test features with M data points.
+            KQX: (M,N) or (M,N+N*D) or (M+M*D,N+N*D) array
+                The kernel matrix of the test and training features.
+                If KQX=None, it is calculated.
+            get_derivatives: bool
+                Whether to predict the uncertainty of the derivatives of
+                the targets.
+            include_noise: bool
+                Whether to include the noise of data in the predicted variance
+
+        Returns:
+            var: (M,M) array
+                The predicted covariance matrix of the targets
+                if get_derivatives=False.
+            or
+            var: (M*(1+D),M*(1+D)) array
+                The predicted covariance matrix of the targets
+                and its derivatives if get_derivatives=True.
+
+        """
+        # Check if the model is trained
+        if not self.trained_model:
+            raise AttributeError("The model is not trained!")
+        # Get the number of test points
+        n_data = len(features)
+        # Calculate the kernel of test and training data if it is not given
+        if KQX is None:
+            KQX = self.get_kernel(
+                features,
+                self.features,
+                get_derivatives=get_derivatives,
+            )
+        else:
+            if not get_derivatives:
+                KQX = KQX[:n_data]
+        # Calculate the kernel matrix of the test data
+        KQQ = self.get_kernel(
+            features,
+            get_derivatives=get_derivatives,
+        )
+        # Add noise to the diagonal of the kernel matrix
+        if include_noise:
+            add_v = self.inf_to_num(exp(2.0 * self.hp["noise"][0])) + self.corr
+            m_data = len(KQQ)
+            if "noise_deriv" in self.hp:
+                KQQ[range(n_data), range(n_data)] += add_v
+                add_v = self.inf_to_num(exp(2.0 * self.hp["noise_deriv"][0]))
+                add_v += self.corr
+                KQQ[range(n_data, m_data), range(n_data, m_data)] += add_v
+            else:
+                KQQ[range(m_data), range(m_data)] += add_v
+        # Calculate predicted variance
+        var = KQQ - matmul(KQX, self.calculate_CinvKQX(KQX))
+        # Scale prediction variance with the prefactor
+        var = var * self.prefactor
+        # Return the predicted covariance matrix
+        return var
+
     def set_hyperparams(self, new_params, **kwargs):
         """
         Set or update the hyperparameters for the model.
