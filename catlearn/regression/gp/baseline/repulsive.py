@@ -4,7 +4,7 @@ from .baseline import BaselineCalculator
 from ..fingerprint.geometry import (
     get_constraints,
     get_full_distance_matrix,
-    cosine_cutoff,
+    fp_cosine_cutoff,
 )
 
 
@@ -357,7 +357,7 @@ class RepulsionCalculator(BaselineCalculator):
             deriv = None
         # Calculate the cutoff function
         if self.use_cutoff:
-            inv_dist, deriv = cosine_cutoff(
+            inv_dist, deriv = fp_cosine_cutoff(
                 inv_dist,
                 deriv,
                 rs_cutoff=self.rs_cutoff,

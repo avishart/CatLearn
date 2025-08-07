@@ -849,7 +849,100 @@ def get_periodic_softmax(
     return fp, g
 
 
-def cosine_cutoff(fp, g, rs_cutoff=3.0, re_cutoff=4.0, eps=1e-16, **kwargs):
+def cosine_cutoff(
+    x,
+    use_derivatives=False,
+    xs_cutoff=3.0,
+    xe_cutoff=4.0,
+    **kwargs,
+):
+    """
+    Cosine cutoff function.
+    Modification of eq. 24 in https://doi.org/10.1002/qua.24927.
+
+    Parameters:
+        x: float or array of floats
+            The input values for the cutoff function.
+        use_derivatives: bool
+            If the derivatives of the cutoff function should be returned.
+        xs_cutoff: float
+            The start of the cutoff function.
+        xe_cutoff: float
+            The end of the cutoff function.
+
+    Returns:
+        fc: float or array of floats
+            The cutoff function values.
+            The fingerprint.
+        gc: float or array of floats
+            The derivatives of the cutoff function.
+    """
+    # Calculate the scale of the cutoff function
+    x_scale = xe_cutoff - xs_cutoff
+    # Calculate the cutoff function
+    fc_inner = pi * (x - xs_cutoff) / x_scale
+    fc = 0.5 * (1.0 + cos(fc_inner))
+    # Crop the cutoff function
+    fc_rs = x <= xs_cutoff
+    fc_re = x >= xe_cutoff
+    fc = where(fc_rs, 1.0, fc)
+    fc = where(fc_re, 0.0, fc)
+    # Calculate the derivative of the cutoff function
+    if use_derivatives:
+        gc = (-0.5 * pi / x_scale) * sin(fc_inner)
+        gc = where(fc_rs, 0.0, gc)
+        gc = where(fc_re, 0.0, gc)
+        return fc, gc
+    return fc, None
+
+
+def sine_activation(
+    x,
+    use_derivatives=False,
+    xs_activation=3.0,
+    xe_activation=4.0,
+    **kwargs,
+):
+    """
+    Sine activation function.
+
+    Parameters:
+        x: float or array of floats
+            The input values for the activation function.
+        use_derivatives: bool
+            If the derivatives of the activation function should be returned.
+        xs_activation: float
+            The start of the activation function.
+        xe_activation: float
+            The end of the activation function.
+
+    Returns:
+        fc: float or array of floats
+            The activation function values.
+            The fingerprint.
+        gc: float or array of floats
+            The derivatives of the activation function.
+    """
+    # Calculate the scale of the activation function
+    x_scale = xe_activation - xs_activation
+    # Calculate the activation function
+    fc_inner = pi * (x - xs_activation) / x_scale
+    fc = 0.5 * (1.0 - cos(fc_inner))
+    # Crop the activation function
+    fc_rs = x <= xs_activation
+    fc_re = x >= xe_activation
+    fc = where(fc_rs, 0.0, fc)
+    fc = where(fc_re, 1.0, fc)
+    # Calculate the derivative of the activation function
+    if use_derivatives:
+        gc = (0.5 * pi / x_scale) * sin(fc_inner)
+        gc = where(fc_rs, 0.0, gc)
+        gc = where(fc_re, 0.0, gc)
+        return fc, gc
+    return fc, None
+
+
+def fp_cosine_cutoff(fp, g, rs_cutoff=3.0, re_cutoff=4.0, eps=1e-16, **kwargs):
     """
     Cosine cutoff function.
     Modification of eq. 24 in https://doi.org/10.1002/qua.24927.
@@ -874,23 +967,24 @@ def cosine_cutoff(fp, g, rs_cutoff=3.0, re_cutoff=4.0, eps=1e-16, **kwargs):
         g: (N, Nnm, 3) or (Nnm*Nm+(Nnm*(Nnm-1)/2), 3) array
             The derivatives of the fingerprint.
     """
-    # Find the scale of the cutoff function
-    rscale = re_cutoff - rs_cutoff
     # Calculate the inverse fingerprint with small number added
     fp_inv = 1.0 / (fp + eps)
-    # Calculate the cutoff function
-    fc_inner = pi * (fp_inv - rs_cutoff) / rscale
-    fc = 0.5 * (cos(fc_inner) + 1.0)
-    # Crop the cutoff function
-    fp_rs = fp_inv < rs_cutoff
-    fp_re = fp_inv > re_cutoff
-    fc = where(fp_rs, 1.0, fc)
-    fc = where(fp_re, 0.0, fc)
-    # Calculate the derivative of the cutoff function
+    # Check if the derivatives are requested
     if g is not None:
-        gc = (0.5 * pi / rscale) * sin(fc_inner) * (fp_inv**2)
-        gc = where(fp_rs, 0.0, gc)
-        gc = where(fp_re, 0.0, gc)
+        use_derivatives = True
+    else:
+        use_derivatives = False
+    # Calculate the cutoff function
+    fc, gc = cosine_cutoff(
+        fp_inv,
+        use_derivatives=use_derivatives,
+        xs_cutoff=rs_cutoff,
+        xe_cutoff=re_cutoff,
+        **kwargs,
+    )
+    # If the derivatives are requested, calculate them
+    if use_derivatives:
+        gc *= fp_inv**2
         g = g * (fc + fp * gc)[..., None]
     # Multiply the fingerprint with the cutoff function
     fp = fp * fc

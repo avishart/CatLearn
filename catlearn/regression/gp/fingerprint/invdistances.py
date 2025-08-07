@@ -1,5 +1,5 @@
 from .geometry import (
-    cosine_cutoff,
+    fp_cosine_cutoff,
     get_covalent_distances,
     get_periodic_softmax,
     get_periodic_sum,
@@ -286,7 +286,7 @@ class InvDistances(Distances):
 
     def apply_cutoff(self, fp, g, **kwargs):
         "Get the cutoff function."
-        return cosine_cutoff(
+        return fp_cosine_cutoff(
             fp,
             g,
             rs_cutoff=self.rs_cutoff,
