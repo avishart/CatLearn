@@ -16,7 +16,7 @@ import datetime
 from time import time
 import warnings
 from ..regression.gp.calculator import BOCalculator, compare_atoms, copy_atoms
-from ..regression.gp.means.max import Prior_max
+from ..regression.gp.means import Prior_max
 from ..regression.gp.baseline import BornRepulsionCalculator
 
 
@@ -1788,7 +1788,8 @@ class ActiveLearning:
         Returns:
             self: The object itself.
         """
-        self.mlcalc.save_mlcalc(filename, **kwargs)
+        if self.rank == 0:
+            self.mlcalc.save_mlcalc(filename, **kwargs)
         return self
 
     def get_mlcalc(self, copy_mlcalc=True, **kwargs):
