@@ -425,6 +425,9 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
         # Initialize the best energy and position
         best_energy = inf
         best_pos = None
+        best_energy_no_crit = inf
+        best_pos_no_crit = None
+        # Check each drawn structure
         for x in x_drawn:
             # Get the new positions of the adsorbate
             pos = self.get_new_positions(x, **kwargs)
@@ -449,9 +452,31 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
                 self.steps += 1
             # Get the energy of the structure
             e = self.optimizable.get_potential_energy()
+            # Check if the energy is lower than the best energy
             if e < best_energy:
+                # Update the best energy and position without criteria
+                if e < best_energy_no_crit:
+                    best_energy_no_crit = e
+                    best_pos_no_crit = pos.copy()
+                # Check if the uncertainty is above the maximum allowed
+                if max_unc is not None:
+                    unc = self.get_uncertainty()
+                    if unc > max_unc:
+                        continue
+                # Check if the structures are within the trust distance
+                if dtrust is not None:
+                    within_dtrust = self.is_within_dtrust(dtrust=dtrust)
+                    if not within_dtrust:
+                        continue
+                # Update the best energy and position
                 best_energy = e
                 best_pos = pos.copy()
+        # Return the best position and number of steps
+        if best_energy == inf:
+            self.message(
+                "Uncertainty or trust distance is above the maximum allowed."
+            )
+            return best_pos_no_crit, steps
         return best_pos, steps
 
     def rotation_matrix(self, angles, positions):

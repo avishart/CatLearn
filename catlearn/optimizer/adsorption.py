@@ -2,7 +2,7 @@ from .method import OptimizerMethod
 from ase.parallel import world
 from ase.constraints import FixAtoms, FixBondLengths
 import itertools
-from numpy import array, asarray, concatenate, cos, matmul, pi, sin
+from numpy import array, asarray, concatenate, cos, inf, matmul, pi, sin
 from numpy.linalg import norm
 from scipy import __version__ as scipy_version
 from scipy.optimize import dual_annealing
@@ -262,6 +262,7 @@ class AdsorptionOptimizer(OptimizerMethod):
         fmax=0.05,
         steps=1000000,
         max_unc=None,
+        dtrust=None,
         unc_convergence=None,
         **kwargs,
     ):
@@ -270,15 +271,27 @@ class AdsorptionOptimizer(OptimizerMethod):
             return self._converged
         # Use original constraints
         self.optimizable.set_constraint(self.constraints_used)
+        # Initialize the best energy and position
+        self.best_energy = inf
+        self.best_pos = None
+        self.best_energy_no_crit = inf
+        self.best_pos_no_crit = None
         # Perform the simulated annealing
-        sol = dual_annealing(
+        dual_annealing(
             self.evaluate_value,
+            args=(max_unc, dtrust),
             bounds=self.bounds,
             maxfun=steps,
             **self.opt_kwargs,
         )
+        # Return the best position and number of steps
+        if self.best_energy == inf:
+            self.message(
+                "Uncertainty or trust distance is above the maximum allowed."
+            )
+            self.best_pos = self.best_pos_no_crit.copy()
         # Set the positions
-        self.evaluate_value(sol["x"])
+        self.evaluate_value(self.best_pos)
         # Set the new constraints
         self.optimizable.set_constraint(self.constraints_new)
         # Calculate the maximum force to check convergence
@@ -287,6 +300,7 @@ class AdsorptionOptimizer(OptimizerMethod):
             self._converged = self.check_convergence(
                 converged=True,
                 max_unc=max_unc,
+                dtrust=dtrust,
                 unc_convergence=unc_convergence,
             )
         return self._converged
@@ -436,14 +450,37 @@ class AdsorptionOptimizer(OptimizerMethod):
             pos[n_all:] = pos_ads2
         return pos
 
-    def evaluate_value(self, x, **kwargs):
+    def evaluate_value(self, x, max_unc=None, dtrust=None, **kwargs):
         "Evaluate the value of the adsorption."
         # Get the new positions of the adsorption
         pos = self.get_new_positions(x, **kwargs)
         # Set the positions
         self.optimizable.set_positions(pos)
         # Get the potential energy
-        return self.optimizable.get_potential_energy()
+        e = self.optimizable.get_potential_energy()
+        # Check if the energy is lower than the best energy
+        if e < self.best_energy:
+            # Update the best energy and position without criteria
+            if e < self.best_energy_no_crit:
+                self.best_energy_no_crit = e
+                self.best_pos_no_crit = x.copy()
+            # Check if criteria are met
+            is_within_crit = True
+            # Check if the uncertainty is above the maximum allowed
+            if max_unc is not None:
+                unc = self.get_uncertainty()
+                if unc > max_unc:
+                    is_within_crit = False
+            # Check if the structures are within the trust distance
+            if dtrust is not None and is_within_crit:
+                within_dtrust = self.is_within_dtrust(dtrust=dtrust)
+                if not within_dtrust:
+                    is_within_crit = False
+            # Update the best energy and position
+            if is_within_crit:
+                self.best_energy = e
+                self.best_pos = x.copy()
+        return e
 
     def get_arguments(self):
         "Get the arguments of the class itself."
