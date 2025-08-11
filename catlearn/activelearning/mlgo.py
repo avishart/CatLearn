@@ -115,6 +115,8 @@ class MLGO(AdsorptionAL):
             reuse_data_local: bool
                 Whether to reuse the data from the global optimization in the
                 ML-calculator for the local optimization.
+                If reuse_data_local is False, the last two structures
+                are used to train the local ML-calculator.
             acq: Acquisition class instance.
                 The Acquisition instance used for calculating the
                 acq. function and choose a candidate to calculate next.
@@ -524,8 +526,8 @@ class MLGO(AdsorptionAL):
                     index_local = bool_constraints.index(False)
                     prev_calculations = prev_calculations[index_local:]
                 else:
-                    # Use only the last calculation
-                    prev_calculations = prev_calculations[-1:]
+                    # Use only the last two calculations
+                    prev_calculations = prev_calculations[-2:]
             # Remove the constraints from the previous calculations
             prev_calculations = self.rm_constraints(
                 self.get_structures(get_all=False, allow_calculation=False),
