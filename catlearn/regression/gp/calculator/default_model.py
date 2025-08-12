@@ -265,9 +265,14 @@ def get_default_database(
             Cartesian coordinates are used if it is None.
         use_derivatives: bool
             Whether to use derivatives of the targets.
-        database_reduction: bool
+        database_reduction: bool or str
             Whether to used a reduced database after a number
             of training points.
+            If a string is given, the database reduction method is created
+            from the string.
+            If False, no database reduction is used.
+            If True, the default database reduction method is used.
+            The default database reduction method is DatabasePointsInterest.
         round_targets: int (optional)
             The number of decimals to round the targets to.
             If None, the targets are not rounded.
@@ -295,7 +300,7 @@ def get_default_database(
     else:
         use_fingerprint = True
     # Make the data base ready
-    if isinstance(database_reduction, str):
+    if isinstance(database_reduction, str) or database_reduction is True:
         # Set the default database arguments
         data_kwargs = dict(
             fingerprint=fp,
@@ -310,6 +315,13 @@ def get_default_database(
             include_last=1,
         )
         data_kwargs.update(database_kwargs)
+        if (
+            database_reduction is True
+            or database_reduction.lower() == "interest"
+        ):
+            from .database_reduction import DatabasePointsInterest
+
+            database = DatabasePointsInterest(**data_kwargs)
         if database_reduction.lower() == "distance":
             from .database_reduction import DatabaseDistance
 
@@ -334,10 +346,6 @@ def get_default_database(
             from .database_reduction import DatabaseRestart
 
             database = DatabaseRestart(**data_kwargs)
-        elif database_reduction.lower() == "interest":
-            from .database_reduction import DatabasePointsInterest
-
-            database = DatabasePointsInterest(**data_kwargs)
         elif database_reduction.lower() == "each_interest":
             from .database_reduction import DatabasePointsInterestEach
 
@@ -518,9 +526,14 @@ def get_default_mlmodel(
             It also can include model_kwargs, prior_kwargs,
             kernel_kwargs, hpfitter_kwargs, optimizer_kwargs,
             lineoptimizer_kwargs, and function_kwargs.
-        database_reduction: bool
+        database_reduction: bool or str
             Whether to used a reduced database after a number
             of training points.
+            If a string is given, the database reduction method is created
+            from the string.
+            If False, no database reduction is used.
+            If True, the default database reduction method is used.
+            The default database reduction method is DatabasePointsInterest.
         round_targets: int (optional)
             The number of decimals to round the targets to.
             If None, the targets are not rounded.
