@@ -78,7 +78,7 @@ class TestMLGO(unittest.TestCase):
         mlgo.run(
             fmax=0.05,
             steps=50,
-            max_unc=0.050,
+            max_unc=0.3,
             ml_steps=4000,
             ml_steps_local=1000,
         )

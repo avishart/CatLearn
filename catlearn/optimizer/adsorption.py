@@ -26,6 +26,7 @@ class AdsorptionOptimizer(OptimizerMethod):
         adsorbate,
         adsorbate2=None,
         bounds=None,
+        use_initial_struc=True,
         opt_kwargs={},
         bond_tol=1e-8,
         parallel_run=False,
@@ -51,6 +52,9 @@ class AdsorptionOptimizer(OptimizerMethod):
                 the center of the adsorbate and 3 rotations.
                 Same boundary conditions can be set for the second adsorbate
                 if chosen.
+            use_initial_struc: bool
+                If True, the initial structure is used as one of the drawn
+                structures.
             opt_kwargs: dict
                 The keyword arguments for the simulated annealing optimization.
             bond_tol: float
@@ -75,6 +79,7 @@ class AdsorptionOptimizer(OptimizerMethod):
         self.setup_bounds(bounds)
         # Set the parameters
         self.update_arguments(
+            use_initial_struc=use_initial_struc,
             opt_kwargs=opt_kwargs,
             parallel_run=parallel_run,
             comm=comm,
@@ -82,6 +87,8 @@ class AdsorptionOptimizer(OptimizerMethod):
             seed=seed,
             **kwargs,
         )
+        # Make initial optimizable structure
+        self.make_initial_structure()
 
     def get_structures(
         self,
@@ -267,7 +274,7 @@ class AdsorptionOptimizer(OptimizerMethod):
         **kwargs,
     ):
         # Check if the optimization can take any steps
-        if steps <= 0:
+        if steps <= 2:
             return self._converged
         # Use original constraints
         self.optimizable.set_constraint(self.constraints_used)
@@ -276,12 +283,25 @@ class AdsorptionOptimizer(OptimizerMethod):
         self.best_pos = None
         self.best_energy_no_crit = inf
         self.best_pos_no_crit = None
+        # Calculate the energy of the initial structure if used
+        if self.use_initial_struc:
+            # Get the energy of the structure
+            e = self.optimizable.get_potential_energy()
+            # Check if the energy is lower than the best energy
+            self.check_best_structure(
+                e=e,
+                pos=self.optimizable.get_positions(),
+                max_unc=max_unc,
+                dtrust=dtrust,
+                **kwargs,
+            )
+            steps -= 1
         # Perform the simulated annealing
         dual_annealing(
             self.evaluate_value,
             args=(max_unc, dtrust),
             bounds=self.bounds,
-            maxfun=steps,
+            maxfun=steps - 1,
             **self.opt_kwargs,
         )
         # Return the best position and number of steps
@@ -291,7 +311,9 @@ class AdsorptionOptimizer(OptimizerMethod):
             )
             self.best_pos = self.best_pos_no_crit.copy()
         # Set the positions
-        self.evaluate_value(self.best_pos)
+        self.optimizable.set_positions(self.best_pos)
+        # Get the potential energy
+        e = self.optimizable.get_potential_energy()
         # Set the new constraints
         self.optimizable.set_constraint(self.constraints_new)
         # Calculate the maximum force to check convergence
@@ -317,6 +339,7 @@ class AdsorptionOptimizer(OptimizerMethod):
         adsorbate=None,
         adsorbate2=None,
         bounds=None,
+        use_initial_struc=None,
         opt_kwargs=None,
         bond_tol=None,
         parallel_run=None,
@@ -343,6 +366,9 @@ class AdsorptionOptimizer(OptimizerMethod):
                 the center of the adsorbate and 3 rotations.
                 Same boundary conditions can be set for the second adsorbate
                 if chosen.
+            use_initial_struc: bool
+                If True, the initial structure is used as one of the drawn
+                structures.
             opt_kwargs: dict
                 The keyword arguments for the simulated annealing optimization.
             bond_tol: float
@@ -389,6 +415,8 @@ class AdsorptionOptimizer(OptimizerMethod):
         # Create the boundary conditions
         if bounds is not None:
             self.setup_bounds(bounds)
+        if use_initial_struc is not None:
+            self.use_initial_struc = use_initial_struc
         return self
 
     def set_seed(self, seed=None):
@@ -459,11 +487,30 @@ class AdsorptionOptimizer(OptimizerMethod):
         # Get the potential energy
         e = self.optimizable.get_potential_energy()
         # Check if the energy is lower than the best energy
+        self.check_best_structure(
+            e=e,
+            pos=pos,
+            max_unc=max_unc,
+            dtrust=dtrust,
+            **kwargs,
+        )
+        return e
+
+    def check_best_structure(
+        self,
+        e,
+        pos,
+        max_unc=None,
+        dtrust=None,
+        **kwargs,
+    ):
+        "Check if the structure is the best one."
+        # Check if the energy is lower than the best energy
         if e < self.best_energy:
             # Update the best energy and position without criteria
             if e < self.best_energy_no_crit:
                 self.best_energy_no_crit = e
-                self.best_pos_no_crit = x.copy()
+                self.best_pos_no_crit = pos.copy()
             # Check if criteria are met
             is_within_crit = True
             # Check if the uncertainty is above the maximum allowed
@@ -472,15 +519,25 @@ class AdsorptionOptimizer(OptimizerMethod):
                 if unc > max_unc:
                     is_within_crit = False
             # Check if the structures are within the trust distance
-            if dtrust is not None and is_within_crit:
+            if dtrust is not None:
                 within_dtrust = self.is_within_dtrust(dtrust=dtrust)
                 if not within_dtrust:
                     is_within_crit = False
             # Update the best energy and position
             if is_within_crit:
                 self.best_energy = e
-                self.best_pos = x.copy()
-        return e
+                self.best_pos = pos.copy()
+        return self.best_energy, self.best_pos
+
+    def make_initial_structure(self, **kwargs):
+        "Get the initial structure for the optimization."
+        # Draw a random structure
+        x = self.rng.uniform(low=self.bounds[:, 0], high=self.bounds[:, 1])
+        # Get the new positions of the adsorption
+        pos = self.get_new_positions(x, **kwargs)
+        # Set the positions
+        self.optimizable.set_positions(pos)
+        return self
 
     def get_arguments(self):
         "Get the arguments of the class itself."
@@ -490,6 +547,7 @@ class AdsorptionOptimizer(OptimizerMethod):
             adsorbate=self.adsorbate,
             adsorbate2=self.adsorbate2,
             bounds=self.bounds,
+            use_initial_struc=self.use_initial_struc,
             opt_kwargs=self.opt_kwargs,
             parallel_run=self.parallel_run,
             comm=self.comm,

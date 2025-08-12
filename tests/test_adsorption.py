@@ -76,7 +76,7 @@ class TestAdsorption(unittest.TestCase):
         ads_al.run(
             fmax=0.05,
             steps=50,
-            max_unc=0.050,
+            max_unc=0.3,
             ml_steps=4000,
         )
         # Check that Adsorption AL converged

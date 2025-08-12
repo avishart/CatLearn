@@ -43,9 +43,10 @@ class MLGO(AdsorptionAL):
         unc_convergence=0.02,
         use_method_unc_conv=True,
         use_restart=True,
+        use_restart_local=True,
         check_unc=True,
         check_energy=True,
-        check_fmax=True,
+        check_fmax=False,
         max_unc_restart=0.05,
         n_evaluations_each=1,
         min_data=3,
@@ -165,6 +166,11 @@ class MLGO(AdsorptionAL):
                 in the optimization method.
             use_restart: bool
                 Use the result from last robust iteration in
+                the global optimization.
+                Be aware that restart and low max_unc can result in only the
+                initial structure passing the maximum uncertainty criterion.
+            use_restart_local: bool
+                Use the result from last robust iteration in
                 the local optimization.
             check_unc: bool
                 Check if the uncertainty is large for the restarted result and
@@ -282,6 +288,7 @@ class MLGO(AdsorptionAL):
             use_fmax_convergence=use_fmax_convergence,
             unc_convergence=unc_convergence,
             use_method_unc_conv=use_method_unc_conv,
+            use_restart=use_restart,
             check_unc=check_unc,
             check_energy=check_energy,
             check_fmax=check_fmax,
@@ -316,7 +323,7 @@ class MLGO(AdsorptionAL):
             atoms=atoms,
             local_opt=local_opt,
             local_opt_kwargs=local_opt_kwargs,
-            use_restart=use_restart,
+            use_restart=use_restart_local,
         )
         # Restart the active learning
         prev_calculations = self.restart_optimization(
@@ -331,7 +338,7 @@ class MLGO(AdsorptionAL):
         atoms,
         local_opt=FIRE,
         local_opt_kwargs={},
-        use_restart=True,
+        use_restart_local=True,
         **kwargs,
     ):
         "Build the local optimization method."
@@ -340,7 +347,7 @@ class MLGO(AdsorptionAL):
         self.local_opt = local_opt
         self.local_opt_kwargs = local_opt_kwargs
         # Set whether to use the restart in the local optimization
-        self.use_local_restart = use_restart
+        self.use_restart_local = use_restart_local
         # Build the local optimizer method
         self.local_method = LocalOptimizer(
             atoms,
@@ -470,7 +477,7 @@ class MLGO(AdsorptionAL):
         # Switch to the local optimization
         self.setup_method(self.local_method)
         # Set whether to use the restart
-        self.use_restart = self.use_local_restart
+        self.use_restart = self.use_restart_local
         return self
 
     def rm_constraints(self, structure, data, **kwargs):
@@ -565,7 +572,8 @@ class MLGO(AdsorptionAL):
             use_fmax_convergence=self.use_fmax_convergence,
             unc_convergence=self.unc_convergence,
             use_method_unc_conv=self.use_method_unc_conv,
-            use_restart=self.use_local_restart,
+            use_restart=self.use_restart,
+            use_restart_local=self.use_restart_local,
             check_unc=self.check_unc,
             check_energy=self.check_energy,
             check_fmax=self.check_fmax,

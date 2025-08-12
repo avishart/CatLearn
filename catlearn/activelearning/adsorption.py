@@ -35,6 +35,10 @@ class AdsorptionAL(ActiveLearning):
         use_fmax_convergence=True,
         unc_convergence=0.02,
         use_method_unc_conv=True,
+        use_restart=True,
+        check_unc=True,
+        check_energy=True,
+        check_fmax=False,
         n_evaluations_each=1,
         min_data=5,
         use_database_check=True,
@@ -133,6 +137,19 @@ class AdsorptionAL(ActiveLearning):
             use_method_unc_conv: bool
                 Whether to use the unc_convergence as a convergence criterion
                 in the optimization method.
+            use_restart: bool
+                Use the result from last robust iteration.
+                Be aware that restart and low max_unc can result in only the
+                initial structure passing the maximum uncertainty criterion.
+            check_unc: bool
+                Check if the uncertainty is large for the restarted result and
+                if it is then use the previous initial.
+            check_energy: bool
+                Check if the energy is larger for the restarted result than
+                the previous.
+            check_fmax: bool
+                Check if the maximum force is larger for the restarted result
+                than the initial interpolation and if so then replace it.
             n_evaluations_each: int
                 Number of evaluations for each candidate.
             min_data: int
@@ -218,6 +235,7 @@ class AdsorptionAL(ActiveLearning):
             parallel_run=parallel_run,
             comm=comm,
             verbose=verbose,
+            seed=seed,
         )
         # Initialize the BayesianOptimizer
         super().__init__(
@@ -236,7 +254,10 @@ class AdsorptionAL(ActiveLearning):
             use_fmax_convergence=use_fmax_convergence,
             unc_convergence=unc_convergence,
             use_method_unc_conv=use_method_unc_conv,
-            use_restart=False,
+            use_restart=use_restart,
+            check_unc=check_unc,
+            check_energy=check_energy,
+            check_fmax=check_fmax,
             n_evaluations_each=n_evaluations_each,
             min_data=min_data,
             use_database_check=use_database_check,
@@ -273,6 +294,7 @@ class AdsorptionAL(ActiveLearning):
         parallel_run=False,
         comm=world,
         verbose=False,
+        seed=None,
         **kwargs,
     ):
         "Build the optimization method."
@@ -298,6 +320,7 @@ class AdsorptionAL(ActiveLearning):
             parallel_run=False,
             comm=comm,
             verbose=verbose,
+            seed=seed,
         )
         # Run the method in parallel if requested
         if parallel_run:
@@ -307,6 +330,7 @@ class AdsorptionAL(ActiveLearning):
                 parallel_run=parallel_run,
                 comm=comm,
                 verbose=verbose,
+                seed=seed,
             )
         return method
 
@@ -340,6 +364,7 @@ class AdsorptionAL(ActiveLearning):
         use_derivatives=True,
         calc_forces=False,
         kappa=-1.0,
+        calc_kwargs={},
         **kwargs,
     ):
         from ..regression.gp.fingerprint import SortedInvDistances
@@ -368,6 +393,9 @@ class AdsorptionAL(ActiveLearning):
                     wrap=True,
                     use_tags=True,
                 )
+        # Set a limit for the uncertainty
+        if "max_unc" not in calc_kwargs.keys():
+            calc_kwargs["max_unc"] = 2.0
         return super().setup_default_mlcalc(
             fp=fp,
             atoms=atoms,
@@ -375,6 +403,7 @@ class AdsorptionAL(ActiveLearning):
             use_derivatives=use_derivatives,
             calc_forces=calc_forces,
             kappa=kappa,
+            calc_kwargs=calc_kwargs,
             **kwargs,
         )
 
@@ -412,6 +441,10 @@ class AdsorptionAL(ActiveLearning):
             use_fmax_convergence=self.use_fmax_convergence,
             unc_convergence=self.unc_convergence,
             use_method_unc_conv=self.use_method_unc_conv,
+            use_restart=self.use_restart,
+            check_unc=self.check_unc,
+            check_energy=self.check_energy,
+            check_fmax=self.check_fmax,
             n_evaluations_each=self.n_evaluations_each,
             min_data=self.min_data,
             use_database_check=self.use_database_check,
