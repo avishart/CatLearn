@@ -26,6 +26,7 @@ class RandomAdsorptionAL(ActiveLearning):
         n_random_draws=200,
         use_initial_opt=False,
         initial_fmax=0.2,
+        initial_steps=50,
         use_repulsive_check=True,
         repulsive_tol=0.1,
         repulsive_calculator=BornRepulsionCalculator(),
@@ -43,6 +44,7 @@ class RandomAdsorptionAL(ActiveLearning):
         use_fmax_convergence=True,
         unc_convergence=0.02,
         use_method_unc_conv=True,
+        use_restart=True,
         check_unc=True,
         check_energy=True,
         check_fmax=True,
@@ -105,6 +107,9 @@ class RandomAdsorptionAL(ActiveLearning):
                 with lowest energy are local optimized.
             initial_fmax: float
                 The maximum force for the initial local optimizations.
+            initial_steps: int
+                The maximum number of steps for the initial local
+                optimizations.
             use_repulsive_check: bool
                 If True, a energy will be calculated for each randomly
                 drawn structure to check if the energy is not too large.
@@ -162,6 +167,10 @@ class RandomAdsorptionAL(ActiveLearning):
             use_method_unc_conv: bool
                 Whether to use the unc_convergence as a convergence criterion
                 in the optimization method.
+            use_restart: bool
+                Use the result from last robust iteration.
+                Be aware that restart and low max_unc can result in only the
+                initial structure passing the maximum uncertainty criterion.
             check_unc: bool
                 Check if the uncertainty is large for the restarted result and
                 if it is then use the previous initial.
@@ -256,8 +265,10 @@ class RandomAdsorptionAL(ActiveLearning):
             adsorbate2=adsorbate2,
             bounds=bounds,
             n_random_draws=n_random_draws,
+            use_initial_struc=use_restart,
             use_initial_opt=use_initial_opt,
             initial_fmax=initial_fmax,
+            initial_steps=initial_steps,
             use_repulsive_check=use_repulsive_check,
             repulsive_tol=repulsive_tol,
             repulsive_calculator=repulsive_calculator,
@@ -267,6 +278,7 @@ class RandomAdsorptionAL(ActiveLearning):
             parallel_run=parallel_run,
             comm=comm,
             verbose=verbose,
+            seed=seed,
         )
         # Initialize the BayesianOptimizer
         super().__init__(
@@ -285,7 +297,7 @@ class RandomAdsorptionAL(ActiveLearning):
             use_fmax_convergence=use_fmax_convergence,
             unc_convergence=unc_convergence,
             use_method_unc_conv=use_method_unc_conv,
-            use_restart=False,
+            use_restart=use_restart,
             check_unc=check_unc,
             check_energy=check_energy,
             check_fmax=check_fmax,
@@ -321,8 +333,10 @@ class RandomAdsorptionAL(ActiveLearning):
         adsorbate2=None,
         bounds=None,
         n_random_draws=20,
-        use_initial_opt=True,
+        use_initial_struc=True,
+        use_initial_opt=False,
         initial_fmax=0.2,
+        initial_steps=50,
         use_repulsive_check=True,
         repulsive_tol=0.1,
         repulsive_calculator=BornRepulsionCalculator(),
@@ -332,6 +346,7 @@ class RandomAdsorptionAL(ActiveLearning):
         parallel_run=False,
         comm=world,
         verbose=False,
+        seed=None,
         **kwargs,
     ):
         "Build the optimization method."
@@ -344,8 +359,10 @@ class RandomAdsorptionAL(ActiveLearning):
             self.adsorbate2 = None
         self.bounds = bounds
         self.n_random_draws = n_random_draws
+        self.use_initial_struc = use_initial_struc
         self.use_initial_opt = use_initial_opt
         self.initial_fmax = initial_fmax
+        self.initial_steps = initial_steps
         self.use_repulsive_check = use_repulsive_check
         self.repulsive_tol = repulsive_tol
         self.repulsive_calculator = repulsive_calculator
@@ -359,8 +376,10 @@ class RandomAdsorptionAL(ActiveLearning):
             adsorbate2=adsorbate2,
             bounds=bounds,
             n_random_draws=n_random_draws,
+            use_initial_struc=use_initial_struc,
             use_initial_opt=use_initial_opt,
             initial_fmax=initial_fmax,
+            initial_steps=initial_steps,
             use_repulsive_check=use_repulsive_check,
             repulsive_tol=repulsive_tol,
             repulsive_calculator=repulsive_calculator,
@@ -369,6 +388,7 @@ class RandomAdsorptionAL(ActiveLearning):
             parallel_run=False,
             comm=comm,
             verbose=verbose,
+            seed=seed,
         )
         # Run the method in parallel if requested
         if parallel_run:
@@ -378,6 +398,7 @@ class RandomAdsorptionAL(ActiveLearning):
                 parallel_run=parallel_run,
                 comm=comm,
                 verbose=verbose,
+                seed=seed,
             )
         return method
 
@@ -411,6 +432,21 @@ class RandomAdsorptionAL(ActiveLearning):
             self.extra_initial_data(**kwargs)
         return self
 
+    def setup_default_mlcalc(
+        self,
+        kappa=-1.0,
+        calc_kwargs={},
+        **kwargs,
+    ):
+        # Set a limit for the uncertainty
+        if "max_unc" not in calc_kwargs.keys():
+            calc_kwargs["max_unc"] = 2.0
+        return super().setup_default_mlcalc(
+            kappa=kappa,
+            calc_kwargs=calc_kwargs,
+            **kwargs,
+        )
+
     def get_arguments(self):
         "Get the arguments of the class itself."
         # Get the arguments given to the class in the initialization
@@ -424,6 +460,7 @@ class RandomAdsorptionAL(ActiveLearning):
             n_random_draws=self.n_random_draws,
             use_initial_opt=self.use_initial_opt,
             initial_fmax=self.initial_fmax,
+            initial_steps=self.initial_steps,
             use_repulsive_check=self.use_repulsive_check,
             repulsive_tol=self.repulsive_tol,
             repulsive_calculator=self.repulsive_calculator,
@@ -441,6 +478,7 @@ class RandomAdsorptionAL(ActiveLearning):
             use_fmax_convergence=self.use_fmax_convergence,
             unc_convergence=self.unc_convergence,
             use_method_unc_conv=self.use_method_unc_conv,
+            use_restart=self.use_restart,
             check_unc=self.check_unc,
             check_energy=self.check_energy,
             check_fmax=self.check_fmax,

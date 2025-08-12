@@ -23,8 +23,10 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
         adsorbate2=None,
         bounds=None,
         n_random_draws=50,
+        use_initial_struc=True,
         use_initial_opt=False,
         initial_fmax=0.2,
+        initial_steps=50,
         use_repulsive_check=True,
         repulsive_tol=0.1,
         repulsive_calculator=BornRepulsionCalculator(),
@@ -55,12 +57,18 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
                 if chosen.
             n_random_draws: int
                 The number of random structures to be drawn.
+            use_initial_struc: bool
+                If True, the initial structure is used as one of the drawn
+                structures.
             use_initial_opt: bool
                 If True, the initial structures, drawn from the random
                 sampling, will be local optimized before the structure
                 with lowest energy are local optimized.
             initial_fmax: float
                 The maximum force for the initial local optimizations.
+            initial_steps: int
+                The maximum number of steps for the initial local
+                optimizations.
             use_repulsive_check: bool
                 If True, a energy will be calculated for each randomly
                 drawn structure to check if the energy is not too large.
@@ -93,8 +101,10 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
         # Set the parameters
         self.update_arguments(
             n_random_draws=n_random_draws,
+            use_initial_struc=use_initial_struc,
             use_initial_opt=use_initial_opt,
             initial_fmax=initial_fmax,
+            initial_steps=initial_steps,
             use_repulsive_check=use_repulsive_check,
             repulsive_tol=repulsive_tol,
             repulsive_calculator=repulsive_calculator,
@@ -106,6 +116,8 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
             seed=seed,
             **kwargs,
         )
+        # Make initial optimizable structure
+        self.make_initial_structure()
 
     def create_slab_ads(
         self,
@@ -226,8 +238,15 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
         # Check if the optimization can take any steps
         if steps <= 0:
             return self._converged
+        # Take initial structure into account
+        n_random_draws = self.n_random_draws
+        if self.use_initial_struc:
+            n_random_draws -= 1
         # Draw random structures
-        x_drawn = self.draw_random_structures()
+        x_drawn = self.draw_random_structures(
+            n_random_draws=n_random_draws,
+            **kwargs,
+        )
         # Get the best drawn structure
         best_pos, steps = self.get_best_drawn_structure(
             x_drawn,
@@ -274,8 +293,10 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
         adsorbate2=None,
         bounds=None,
         n_random_draws=None,
+        use_initial_struc=None,
         use_initial_opt=None,
         initial_fmax=None,
+        initial_steps=None,
         use_repulsive_check=None,
         repulsive_tol=None,
         repulsive_calculator=None,
@@ -307,12 +328,18 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
                 if chosen.
             n_random_draws: int
                 The number of random structures to be drawn.
+            use_initial_struc: bool
+                If True, the initial structure is used as one of the drawn
+                structures.
             use_initial_opt: bool
                 If True, the initial structures, drawn from the random
                 sampling, will be local optimized before the structure
                 with lowest energy are local optimized.
             initial_fmax: float
                 The maximum force for the initial local optimizations.
+            initial_steps: int
+                The maximum number of steps for the initial local
+                optimizations.
             use_repulsive_check: bool
                 If True, a energy will be calculated for each randomly
                 drawn structure to check if the energy is not too large.
@@ -365,10 +392,14 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
         # Set the rest of the parameters
         if n_random_draws is not None:
             self.n_random_draws = int(n_random_draws)
+        if use_initial_struc is not None:
+            self.use_initial_struc = use_initial_struc
         if use_initial_opt is not None:
             self.use_initial_opt = use_initial_opt
         if initial_fmax is not None:
             self.initial_fmax = float(initial_fmax)
+        if initial_steps is not None:
+            self.initial_steps = int(initial_steps)
         if use_repulsive_check is not None:
             self.use_repulsive_check = use_repulsive_check
         if repulsive_tol is not None:
@@ -379,7 +410,7 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
             self.repulsive_calculator = repulsive_calculator
         return self
 
-    def draw_random_structures(self, **kwargs):
+    def draw_random_structures(self, n_random_draws=50, **kwargs):
         "Draw random structures for the adsorption optimization."
         # Get reference energy
         self.e_ref = self.get_reference_energy()
@@ -392,7 +423,7 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
             dummy_optimizable = self.optimizable.copy()
             dummy_optimizable.calc = self.repulsive_calculator
         # Draw random structures
-        while n_drawn < self.n_random_draws:
+        while n_drawn < n_random_draws:
             # Draw a random structure
             x = self.rng.uniform(low=self.bounds[:, 0], high=self.bounds[:, 1])
             # Evaluate the value of the structure
@@ -401,7 +432,7 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
                 # Check if the value is not too large
                 if e - self.e_ref > self.repulsive_tol:
                     failed_steps += 1
-                    if failed_steps > 100.0 * self.n_random_draws:
+                    if failed_steps > 100.0 * n_random_draws:
                         self.message(
                             f"{failed_steps} failed drawns. "
                             "Stopping is recommended!",
@@ -423,10 +454,22 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
     ):
         "Get the best drawn structure from the random sampling."
         # Initialize the best energy and position
-        best_energy = inf
-        best_pos = None
-        best_energy_no_crit = inf
-        best_pos_no_crit = None
+        self.best_energy = inf
+        self.best_pos = None
+        self.best_energy_no_crit = inf
+        self.best_pos_no_crit = None
+        # Calculate the energy of the initial structure if used
+        if self.use_initial_struc:
+            # Get the energy of the structure
+            e = self.optimizable.get_potential_energy()
+            # Check if the energy is lower than the best energy
+            self.check_best_structure(
+                e=e,
+                pos=self.optimizable.get_positions(),
+                max_unc=max_unc,
+                dtrust=dtrust,
+                **kwargs,
+            )
         # Check each drawn structure
         for x in x_drawn:
             # Get the new positions of the adsorbate
@@ -439,7 +482,7 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
                 _, used_steps = self.local_optimize(
                     atoms=self.optimizable,
                     fmax=self.initial_fmax,
-                    steps=steps,
+                    steps=self.initial_steps,
                     max_unc=max_unc,
                     dtrust=dtrust,
                     **kwargs,
@@ -453,31 +496,53 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
             # Get the energy of the structure
             e = self.optimizable.get_potential_energy()
             # Check if the energy is lower than the best energy
-            if e < best_energy:
-                # Update the best energy and position without criteria
-                if e < best_energy_no_crit:
-                    best_energy_no_crit = e
-                    best_pos_no_crit = pos.copy()
-                # Check if the uncertainty is above the maximum allowed
-                if max_unc is not None:
-                    unc = self.get_uncertainty()
-                    if unc > max_unc:
-                        continue
-                # Check if the structures are within the trust distance
-                if dtrust is not None:
-                    within_dtrust = self.is_within_dtrust(dtrust=dtrust)
-                    if not within_dtrust:
-                        continue
-                # Update the best energy and position
-                best_energy = e
-                best_pos = pos.copy()
+            self.check_best_structure(
+                e=e,
+                pos=pos,
+                max_unc=max_unc,
+                dtrust=dtrust,
+                **kwargs,
+            )
         # Return the best position and number of steps
-        if best_energy == inf:
+        if self.best_energy == inf:
             self.message(
                 "Uncertainty or trust distance is above the maximum allowed."
             )
-            return best_pos_no_crit, steps
-        return best_pos, steps
+            return self.best_pos_no_crit, steps
+        return self.best_pos, steps
+
+    def check_best_structure(
+        self,
+        e,
+        pos,
+        max_unc=None,
+        dtrust=None,
+        **kwargs,
+    ):
+        "Check if the structure is the best one."
+        # Check if the energy is lower than the best energy
+        if e < self.best_energy:
+            # Update the best energy and position without criteria
+            if e < self.best_energy_no_crit:
+                self.best_energy_no_crit = e
+                self.best_pos_no_crit = pos.copy()
+            # Check if criteria are met
+            is_within_crit = True
+            # Check if the uncertainty is above the maximum allowed
+            if max_unc is not None:
+                unc = self.get_uncertainty()
+                if unc > max_unc:
+                    is_within_crit = False
+            # Check if the structures are within the trust distance
+            if dtrust is not None:
+                within_dtrust = self.is_within_dtrust(dtrust=dtrust)
+                if not within_dtrust:
+                    is_within_crit = False
+            # Update the best energy and position
+            if is_within_crit:
+                self.best_energy = e
+                self.best_pos = pos.copy()
+        return self.best_energy, self.best_pos
 
     def rotation_matrix(self, angles, positions):
         "Rotate the adsorbate"
@@ -558,6 +623,14 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
             e_ref += atoms.get_potential_energy()
         return e_ref
 
+    def make_initial_structure(self, **kwargs):
+        "Get the initial structure for the optimization."
+        x_drawn = self.draw_random_structures(n_random_draws=1, **kwargs)
+        x_drawn = x_drawn[0]
+        pos = self.get_new_positions(x_drawn, **kwargs)
+        self.optimizable.set_positions(pos)
+        return self
+
     def get_arguments(self):
         "Get the arguments of the class itself."
         # Get the arguments given to the class in the initialization
@@ -567,8 +640,10 @@ class RandomAdsorptionOptimizer(LocalOptimizer):
             adsorbate2=self.adsorbate2,
             bounds=self.bounds,
             n_random_draws=self.n_random_draws,
+            use_initial_struc=self.use_initial_struc,
             use_initial_opt=self.use_initial_opt,
             initial_fmax=self.initial_fmax,
+            initial_steps=self.initial_steps,
             use_repulsive_check=self.use_repulsive_check,
             repulsive_tol=self.repulsive_tol,
             repulsive_calculator=self.repulsive_calculator,
