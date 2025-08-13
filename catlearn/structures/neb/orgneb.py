@@ -234,6 +234,18 @@ class OriginalNEB:
             forces_new = self.get_climb_forces(forces_new, forces, tangent)
         return forces_new.reshape(-1, 3)
 
+    def get_x(self):
+        return self.get_positions().ravel()
+
+    def set_x(self, x):
+        self.set_positions(x.reshape(-1, 3))
+
+    def get_gradient(self):
+        return self.get_forces().ravel()
+
+    def get_value(self, *args, **kwargs):
+        return self.get_potential_energy(*args, **kwargs)
+
     def get_image_positions(self):
         """
         Get the positions of the images.

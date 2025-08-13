@@ -99,6 +99,18 @@ class Structure(Atoms):
         self.store_results()
         return energy
 
+    def get_x(self):
+        return self.get_positions().ravel()
+
+    def set_x(self, x):
+        self.set_positions(x.reshape(-1, 3))
+
+    def get_gradient(self):
+        return self.get_forces().ravel()
+
+    def get_value(self, *args, **kwargs):
+        return self.get_potential_energy(*args, **kwargs)
+
     def get_uncertainty(self, *args, **kwargs):
         if self.is_saved:
             if "uncertainty" in self.results:
