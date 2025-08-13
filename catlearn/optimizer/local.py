@@ -126,7 +126,7 @@ class LocalOptimizer(OptimizerMethod):
             if max_unc is None and dtrust is None:
                 optimizer.run(fmax=fmax, steps=steps)
                 forces = atoms.get_forces()
-                converged = optimizer.converged(forces)
+                converged = self.is_fmax_converged(forces, fmax=fmax)
                 self.steps += optimizer.get_number_of_steps()
             else:
                 converged = self.run_max_unc(
@@ -301,7 +301,7 @@ class LocalOptimizer(OptimizerMethod):
             optimizer.run(fmax=fmax, steps=self.steps + 1, **kwargs)
         self.steps += 1
         forces = atoms.get_forces()
-        return optimizer.converged(forces)
+        return self.is_fmax_converged(forces, fmax=fmax)
 
     def get_arguments(self):
         "Get the arguments of the class itself."

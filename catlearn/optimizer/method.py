@@ -582,6 +582,23 @@ class OptimizerMethod:
         """
         return self._converged
 
+    def is_fmax_converged(self, forces, fmax, **kwargs):
+        """
+        Check if the optimization is converged based on the maximum force.
+
+        Parameters:
+            forces: (N,3) array
+                The forces of the optimizable.
+            fmax: float
+                The maximum force allowed on an atom.
+
+        Returns:
+            converged: bool
+                Whether the optimization is converged.
+        """
+        forces = forces.reshape(-1, 3)
+        return sqrt(einsum("ij,ij->i", forces, forces)).max() < fmax
+
     def is_energy_minimized(self):
         """
         Check if the optimization method minimizes the energy.

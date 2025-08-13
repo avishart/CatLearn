@@ -533,6 +533,7 @@ class OriginalNEB:
         return self.set_calculator(calculators)
 
     def converged(self, forces, fmax):
+        forces = forces.reshape(-1, 3)
         return sqrt(einsum("ij,ij->i", forces, forces)).max() < fmax
 
     def is_neb(self):
