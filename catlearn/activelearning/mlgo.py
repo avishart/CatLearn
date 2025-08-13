@@ -42,7 +42,7 @@ class MLGO(AdsorptionAL):
         use_fmax_convergence=True,
         unc_convergence=0.02,
         use_method_unc_conv=True,
-        use_restart=True,
+        use_restart=False,
         use_restart_local=True,
         check_unc=True,
         check_energy=True,

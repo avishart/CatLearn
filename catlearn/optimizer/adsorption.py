@@ -26,7 +26,7 @@ class AdsorptionOptimizer(OptimizerMethod):
         adsorbate,
         adsorbate2=None,
         bounds=None,
-        use_initial_struc=True,
+        use_initial_struc=False,
         opt_kwargs={},
         bond_tol=1e-8,
         parallel_run=False,
