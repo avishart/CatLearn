@@ -250,6 +250,10 @@ class OriginalNEB:
         forces = gradient.reshape(-1, 3)
         return sqrt(einsum("ij,ij->i", forces, forces)).max()
 
+    def ndofs(self):
+        "Number of degrees of freedom in the NEB."
+        return 3 * len(self)
+
     def get_image_positions(self):
         """
         Get the positions of the images.
