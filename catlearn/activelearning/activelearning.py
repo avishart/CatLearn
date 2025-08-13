@@ -352,7 +352,7 @@ class ActiveLearning:
         self.broadcast_best_structures()
         return self.converged()
 
-    def converged(self):
+    def converged(self, *args, **kwargs):
         "Whether the active learning is converged."
         return self._converged
 

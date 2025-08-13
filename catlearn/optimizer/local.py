@@ -125,11 +125,13 @@ class LocalOptimizer(OptimizerMethod):
         with self.local_opt(atoms, **self.local_opt_kwargs) as optimizer:
             if max_unc is None and dtrust is None:
                 optimizer.run(fmax=fmax, steps=steps)
-                converged = optimizer.converged()
+                forces = atoms.get_forces()
+                converged = optimizer.converged(forces)
                 self.steps += optimizer.get_number_of_steps()
             else:
                 converged = self.run_max_unc(
                     optimizer=optimizer,
+                    atoms=atoms,
                     fmax=fmax,
                     steps=steps,
                     max_unc=max_unc,
@@ -143,6 +145,7 @@ class LocalOptimizer(OptimizerMethod):
     def run_max_unc(
         self,
         optimizer,
+        atoms,
         fmax=0.05,
         steps=1000,
         max_unc=None,
@@ -155,6 +158,8 @@ class LocalOptimizer(OptimizerMethod):
         Parameters:
             optimizer: ASE optimizer object
                 The optimizer object.
+            atoms: Atoms instance
+                The atoms to be optimized.
             fmax: float
                 The maximum force allowed on an atom.
             steps: int
@@ -177,7 +182,12 @@ class LocalOptimizer(OptimizerMethod):
                 self.message("The maximum number of steps is reached.")
                 break
             # Run a local optimization step
-            _converged = self.run_max_unc_step(optimizer, fmax=fmax, **kwargs)
+            _converged = self.run_max_unc_step(
+                optimizer,
+                atoms=atoms,
+                fmax=fmax,
+                **kwargs,
+            )
             # Check if the uncertainty is above the maximum allowed
             if max_unc is not None:
                 # Get the uncertainty of the atoms
@@ -280,7 +290,7 @@ class LocalOptimizer(OptimizerMethod):
             self.setup_local_optimizer(self.local_opt, local_opt_kwargs)
         return self
 
-    def run_max_unc_step(self, optimizer, fmax=0.05, **kwargs):
+    def run_max_unc_step(self, optimizer, atoms, fmax=0.05, **kwargs):
         """
         Run a local optimization step.
         The ASE optimizer is dependent on the ASE version.
@@ -290,7 +300,8 @@ class LocalOptimizer(OptimizerMethod):
         else:
             optimizer.run(fmax=fmax, steps=self.steps + 1, **kwargs)
         self.steps += 1
-        return optimizer.converged()
+        forces = atoms.get_forces()
+        return optimizer.converged(forces)
 
     def get_arguments(self):
         "Get the arguments of the class itself."

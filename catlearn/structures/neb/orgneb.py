@@ -246,6 +246,10 @@ class OriginalNEB:
     def get_value(self, *args, **kwargs):
         return self.get_potential_energy(*args, **kwargs)
 
+    def gradient_norm(self, gradient):
+        forces = gradient.reshape(-1, 3)
+        return sqrt(einsum("ij,ij->i", forces, forces)).max()
+
     def get_image_positions(self):
         """
         Get the positions of the images.

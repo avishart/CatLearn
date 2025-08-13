@@ -576,7 +576,7 @@ class OptimizerMethod:
         """
         return self.steps
 
-    def converged(self):
+    def converged(self, *args, **kwargs):
         """
         Check if the optimization is converged.
         """
