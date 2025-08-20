@@ -2058,6 +2058,7 @@ class ActiveLearning:
         prev_calculations = read(self.trainingset, ":")
         # Update the method with the structures
         self.update_method(self.structures)
+        self.copy_best_structures(allow_calculation=False)
         # Set the writing mode
         self.mode = "a"
         # Load the summary table
