@@ -1,4 +1,4 @@
-from numpy import where
+from numpy import max as max_, where
 from ase.parallel import world
 from .improvedneb import ImprovedTangentNEB
 
@@ -95,7 +95,8 @@ class EWNEB(ImprovedTangentNEB):
         # Calculate the weighted spring constants
         k_l = self.k * self.kl_scale
         if e0 < emax:
-            a = (emax - energies[:-1]) / (emax - e0)
+            used_energies = max_([energies[1:], energies[:-1]], axis=0)
+            a = (emax - used_energies) / (emax - e0)
             k = where(a < 1.0, (1.0 - a) * self.k + a * k_l, k_l)
         else:
             k = k_l
