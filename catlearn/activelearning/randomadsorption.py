@@ -421,7 +421,7 @@ class RandomAdsorptionAL(ActiveLearning):
             method_extra.set_calculator(
                 MieCalculator(r_scale=1.2, denergy=0.2)
             )
-        method_extra.run(fmax=0.1, steps=25)
+        method_extra.run(fmax=0.1, steps=21)
         atoms = method_extra.get_candidates()[0]
         # Evaluate the structure
         self.evaluate(atoms)
