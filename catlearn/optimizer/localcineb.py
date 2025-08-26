@@ -4,6 +4,7 @@ from ase.optimize import FIRE
 from .localneb import LocalNEB
 from .sequential import SequentialOptimizer
 from ..structures.neb import (
+    AvgEWNEB,
     EWNEB,
     ImprovedTangentNEB,
     OriginalNEB,
@@ -55,6 +56,7 @@ class LocalCINEB(SequentialOptimizer):
                 A string can be used to select:
                 - 'improvedtangentneb' (default)
                 - 'ewneb'
+                - 'avgewneb'
             neb_kwargs: dict
                 A dictionary with the arguments used in the NEB object
                 to create the instance.
@@ -193,6 +195,8 @@ class LocalCINEB(SequentialOptimizer):
                 neb_method = ImprovedTangentNEB
             elif neb_method.lower() == "ewneb":
                 neb_method = EWNEB
+            elif neb_method.lower() == "avgewneb":
+                neb_method = AvgEWNEB
             else:
                 raise ValueError(
                     "The NEB method {} is not implemented.".format(neb_method)

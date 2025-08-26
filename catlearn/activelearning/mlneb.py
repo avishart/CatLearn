@@ -86,6 +86,7 @@ class MLNEB(ActiveLearning):
                 A string can be used to select:
                 - 'improvedtangentneb' (default)
                 - 'ewneb'
+                - 'avgewneb'
             neb_kwargs: dict
                 A dictionary with the arguments used in the NEB object
                 to create the instance.
