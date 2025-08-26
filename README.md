@@ -112,6 +112,7 @@ mlneb = MLNEB(
     neb_method="improvedtangentneb",
     neb_kwargs={},
     neb_interpolation="linear",
+    start_without_ci=True,
     reuse_ci_path=True,
     save_memory=False,
     parallel_run=False,
