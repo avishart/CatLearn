@@ -28,6 +28,8 @@ However, it is recommended to install a specific tag to ensure it is a stable ve
 $ pip install git+https://github.com/avishart/CatLearn.git@v.x.x.x
 ```
 
+The dependency of ASE has only been thoroughly tested up to version 3.26.0.
+
 ## Usage
 The active learning class is generalized to work for any defined optimizer method for ASE `Atoms` structures. The optimization method is executed iteratively with a machine-learning calculator that is retrained for each iteration. The active learning converges when the uncertainty is low (`unc_convergence`) and the energy change is within `unc_convergence` or the maximum force is within the tolerance value set.
 
