@@ -132,6 +132,8 @@ mlneb.run(
 
 ```
 
+The MLNEB optimization can be restarted from the last predicted path and reusing the training data with the argument `restart=True`. Alternatively, the optimization can be restarted from the last predicted path without reusing the training data by setting the `neb_interpolation="predicted.traj"`.
+
 The obtained NEB band from the MLNEB optimization can be visualized in three ways.
 
 The converged NEB band with uncertainties can be visualized by extending the Python code with the following code:
