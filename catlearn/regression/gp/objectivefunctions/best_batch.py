@@ -1,52 +1,17 @@
-import numpy as np
+from numpy import arange, inf
 from .batch import BatchFuction
 
 
 class BestBatchFuction(BatchFuction):
-    def __init__(
-        self,
-        func,
-        get_prior_mean=False,
-        batch_size=25,
-        equal_size=False,
-        use_same_prior_mean=True,
-        seed=1,
-        **kwargs,
-    ):
-        """
-        The objective function that is used to optimize the hyperparameters.
-        The instance splits the training data into batches.
-        A given objective function is then used as
-        an objective function for the batches.
-        The lowest function value and it corresponding hyperparameters
-        from a single batch are used.
-        BestBatchFuction is not recommended for gradient-based optimization!
-
-        Parameters:
-            func : ObjectiveFunction class
-                A class with the objective function used
-                to optimize the hyperparameters.
-            get_prior_mean : bool
-                Whether to get the parameters of the prior mean
-                in the solution.
-            equal_size : bool
-                Whether the clusters are forced to have the same size.
-            use_same_prior_mean : bool
-                Whether to use the same prior mean for all models.
-            seed : int (optional)
-                The random seed used to permute the indicies.
-                If seed=None or False or 0, a random seed is not used.
-        """
-        # Set the arguments
-        super().__init__(
-            func=func,
-            get_prior_mean=get_prior_mean,
-            batch_size=batch_size,
-            equal_size=equal_size,
-            use_same_prior_mean=use_same_prior_mean,
-            seed=seed,
-            **kwargs,
-        )
+    """
+    The objective function that is used to optimize the hyperparameters.
+    The instance splits the training data into batches.
+    A given objective function is then used as
+    an objective function for the batches.
+    The lowest function value and it corresponding hyperparameters
+    from a single batch are used.
+    BestBatchFuction is not recommended for gradient-based optimization!
+    """
 
     def function(
         self,
@@ -76,17 +41,17 @@ class BestBatchFuction(BatchFuction):
             self.sol = self.func.sol
             return output
         # Update the model with hyperparameters and prior mean
-        hp, parameters_set = self.make_hp(theta, parameters)
+        hp, _ = self.make_hp(theta, parameters)
         model = self.update_model(model, hp)
         self.set_same_prior_mean(model, X, Y)
         # Calculate the number of batches
         n_batches = self.get_number_batches(n_data)
-        indicies = np.arange(n_data)
+        indices = arange(n_data)
         i_batches = self.randomized_batches(
-            indicies, n_data, n_batches, **kwargs
+            indices, n_data, n_batches, **kwargs
         )
         # Sum function values together from batches
-        fvalue = np.inf
+        fvalue = inf
         deriv = None
         for i_batch in i_batches:
             # Get the feature and target batch

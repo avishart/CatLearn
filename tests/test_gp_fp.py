@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 from .functions import create_h2_atoms, make_train_test_set, calculate_rmse
 
 
@@ -18,32 +17,35 @@ class TestGPFP(unittest.TestCase):
         from catlearn.regression.gp.kernel import SE
         from catlearn.regression.gp.fingerprint import (
             Cartesian,
+            Distances,
             InvDistances,
             InvDistances2,
-            SortedDistances,
+            SortedInvDistances,
             SumDistances,
             SumDistancesPower,
             MeanDistances,
             MeanDistancesPower,
         )
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_h2_atoms(gridsize=50, seed=1)
+        x, f, g = create_h2_atoms(gridsize=50, seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
             kernel=SE(use_derivatives=use_derivatives, use_fingerprint=True),
         )
         # Define the list of fingerprint objects that are tested
         fp_kwarg_list = [
             Cartesian(reduce_dimensions=True, use_derivatives=use_derivatives),
-            InvDistances(
+            Distances(
                 reduce_dimensions=True,
                 use_derivatives=use_derivatives,
-                mic=True,
+                periodic_softmax=True,
             ),
             InvDistances(
                 reduce_dimensions=True,
@@ -53,45 +55,47 @@ class TestGPFP(unittest.TestCase):
             InvDistances2(
                 reduce_dimensions=True,
                 use_derivatives=use_derivatives,
-                mic=True,
+                periodic_softmax=True,
             ),
-            SortedDistances(
+            SortedInvDistances(
                 reduce_dimensions=True,
                 use_derivatives=use_derivatives,
-                mic=True,
+                periodic_softmax=True,
             ),
             SumDistances(
                 reduce_dimensions=True,
                 use_derivatives=use_derivatives,
-                mic=True,
+                periodic_softmax=True,
             ),
             SumDistancesPower(
                 reduce_dimensions=True,
                 use_derivatives=use_derivatives,
-                mic=True,
+                periodic_softmax=True,
+                power=4,
             ),
             MeanDistances(
                 reduce_dimensions=True,
                 use_derivatives=use_derivatives,
-                mic=True,
+                periodic_softmax=True,
             ),
             MeanDistancesPower(
                 reduce_dimensions=True,
                 use_derivatives=use_derivatives,
-                mic=True,
+                periodic_softmax=False,
+                power=4,
             ),
         ]
         # Make a list of the error values that the test compares to
         error_list = [
-            1.35605,
-            0.65313,
-            0.65313,
-            0.77297,
-            0.65313,
-            0.65313,
-            0.45222,
-            0.65313,
-            0.45222,
+            23.51556,
+            22.50691,
+            10.00542,
+            56.04324,
+            10.00542,
+            6.712740,
+            13.49250,
+            20.04389,
+            1.880300,
         ]
         # Test the fingerprint objects
         for index, fp in enumerate(fp_kwarg_list):
@@ -106,12 +110,12 @@ class TestGPFP(unittest.TestCase):
                     te=10,
                     use_derivatives=use_derivatives,
                 )
-                # Set random seed to give the same results every time
-                np.random.seed(1)
+                # Set the random seed
+                gp.set_seed(seed=seed)
                 # Train the machine learning model
                 gp.train(x_tr, f_tr)
                 # Predict the energies and uncertainties
-                ypred, var, var_deriv = gp.predict(
+                ypred, _, _ = gp.predict(
                     x_te,
                     get_variance=True,
                     get_derivatives=False,
@@ -137,32 +141,35 @@ class TestGPFPDerivatives(unittest.TestCase):
         from catlearn.regression.gp.kernel import SE
         from catlearn.regression.gp.fingerprint import (
             Cartesian,
+            Distances,
             InvDistances,
             InvDistances2,
-            SortedDistances,
+            SortedInvDistances,
             SumDistances,
             SumDistancesPower,
             MeanDistances,
             MeanDistancesPower,
         )
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_h2_atoms(gridsize=50, seed=1)
+        x, f, g = create_h2_atoms(gridsize=50, seed=seed)
         # Whether to True from the derivatives
         use_derivatives = True
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
             kernel=SE(use_derivatives=use_derivatives, use_fingerprint=True),
         )
         # Define the list of fingerprint objects that are tested
         fp_kwarg_list = [
             Cartesian(reduce_dimensions=True, use_derivatives=use_derivatives),
-            InvDistances(
+            Distances(
                 reduce_dimensions=True,
                 use_derivatives=use_derivatives,
-                mic=True,
+                periodic_softmax=True,
             ),
             InvDistances(
                 reduce_dimensions=True,
@@ -172,45 +179,47 @@ class TestGPFPDerivatives(unittest.TestCase):
             InvDistances2(
                 reduce_dimensions=True,
                 use_derivatives=use_derivatives,
-                mic=True,
+                periodic_softmax=True,
             ),
-            SortedDistances(
+            SortedInvDistances(
                 reduce_dimensions=True,
                 use_derivatives=use_derivatives,
-                mic=True,
+                periodic_softmax=True,
             ),
             SumDistances(
                 reduce_dimensions=True,
                 use_derivatives=use_derivatives,
-                mic=True,
+                periodic_softmax=True,
             ),
             SumDistancesPower(
                 reduce_dimensions=True,
                 use_derivatives=use_derivatives,
-                mic=True,
+                periodic_softmax=True,
+                power=4,
             ),
             MeanDistances(
                 reduce_dimensions=True,
                 use_derivatives=use_derivatives,
-                mic=True,
+                periodic_softmax=True,
             ),
             MeanDistancesPower(
                 reduce_dimensions=True,
                 use_derivatives=use_derivatives,
-                mic=True,
+                periodic_softmax=False,
+                power=4,
             ),
         ]
         # Make a list of the error values that the test compares to
         error_list = [
-            22.75648,
-            9.90152,
-            9.90152,
-            4.62743,
-            9.90152,
-            9.90152,
-            8.60277,
-            9.90152,
-            8.60277,
+            37.64770,
+            39.70638,
+            69.16602,
+            58.86160,
+            69.16602,
+            73.85387,
+            69.11083,
+            63.00867,
+            70.55665,
         ]
         # Test the fingerprint objects
         for index, fp in enumerate(fp_kwarg_list):
@@ -225,12 +234,12 @@ class TestGPFPDerivatives(unittest.TestCase):
                     te=10,
                     use_derivatives=use_derivatives,
                 )
-                # Set random seed to give the same results every time
-                np.random.seed(1)
+                # Set random seed
+                gp.set_seed(seed=seed)
                 # Train the machine learning model
                 gp.train(x_tr, f_tr)
                 # Predict the energies and uncertainties
-                ypred, var, var_deriv = gp.predict(
+                ypred, _, _ = gp.predict(
                     x_te,
                     get_variance=True,
                     get_derivatives=False,

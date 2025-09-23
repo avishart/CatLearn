@@ -1,28 +1,59 @@
-import numpy as np
+from numpy import (
+    array,
+    concatenate,
+    exp,
+    finfo,
+    full,
+    linspace,
+    log,
+    sqrt,
+)
+from numpy.random import default_rng, Generator, RandomState
 
 
 class HPBoundaries:
-    def __init__(self, bounds_dict={}, scale=1.0, log=True, **kwargs):
+    """
+    Boundary conditions for the hyperparameters.
+    A dictionary with boundary conditions of the hyperparameters
+    can be given as an argument.
+    Machine precisions are used as boundary conditions for
+    the hyperparameters not given in the dictionary.
+    """
+
+    def __init__(
+        self,
+        bounds_dict={},
+        scale=1.0,
+        use_log=True,
+        seed=None,
+        dtype=float,
+        **kwargs,
+    ):
         """
-        Boundary conditions for the hyperparameters.
-        A dictionary with boundary conditions of the hyperparameters
-        can be given as an argument.
-        Machine precisions are used as boundary conditions for
-        the hyperparameters not given in the dictionary.
+        Initialize the boundary conditions for the hyperparameters.
 
         Parameters:
-            bounds_dict : dict
+            bounds_dict: dict
                 A dictionary with boundary conditions as numpy (H,2) arrays
                 with two columns for each type of hyperparameter.
-            scale : float
+            scale: float
                 Scale the boundary conditions.
-            log : bool
+            use_log: bool
                 Whether to use hyperparameters in log-scale or not.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
         self.update_arguments(
             bounds_dict=bounds_dict,
             scale=scale,
-            log=log,
+            use_log=use_log,
+            seed=seed,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -31,19 +62,19 @@ class HPBoundaries:
         Create and update the boundary conditions for the hyperparameters.
 
         Parameters:
-            model : Model
+            model: Model
                 The Machine Learning Model with kernel and
                 prior that are optimized.
-            X : (N,D) array
+            X: (N,D) array
                 Training features with N data points and D dimensions.
-            Y : (N,1) array or (N,D+1) array
+            Y: (N,1) array or (N,D+1) array
                 Training targets with or without derivatives
                 with N data points.
-            parameters : (H) list of strings
+            parameters: (H) list of strings
                 A list of names of the hyperparameters.
 
         Returns:
-            self : The object itself.
+            self: The object itself.
         """
         # Update parameters
         self.make_parameters_set(parameters)
@@ -57,72 +88,73 @@ class HPBoundaries:
         )
         return self
 
-    def get_bounds(self, parameters=None, array=False, **kwargs):
+    def get_bounds(self, parameters=None, use_array=False, **kwargs):
         """
         Get the boundary conditions of the hyperparameters.
 
         Parameters :
-            parameters : list of str or None
+            parameters: list of str or None
                 A list of the specific used hyperparameter names as strings.
                 If parameters=None, then the stored hyperparameters are used.
-            array : bool
+            use_array: bool
                 Whether to get an array or a dictionary as output.
 
         Returns:
-            (H,2) array : The boundary conditions as an array if array=True.
+            (H,2) array: The boundary conditions as an array if use_array=True.
             or
-            dict : A dictionary of the boundary conditions.
+            dict: A dictionary of the boundary conditions.
         """
         # Make the sorted unique hyperparameters if they are given
         parameters_set = self.get_parameters_set(parameters=parameters)
         # Make the boundary conditions for the given hyperparameters
-        if array:
-            return np.concatenate(
-                [self.bounds_dict[para] for para in parameters_set], axis=0
+        if use_array:
+            return concatenate(
+                [self.bounds_dict[para] for para in parameters_set],
+                axis=0,
             )
         return {para: self.bounds_dict[para].copy() for para in parameters_set}
 
-    def get_hp(self, parameters=None, array=False, **kwargs):
+    def get_hp(self, parameters=None, use_array=False, **kwargs):
         """
         Get the guess of the hyperparameters.
         The mean of the boundary conditions in log-space is used as the guess.
 
         Parameters:
-            parameters : list of str or None
+            parameters: list of str or None
                 A list of the specific used hyperparameter names as strings.
                 If parameters=None, then the stored hyperparameters are used.
-            array : bool
+            use_array: bool
                 Whether to get an array or a dictionary as output.
 
         Returns:
-            (H) array : The guesses of the hyperparameters as an array
-            if array=True.
+            (H) array: The guesses of the hyperparameters as an array
+            if use_array=True.
             or
-            dict : A dictionary of the guesses of the hyperparameters.
+            dict: A dictionary of the guesses of the hyperparameters.
         """
         # Make the sorted unique hyperparameters if they are given
         parameters_set = self.get_parameters_set(parameters=parameters)
-        if self.log:
-            if array:
-                return np.concatenate(
+        if self.use_log:
+            if use_array:
+                return concatenate(
                     [
-                        np.mean(self.bounds_dict[para], axis=1)
+                        self.bounds_dict[para].mean(axis=1)
                         for para in parameters_set
                     ]
                 )
             return {
-                para: np.mean(self.bounds_dict[para], axis=1)
+                para: self.bounds_dict[para].mean(axis=1)
                 for para in parameters_set
             }
-        if array:
-            return np.concatenate(
+        if use_array:
+            return concatenate(
                 [
-                    np.exp(np.mean(np.log(self.bounds_dict[para]), axis=1))
+                    exp(self.bounds_dict[para].mean(axis=1))
                     for para in parameters_set
                 ]
             )
         return {
-            para: np.exp(np.mean(np.log(self.bounds_dict[para]), axis=1))
+            para: exp(log(self.bounds_dict[para]).mean(axis=1))
             for para in parameters_set
         }
 
@@ -132,21 +164,21 @@ class HPBoundaries:
         the boundary conditions.
 
         Parameters:
-            parameters : list of str or None
+            parameters: list of str or None
                 A list of the specific used hyperparameter names as strings.
                 If parameters=None, then the stored hyperparameters are used.
-            ngrid : int or (H) list
+            ngrid: int or (H) list
                 An integer or a list with number of grid points
                 in each dimension.
 
         Returns:
-            (H,) list : A list with grid points for each (H) hyperparameters.
+            (H,) list: A list with grid points for each (H) hyperparameters.
         """
-        bounds = self.get_bounds(parameters=parameters, array=True)
+        bounds = self.get_bounds(parameters=parameters, use_array=True)
         if isinstance(ngrid, (int, float)):
             ngrid = [int(ngrid)] * len(bounds)
         return [
-            np.linspace(bound[0], bound[1], ngrid[b])
+            linspace(bound[0], bound[1], ngrid[b])
             for b, bound in enumerate(bounds)
         ]
 
@@ -156,49 +188,98 @@ class HPBoundaries:
         the boundary conditions.
 
         Parameters:
-            parameters : str
+            parameters: str
                 A string of the hyperparameter name.
-            ngrid : int
+            ngrid: int
                 An integer with number of grid points in each dimension.
-            i : int
+            i: int
                 The index of the hyperparameter used
                 if multiple hyperparameters of the same type exist.
 
         Returns:
-            (ngrid) array : A grid of ngrid points for
+            (ngrid) array: A grid of ngrid points for
                 the given hyperparameter.
         """
         if not isinstance(ngrid, (int, float)):
             ngrid = ngrid[int(self.parameters.index(parameter) + i)]
         bound = self.bounds_dict[parameter][i]
-        return np.linspace(bound[0], bound[1], int(ngrid))
+        return linspace(bound[0], bound[1], int(ngrid))
 
     def sample_thetas(self, parameters=None, npoints=50, **kwargs):
         """
         Sample hyperparameters from the boundary conditions.
 
         Parameters:
-            parameters : list of str or None
+            parameters: list of str or None
                 A list of the specific used hyperparameter names as strings.
                 If parameters=None, then the stored hyperparameters are used.
-            npoints : int
+            npoints: int
                 Number of points to sample.
 
         Returns:
-            (npoints,H) array : An array with sampled hyperparameters.
+            (npoints,H) array: An array with sampled hyperparameters.
         """
-        bounds = self.get_bounds(parameters=parameters, array=True)
-        return np.random.uniform(
+        bounds = self.get_bounds(parameters=parameters, use_array=True)
+        return self.rng.uniform(
             low=bounds[:, 0],
             high=bounds[:, 1],
             size=(int(npoints), len(bounds)),
         )
 
+    def set_dtype(self, dtype, **kwargs):
+        """
+        Set the data type of the arrays.
+
+        Parameters:
+            dtype: type
+                The data type of the arrays.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Set the data type
+        self.dtype = dtype
+        # Set a small number to avoid division by zero
+        self.eps = 1.1 * finfo(self.dtype).eps
+        # Update the data type of the boundary conditions
+        if hasattr(self, "bounds_dict"):
+            self.bounds_dict = {
+                key: array(value, dtype=self.dtype)
+                for key, value in self.bounds_dict.items()
+            }
+        return self
+
+    def set_seed(self, seed=None, **kwargs):
+        """
+        Set the random seed.
+
+        Parameters:
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+
+        Returns:
+            self: The instance itself.
+        """
+        if seed is not None:
+            self.seed = seed
+            if isinstance(seed, int):
+                self.rng = default_rng(self.seed)
+            elif isinstance(seed, Generator) or isinstance(seed, RandomState):
+                self.rng = seed
+        else:
+            self.seed = None
+            self.rng = default_rng()
+        return self
+
     def update_arguments(
         self,
         bounds_dict=None,
         scale=None,
-        log=None,
+        use_log=None,
+        seed=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -206,23 +287,36 @@ class HPBoundaries:
         The existing arguments are used if they are not given.
 
         Parameters:
-            bounds_dict : dict
+            bounds_dict: dict
                 A dictionary with boundary conditions as numpy (H,2) arrays
                 with two columns for each type of hyperparameter.
-            scale : float
+            scale: float
                 Scale the boundary conditions.
-            log : bool
+            use_log: bool
                 Whether to use hyperparameters in log-scale or not.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
         """
+        # Set the seed
+        if seed is not None or not hasattr(self, "seed"):
+            self.set_seed(seed)
+        # Set the data type
+        if dtype is not None or not hasattr(self, "dtype"):
+            self.set_dtype(dtype)
         if bounds_dict is not None:
             self.initiate_bounds_dict(bounds_dict)
         if scale is not None:
             self.scale = scale
-        if log is not None:
-            self.log = log
+        if use_log is not None:
+            self.use_log = use_log
         return self
 
     def make_bounds(self, model, X, Y, parameters, parameters_set, **kwargs):
@@ -234,10 +328,12 @@ class HPBoundaries:
         bounds = {}
         for para in parameters_set:
             if para in self.bounds_dict:
-                bounds[para] = self.bounds_dict[para].copy()
+                bounds[para] = array(self.bounds_dict[para], dtype=self.dtype)
             else:
-                bounds[para] = np.full(
-                    (parameters.count(para), 2), [eps_lower, eps_upper]
+                bounds[para] = full(
+                    (parameters.count(para), 2),
+                    [eps_lower, eps_upper],
+                    dtype=self.dtype,
                 )
         return bounds
 
@@ -248,16 +344,18 @@ class HPBoundaries:
         """
         # Copy the boundary condition values
         self.bounds_dict = {
-            key: np.array(value) for key, value in bounds_dict.items()
+            key: array(value, dtype=self.dtype)
+            for key, value in bounds_dict.items()
         }
         if "correction" in self.bounds_dict.keys():
             self.bounds_dict.pop("correction")
         # Extract the hyperparameter names
         self.parameters_set = sorted(bounds_dict.keys())
-        self.parameters = sum(
-            [[para] * len(bounds_dict[para]) for para in self.parameters_set],
-            [],
-        )
+        self.parameters = [
+            para
+            for para in self.parameters_set
+            for _ in range(len(bounds_dict[para]))
+        ]
         return self
 
     def make_parameters_set(self, parameters, **kwargs):
@@ -288,9 +386,9 @@ class HPBoundaries:
 
     def get_boundary_limits(self, **kwargs):
         "Get the machine precision limits for the hyperparameters."
-        eps_lower = 10 * np.sqrt(2.0 * np.finfo(float).eps) / self.scale
-        if self.log:
-            eps_lower = np.log(eps_lower)
+        eps_lower = 10 * sqrt(2.0 * self.eps) / self.scale
+        if self.use_log:
+            eps_lower = log(eps_lower)
             return eps_lower, -eps_lower
         return eps_lower, 1.0 / eps_lower
 
@@ -300,7 +398,9 @@ class HPBoundaries:
         arg_kwargs = dict(
             bounds_dict=self.bounds_dict,
             scale=self.scale,
-            log=self.log,
+            log=self.use_log,
+            seed=self.seed,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()

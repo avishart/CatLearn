@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 from .functions import create_func, make_train_test_set, check_minima
 
 
@@ -19,11 +18,13 @@ class TestTPObjectiveFunctions(unittest.TestCase):
         from catlearn.regression.gp.hpfitter import HyperparameterFitter
         from catlearn.regression.gp.objectivefunctions.tp import LogLikelihood
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -35,9 +36,6 @@ class TestTPObjectiveFunctions(unittest.TestCase):
         optimizer = ScipyOptimizer(
             maxiter=500,
             jac=True,
-            method="l-bfgs-b",
-            use_bounds=False,
-            tol=1e-12,
         )
         # Construct the hyperparameter fitter
         hpfitter = HyperparameterFitter(
@@ -46,12 +44,12 @@ class TestTPObjectiveFunctions(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
         # Set random seed to give the same results every time
-        np.random.seed(1)
+        tp.set_seed(seed=seed)
         # Optimize the hyperparameters
         sol = tp.optimize(
             x_tr,
@@ -92,13 +90,18 @@ class TestTPObjectiveFunctions(unittest.TestCase):
             FactorizedLogLikelihood,
             FactorizedLogLikelihoodSVD,
         )
-        from catlearn.regression.gp.hpboundary import HPBoundaries
+        from catlearn.regression.gp.hpboundary import (
+            HPBoundaries,
+            VariableTransformation,
+        )
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -106,12 +109,13 @@ class TestTPObjectiveFunctions(unittest.TestCase):
             te=1,
             use_derivatives=use_derivatives,
         )
+        # Make the default boundaries for the hyperparameters
+        default_bounds = VariableTransformation()
         # Make fixed boundary conditions for one of the tests
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
             ),
             log=True,
         )
@@ -132,7 +136,7 @@ class TestTPObjectiveFunctions(unittest.TestCase):
         # Define the list of objective function objects that are tested
         obj_list = [
             (
-                None,
+                default_bounds,
                 FactorizedLogLikelihood(
                     modification=False,
                     ngrid=250,
@@ -140,7 +144,7 @@ class TestTPObjectiveFunctions(unittest.TestCase):
                 ),
             ),
             (
-                None,
+                default_bounds,
                 FactorizedLogLikelihood(
                     modification=True,
                     ngrid=250,
@@ -148,7 +152,7 @@ class TestTPObjectiveFunctions(unittest.TestCase):
                 ),
             ),
             (
-                None,
+                default_bounds,
                 FactorizedLogLikelihood(
                     modification=False,
                     ngrid=80,
@@ -156,7 +160,7 @@ class TestTPObjectiveFunctions(unittest.TestCase):
                 ),
             ),
             (
-                None,
+                default_bounds,
                 FactorizedLogLikelihood(
                     modification=False,
                     ngrid=80,
@@ -172,7 +176,7 @@ class TestTPObjectiveFunctions(unittest.TestCase):
                 ),
             ),
             (
-                None,
+                default_bounds,
                 FactorizedLogLikelihoodSVD(
                     modification=False,
                     ngrid=250,
@@ -191,12 +195,12 @@ class TestTPObjectiveFunctions(unittest.TestCase):
                 )
                 # Construct the Student t process
                 tp = TProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                tp.set_seed(seed=seed)
                 # Optimize the hyperparameters
                 sol = tp.optimize(
                     x_tr,

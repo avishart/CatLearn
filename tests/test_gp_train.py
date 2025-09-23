@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 from .functions import create_func, make_train_test_set, calculate_rmse
 
 
@@ -17,7 +16,7 @@ class TestGPTrainPredict(unittest.TestCase):
         use_derivatives = False
         # Construct the Gaussian process
         GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
 
@@ -25,11 +24,13 @@ class TestGPTrainPredict(unittest.TestCase):
         "Test if the GP can be trained."
         from catlearn.regression.gp.models import GaussianProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -39,7 +40,7 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
@@ -49,8 +50,10 @@ class TestGPTrainPredict(unittest.TestCase):
         "Test if the GP can predict one test point."
         from catlearn.regression.gp.models import GaussianProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -63,13 +66,13 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
         gp.train(x_tr, f_tr)
         # Predict the energy
-        ypred, var, var_deriv = gp.predict(
+        ypred, _, _ = gp.predict(
             x_te,
             get_variance=False,
             get_derivatives=False,
@@ -77,14 +80,16 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.02650) < 1e-4)
+        self.assertTrue(abs(error - 0.00069) < 1e-4)
 
     def test_predict(self):
         "Test if the GP can predict multiple test points."
         from catlearn.regression.gp.models import GaussianProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -97,13 +102,13 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
         gp.train(x_tr, f_tr)
         # Predict the energies
-        ypred, var, var_deriv = gp.predict(
+        ypred, _, _ = gp.predict(
             x_te,
             get_variance=False,
             get_derivatives=False,
@@ -111,14 +116,16 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 1.75102) < 1e-4)
+        self.assertTrue(abs(error - 0.89152) < 1e-4)
 
     def test_predict_var(self):
         "Test if the GP can predict variance of multiple test point."
         from catlearn.regression.gp.models import GaussianProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -131,13 +138,13 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
         gp.train(x_tr, f_tr)
         # Predict the energies and uncertainties
-        ypred, var, var_deriv = gp.predict(
+        ypred, _, _ = gp.predict(
             x_te,
             get_variance=True,
             get_derivatives=False,
@@ -145,7 +152,7 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 1.75102) < 1e-4)
+        self.assertTrue(abs(error - 0.89152) < 1e-4)
 
     def test_predict_var_n(self):
         """
@@ -154,8 +161,10 @@ class TestGPTrainPredict(unittest.TestCase):
         """
         from catlearn.regression.gp.models import GaussianProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -168,13 +177,13 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
         gp.train(x_tr, f_tr)
         # Predict the energies and uncertainties
-        ypred, var, var_deriv = gp.predict(
+        ypred, _, _ = gp.predict(
             x_te,
             get_variance=True,
             get_derivatives=False,
@@ -182,14 +191,16 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 1.75102) < 1e-4)
+        self.assertTrue(abs(error - 0.89152) < 1e-4)
 
     def test_predict_derivatives(self):
         "Test if the GP can predict derivatives of multiple test points."
         from catlearn.regression.gp.models import GaussianProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -202,23 +213,23 @@ class TestGPTrainPredict(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
         gp.train(x_tr, f_tr)
         # Predict the energies, derivatives, and uncertainties
-        ypred, var, var_deriv = gp.predict(
+        ypred, _, _ = gp.predict(
             x_te,
             get_variance=True,
             get_derivatives=True,
             include_noise=False,
         )
         # Check that the derivatives are predicted
-        self.assertTrue(np.shape(ypred)[1] == 2)
+        self.assertTrue(ypred.shape[1] == 2)
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 1.75102) < 1e-4)
+        self.assertTrue(abs(error - 0.89152) < 1e-4)
 
 
 class TestGPTrainPredictDerivatives(unittest.TestCase):
@@ -231,11 +242,13 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         "Test if the GP can be trained."
         from catlearn.regression.gp.models import GaussianProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -245,7 +258,7 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
@@ -255,8 +268,10 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         "Test if the GP can predict one test point."
         from catlearn.regression.gp.models import GaussianProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -269,13 +284,13 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
         gp.train(x_tr, f_tr)
         # Predict the energy
-        ypred, var, var_deriv = gp.predict(
+        ypred, _, _ = gp.predict(
             x_te,
             get_variance=False,
             get_derivatives=False,
@@ -283,14 +298,16 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.00218) < 1e-4)
+        self.assertTrue(abs(error - 0.00233) < 1e-4)
 
     def test_predict(self):
         "Test if the GP can predict multiple test points."
         from catlearn.regression.gp.models import GaussianProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -303,13 +320,13 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
         gp.train(x_tr, f_tr)
         # Predict the energies
-        ypred, var, var_deriv = gp.predict(
+        ypred, _, _ = gp.predict(
             x_te,
             get_variance=False,
             get_derivatives=False,
@@ -317,14 +334,16 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.13723) < 1e-4)
+        self.assertTrue(abs(error - 0.40411) < 1e-4)
 
     def test_predict_var(self):
         "Test if the GP can predict variance of multiple test points."
         from catlearn.regression.gp.models import GaussianProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -337,13 +356,13 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
         gp.train(x_tr, f_tr)
         # Predict the energies and uncertainties
-        ypred, var, var_deriv = gp.predict(
+        ypred, _, _ = gp.predict(
             x_te,
             get_variance=True,
             get_derivatives=False,
@@ -351,7 +370,7 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.13723) < 1e-4)
+        self.assertTrue(abs(error - 0.40411) < 1e-4)
 
     def test_predict_var_n(self):
         """
@@ -360,8 +379,10 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         """
         from catlearn.regression.gp.models import GaussianProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -374,13 +395,13 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
         gp.train(x_tr, f_tr)
         # Predict the energies and uncertainties
-        ypred, var, var_deriv = gp.predict(
+        ypred, _, _ = gp.predict(
             x_te,
             get_variance=True,
             get_derivatives=False,
@@ -388,14 +409,16 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.13723) < 1e-4)
+        self.assertTrue(abs(error - 0.40411) < 1e-4)
 
     def test_predict_derivatives(self):
         "Test if the GP can predict derivatives of multiple test points."
         from catlearn.regression.gp.models import GaussianProcess
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -408,23 +431,23 @@ class TestGPTrainPredictDerivatives(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Train the machine learning model
         gp.train(x_tr, f_tr)
         # Predict the energies, derivatives, and uncertainties
-        ypred, var, var_deriv = gp.predict(
+        ypred, _, _ = gp.predict(
             x_te,
             get_variance=True,
             get_derivatives=True,
             include_noise=False,
         )
         # Check that the derivatives are predicted
-        self.assertTrue(np.shape(ypred)[1] == 2)
+        self.assertTrue(ypred.shape[1] == 2)
         # Test the prediction energy errors
         error = calculate_rmse(f_te[:, 0], ypred[:, 0])
-        self.assertTrue(abs(error - 0.13723) < 1e-4)
+        self.assertTrue(abs(error - 0.40411) < 1e-4)
 
 
 if __name__ == "__main__":

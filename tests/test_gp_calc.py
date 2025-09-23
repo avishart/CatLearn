@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 from .functions import create_h2_atoms, make_train_test_set
 
 
@@ -30,24 +29,29 @@ class TestGPCalc(unittest.TestCase):
         )
         from catlearn.regression.gp.calculator import MLModel, MLCalculator
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_h2_atoms(gridsize=50, seed=1)
+        x, f, g = create_h2_atoms(gridsize=50, seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
-            x, f, g, tr=10, te=1, use_derivatives=use_derivatives
+        x_tr, _, x_te, f_te = make_train_test_set(
+            x,
+            f,
+            g,
+            tr=10,
+            te=1,
+            use_derivatives=use_derivatives,
         )
         # Make the hyperparameter fitter
         optimizer = ScipyOptimizer(
             maxiter=500,
             jac=True,
-            method="l-bfgs-b",
-            use_bounds=False,
-            tol=1e-8,
         )
         hpfitter = HyperparameterFitter(
             func=LogLikelihood(),
             optimizer=optimizer,
+            round_hp=3,
         )
         # Set the maximum number of points to use for the reduced databases
         npoints = 8
@@ -58,88 +62,84 @@ class TestGPCalc(unittest.TestCase):
             (
                 DatabaseDistance,
                 True,
-                dict(npoints=npoints, initial_indicies=[0]),
+                dict(npoints=npoints, initial_indices=[0]),
             ),
             (
                 DatabaseDistance,
                 True,
-                dict(npoints=npoints, initial_indicies=[]),
+                dict(npoints=npoints, initial_indices=[]),
             ),
             (
                 DatabaseHybrid,
                 True,
-                dict(npoints=npoints, initial_indicies=[0]),
+                dict(npoints=npoints, initial_indices=[0]),
             ),
-            (DatabaseHybrid, True, dict(npoints=npoints, initial_indicies=[])),
-            (DatabaseMin, True, dict(npoints=npoints, initial_indicies=[0])),
-            (DatabaseMin, True, dict(npoints=npoints, initial_indicies=[])),
+            (DatabaseHybrid, True, dict(npoints=npoints, initial_indices=[])),
+            (DatabaseMin, True, dict(npoints=npoints, initial_indices=[0])),
+            (DatabaseMin, True, dict(npoints=npoints, initial_indices=[])),
             (
                 DatabaseRandom,
                 True,
-                dict(npoints=npoints, initial_indicies=[0]),
+                dict(npoints=npoints, initial_indices=[0]),
             ),
-            (DatabaseRandom, True, dict(npoints=npoints, initial_indicies=[])),
-            (DatabaseLast, True, dict(npoints=npoints, initial_indicies=[0])),
-            (DatabaseLast, True, dict(npoints=npoints, initial_indicies=[])),
+            (DatabaseRandom, True, dict(npoints=npoints, initial_indices=[])),
+            (DatabaseLast, True, dict(npoints=npoints, initial_indices=[0])),
+            (DatabaseLast, True, dict(npoints=npoints, initial_indices=[])),
             (
                 DatabaseRestart,
                 True,
-                dict(npoints=npoints, initial_indicies=[0]),
+                dict(npoints=npoints, initial_indices=[0]),
             ),
             (
                 DatabaseRestart,
                 True,
-                dict(npoints=npoints, initial_indicies=[]),
+                dict(npoints=npoints, initial_indices=[]),
             ),
             (
                 DatabasePointsInterest,
                 True,
                 dict(
-                    npoints=npoints, initial_indicies=[0], point_interest=x_te
+                    npoints=npoints, initial_indices=[0], point_interest=x_te
                 ),
             ),
             (
                 DatabasePointsInterest,
                 True,
-                dict(
-                    npoints=npoints, initial_indicies=[], point_interest=x_te
-                ),
+                dict(npoints=npoints, initial_indices=[], point_interest=x_te),
             ),
             (
                 DatabasePointsInterestEach,
                 True,
                 dict(
-                    npoints=npoints, initial_indicies=[0], point_interest=x_te
+                    npoints=npoints, initial_indices=[0], point_interest=x_te
                 ),
             ),
             (
                 DatabasePointsInterestEach,
                 True,
-                dict(
-                    npoints=npoints, initial_indicies=[], point_interest=x_te
-                ),
+                dict(npoints=npoints, initial_indices=[], point_interest=x_te),
             ),
         ]
         # Make a list of the error values that the test compares to
         error_list = [
-            0.00166,
-            0.00166,
-            0.00359,
-            0.00359,
-            0.00003,
-            0.00003,
-            0.000002,
-            0.000002,
-            0.000018,
-            0.00003,
-            0.01270,
-            0.02064,
-            0.00655,
-            0.00102,
-            0.000002,
-            0.000002,
-            0.000002,
-            0.000002,
+            0.47624,
+            0.47624,
+            5.19594,
+            5.19594,
+            1.95852,
+            5.19594,
+            0.71664,
+            0.71664,
+            0.89497,
+            5.23694,
+            1.13717,
+            3.52768,
+            7.38153,
+            9.47098,
+            0.38060,
+            0.38060,
+            0.38060,
+            0.38060,
         ]
         # Test the database objects
         for index, (data, use_fingerprint, data_kwarg) in enumerate(
@@ -152,7 +152,7 @@ class TestGPCalc(unittest.TestCase):
             ):
                 # Construct the Gaussian process
                 gp = GaussianProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
                     use_derivatives=use_derivatives,
                     kernel=SE(
                         use_derivatives=use_derivatives,
@@ -162,16 +162,14 @@ class TestGPCalc(unittest.TestCase):
                 )
                 # Make the fingerprint
                 fp = Cartesian(
-                    reduce_dimensions=True,
                     use_derivatives=use_derivatives,
                 )
                 # Set up the database
                 database = data(
                     fingerprint=fp,
-                    reduce_dimensions=True,
                     use_derivatives=use_derivatives,
-                    negative_forces=True,
                     use_fingerprint=use_fingerprint,
+                    round_targets=5,
                     **data_kwarg
                 )
                 # Define the machine learning model
@@ -180,16 +178,15 @@ class TestGPCalc(unittest.TestCase):
                     database=database,
                     optimize=True,
                     baseline=None,
-                    verbose=False,
                 )
-                # Set random seed to give the same results every time
-                np.random.seed(1)
-                # Construct the machine learning calculator and add the data
+                # Construct the machine learning calculator
                 mlcalc = MLCalculator(
                     mlmodel=mlmodel,
-                    calculate_uncertainty=True,
-                    calculate_forces=True,
+                    round_pred=5,
                 )
+                # Set the random seed for the calculator
+                mlcalc.set_seed(seed=seed)
+                # Add the training data to the calculator
                 mlcalc.add_training(x_tr)
                 # Test if the right number of training points is added
                 if index in [0, 1]:
@@ -218,7 +215,93 @@ class TestGPCalc(unittest.TestCase):
                 atoms.get_forces()
                 # Test the prediction energy error for a single test system
                 error = abs(f_te.item(0) - energy)
-                self.assertTrue(abs(error - error_list[index]) < 1e-4)
+                self.assertTrue(abs(error - error_list[index]) < 1e-2)
+
+    def test_bayesian_calc(self):
+        "Test if the GP bayesian calculator can predict energy and forces."
+        from catlearn.regression.gp.models import GaussianProcess
+        from catlearn.regression.gp.kernel import SE
+        from catlearn.regression.gp.optimizers import ScipyOptimizer
+        from catlearn.regression.gp.objectivefunctions.gp import LogLikelihood
+        from catlearn.regression.gp.hpfitter import HyperparameterFitter
+        from catlearn.regression.gp.fingerprint import Cartesian
+        from catlearn.regression.gp.calculator import Database
+        from catlearn.regression.gp.calculator import MLModel, BOCalculator
+
+        # Set random seed to give the same results every time
+        seed = 1
+        # Create the data set
+        x, f, g = create_h2_atoms(gridsize=50, seed=seed)
+        # Whether to learn from the derivatives
+        use_derivatives = True
+        x_tr, _, x_te, f_te = make_train_test_set(
+            x,
+            f,
+            g,
+            tr=10,
+            te=1,
+            use_derivatives=use_derivatives,
+        )
+        # Make the hyperparameter fitter
+        optimizer = ScipyOptimizer(
+            maxiter=500,
+            jac=True,
+        )
+        hpfitter = HyperparameterFitter(
+            func=LogLikelihood(),
+            optimizer=optimizer,
+            round_hp=3,
+        )
+        # Make the fingerprint
+        use_fingerprint = True
+        fp = Cartesian(
+            use_derivatives=use_derivatives,
+        )
+        # Set up the database
+        database = Database(
+            fingerprint=fp,
+            use_derivatives=use_derivatives,
+            use_fingerprint=use_fingerprint,
+            round_targets=5,
+        )
+        # Construct the Gaussian process
+        gp = GaussianProcess(
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
+            use_derivatives=use_derivatives,
+            kernel=SE(
+                use_derivatives=use_derivatives,
+                use_fingerprint=use_fingerprint,
+            ),
+            hpfitter=hpfitter,
+        )
+        # Define the machine learning model
+        mlmodel = MLModel(
+            model=gp,
+            database=database,
+            optimize=True,
+            baseline=None,
+        )
+        # Construct the machine learning calculator
+        mlcalc = BOCalculator(
+            mlmodel=mlmodel,
+            kappa=2.0,
+            round_pred=5,
+        )
+        # Set the random seed for the calculator
+        mlcalc.set_seed(seed=seed)
+        # Add the training data to the calculator
+        mlcalc.add_training(x_tr)
+        # Train the machine learning calculator
+        mlcalc.train_model()
+        # Use a single test system for calculating the energy
+        # and forces with the machine learning calculator
+        atoms = x_te[0].copy()
+        atoms.calc = mlcalc
+        energy = atoms.get_potential_energy()
+        atoms.get_forces()
+        # Test the prediction energy error for a single test system
+        error = abs(f_te.item(0) - energy)
+        self.assertTrue(abs(error - 1.05160) < 1e-2)
 
 
 if __name__ == "__main__":

@@ -1,23 +1,34 @@
-import numpy as np
-from .model import ModelProcess
+from numpy import asarray, array, diag, empty, exp, full
+from .model import (
+    ModelProcess,
+    Prior_mean,
+    SE,
+    HyperparameterFitter,
+    LogLikelihood,
+)
 
 
 class GaussianProcess(ModelProcess):
+    """
+    The Gaussian Process Regressor.
+    The Gaussian process uses Cholesky decomposition for
+    inverting the kernel matrix.
+    The hyperparameters can be optimized.
+    """
+
     def __init__(
         self,
-        prior=None,
-        kernel=None,
-        hpfitter=None,
+        prior=Prior_mean(),
+        kernel=SE(use_derivatives=False, use_fingerprint=False),
+        hpfitter=HyperparameterFitter(func=LogLikelihood()),
         hp={},
         use_derivatives=False,
         use_correction=True,
+        dtype=float,
         **kwargs
     ):
         """
-        The Gaussian Process Regressor.
-        The Gaussian process uses Cholesky decomposition for
-        inverting the kernel matrix.
-        The hyperparameters can be optimized.
+        Initialize the Gaussian Process Regressor.
 
         Parameters:
             prior: Prior class
@@ -31,35 +42,24 @@ class GaussianProcess(ModelProcess):
                 The hyperparameters are used in the log-space.
             use_derivatives: bool
                 Use derivatives/gradients for training and predictions.
-            use_correction : bool
+            use_correction: bool
                 Use the noise correction on the covariance matrix.
+            dtype: type
+                The data type of the arrays.
         """
         # Set default descriptors
         self.trained_model = False
         self.corr = 0.0
         self.features = []
-        self.L = np.array([])
+        self.L = empty(0, dtype=dtype)
         self.low = False
-        self.coef = np.array([])
+        self.coef = empty(0, dtype=dtype)
         self.prefactor = 1.0
         # Set default hyperparameters
-        self.hp = {"noise": np.array([-8.0]), "prefactor": np.array([0.0])}
-        # Set the default prior mean class
-        if prior is None:
-            from ..means.mean import Prior_mean
-
-            prior = Prior_mean()
-        # Set the default kernel class
-        if kernel is None:
-            from ..kernel import SE
-
-            kernel = SE(use_derivatives=use_derivatives, use_fingerprint=False)
-        # The default hyperparameter optimization method
-        if hpfitter is None:
-            from ..hpfitter import HyperparameterFitter
-            from ..objectivefunctions.gp.likelihood import LogLikelihood
-
-            hpfitter = HyperparameterFitter(func=LogLikelihood())
+        self.hp = {
+            "noise": asarray([-8.0], dtype=dtype),
+            "prefactor": asarray([0.0], dtype=dtype),
+        }
         # Set all the arguments
         self.update_arguments(
             prior=prior,
@@ -68,53 +68,54 @@ class GaussianProcess(ModelProcess):
             hp=hp,
             use_derivatives=use_derivatives,
             use_correction=use_correction,
+            dtype=dtype,
             **kwargs
         )
 
     def set_hyperparams(self, new_params, **kwargs):
-        self.kernel.set_hyperparams(new_params)
-        # Prefactor and relative-noise hyperparameter is always in the GP
+        # Set the hyperparameters in the parent class
+        super().set_hyperparams(new_params, **kwargs)
+        # Set the prefactor hyperparameter
         if "prefactor" in new_params:
-            self.hp["prefactor"] = np.array(
-                new_params["prefactor"], dtype=float
+            self.hp["prefactor"] = array(
+                new_params["prefactor"],
+                dtype=self.dtype,
             ).reshape(-1)
             self.prefactor = self.calculate_prefactor()
-        if "noise" in new_params:
-            self.hp["noise"] = np.array(
-                new_params["noise"], dtype=float
-            ).reshape(-1)
-        if "noise_deriv" in new_params:
-            self.hp["noise_deriv"] = np.array(
-                new_params["noise_deriv"], dtype=float
-            ).reshape(-1)
         return self
 
     def get_gradients(self, features, hp, KXX, **kwargs):
         hp_deriv = {}
         n_data, m_data = len(features), len(KXX)
         if "prefactor" in hp:
-            hp_deriv["prefactor"] = np.array(
+            hp_deriv["prefactor"] = asarray(
                 [
                     2.0
-                    * np.exp(2.0 * self.hp["prefactor"][0])
+                    * exp(2.0 * self.hp["prefactor"][0])
                     * self.add_regularization(KXX, n_data, overwrite=False)
-                ]
+                ],
             )
         if "noise" in hp:
-            K_deriv = np.full(m_data, 2.0 * np.exp(2.0 * self.hp["noise"][0]))
+            K_deriv = full(
+                m_data,
+                2.0 * exp(2.0 * self.hp["noise"][0]),
+                dtype=self.dtype,
+            )
             if "noise_deriv" in self.hp:
                 K_deriv[n_data:] = 0.0
-                hp_deriv["noise"] = np.array([np.diag(K_deriv)])
+                hp_deriv["noise"] = asarray([diag(K_deriv)])
             else:
-                hp_deriv["noise"] = np.array([np.diag(K_deriv)])
+                hp_deriv["noise"] = asarray([diag(K_deriv)])
         if "noise_deriv" in hp:
-            K_deriv = np.full(
-                m_data, 2.0 * np.exp(2.0 * self.hp["noise_deriv"][0])
+            K_deriv = full(
+                m_data,
+                2.0 * exp(2.0 * self.hp["noise_deriv"][0]),
+                dtype=self.dtype,
             )
             K_deriv[:n_data] = 0.0
-            hp_deriv["noise_deriv"] = np.array([np.diag(K_deriv)])
+            hp_deriv["noise_deriv"] = asarray([diag(K_deriv)])
         hp_deriv.update(self.kernel.get_gradients(features, hp, KXX=KXX))
         return hp_deriv
 
     def calculate_prefactor(self, features=None, targets=None, **kwargs):
-        return np.exp(2.0 * self.hp["prefactor"][0])
+        return exp(2.0 * self.hp["prefactor"][0])

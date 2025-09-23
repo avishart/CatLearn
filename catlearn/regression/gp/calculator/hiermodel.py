@@ -1,9 +1,18 @@
-import numpy as np
+from numpy import ndarray
 from .mlmodel import MLModel
 from .mlcalc import MLCalculator
 
 
 class HierarchicalMLModel(MLModel):
+    """
+    Machine Learning model used for the ASE Atoms instances and
+    in the machine learning calculators.
+    It is a hierarchy of ML models where the first model is used
+    for the first npoints data points. A new model is made when the
+    number of data points exceed the number of points.
+    The old models are used as a baseline.
+    """
+
     def __init__(
         self,
         model=None,
@@ -12,42 +21,50 @@ class HierarchicalMLModel(MLModel):
         optimize=True,
         hp=None,
         pdis=None,
+        include_noise=False,
+        to_save_mlmodel=False,
+        save_mlmodel_kwargs={},
         verbose=False,
         npoints=25,
-        initial_indicies=[0],
+        initial_indices=[0],
+        dtype=float,
         **kwargs,
     ):
         """
-        A hierarchy of Machine Learning model used for
-        ASE Atoms and calculator.
-        A new model is made when the number of data points
-        exceed the number of points.
-        The old models are used as a baseline.
+        Initialize the ML model for Atoms.
 
         Parameters:
-            model : Model
+            model: Model
                 The Machine Learning Model with kernel and
                 prior that are optimized.
-            database : Database object
+            database: Database object
                 The Database object with ASE atoms.
-            baseline : Baseline object
+            baseline: Baseline object
                 The Baseline object calculator
                 that calculates energy and forces.
-            optimize : bool
+            optimize: bool
                 Whether to optimize the hyperparameters
                 when the model is trained.
-            hp : dict
+            hp: dict
                 Use a set of hyperparameters to optimize from
                 else the current set is used.
-            pdis : dict
+            pdis: dict
                 A dict of prior distributions for each hyperparameter type.
-            verbose : bool
+            include_noise: bool
+                Whether to include noise in the uncertainty from the model.
+            to_save_mlmodel: bool
+                Whether to save the ML model to a file after training.
+            save_mlmodel_kwargs: dict
+                Arguments for saving the ML model, like the filename.
+            verbose: bool
                 Whether to print statements in the optimization.
-            npoints : int
+            npoints: int
                 Number of points that are used from the database in the models.
-            initial_indicies : list
-                The indicies of the data points that must be included in
+            initial_indices: list
+                The indices of the data points that must be included in
                 the used data base for every model.
+            dtype: type
+                The data type of the arrays.
         """
         super().__init__(
             model=model,
@@ -56,9 +73,13 @@ class HierarchicalMLModel(MLModel):
             optimize=optimize,
             hp=hp,
             pdis=pdis,
+            include_noise=include_noise,
+            to_save_mlmodel=to_save_mlmodel,
+            save_mlmodel_kwargs=save_mlmodel_kwargs,
             verbose=verbose,
             npoints=npoints,
-            initial_indicies=initial_indicies,
+            initial_indices=initial_indices,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -67,7 +88,7 @@ class HierarchicalMLModel(MLModel):
         Add training data in form of the ASE Atoms to the database.
 
         Parameters:
-            atoms_list : list or ASE Atoms
+            atoms_list: list or ASE Atoms
                 A list of or a single ASE Atoms with
                 calculated energies and forces.
 
@@ -75,7 +96,7 @@ class HierarchicalMLModel(MLModel):
             self: The updated object itself.
         """
         data_len = self.get_training_set_size()
-        if not isinstance(atoms_list, (list, np.ndarray)):
+        if not isinstance(atoms_list, (list, ndarray)):
             atoms_list = [atoms_list]
         # Store the data
         if data_len + len(atoms_list) <= self.npoints:
@@ -90,12 +111,12 @@ class HierarchicalMLModel(MLModel):
             )
             # Make a new ml model with the mandatory points
             data_atoms = self.get_data_atoms()
-            data_atoms = [data_atoms[i] for i in self.initial_indicies]
+            data_atoms = [data_atoms[i] for i in self.initial_indices]
             self.reset_database()
             super().add_training(data_atoms)
             super().add_training(atoms_list)
         else:
-            raise Exception(
+            raise AttributeError(
                 "New baseline model can not be made without training. "
                 "Include one point at the time!"
             )
@@ -109,9 +130,13 @@ class HierarchicalMLModel(MLModel):
         optimize=None,
         hp=None,
         pdis=None,
+        include_noise=None,
+        to_save_mlmodel=None,
+        save_mlmodel_kwargs=None,
         verbose=None,
         npoints=None,
-        initial_indicies=None,
+        initial_indices=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -119,61 +144,61 @@ class HierarchicalMLModel(MLModel):
         The existing arguments are used if they are not given.
 
         Parameters:
-            model : Model
+            model: Model
                 The Machine Learning Model with kernel and
                 prior that are optimized.
-            database : Database object
+            database: Database object
                 The Database object with ASE atoms.
-            baseline : Baseline object
+            baseline: Baseline object
                 The Baseline object calculator
                 that calculates energy and forces.
-            optimize : bool
+            optimize: bool
                 Whether to optimize the hyperparameters
                 when the model is trained.
-            hp : dict
+            hp: dict
                 Use a set of hyperparameters to optimize from
                 else the current set is used.
-            pdis : dict
+            pdis: dict
                 A dict of prior distributions for each hyperparameter type.
-            verbose : bool
+            to_save_mlmodel: bool
+                Whether to save the ML model to a file after training.
+            save_mlmodel_kwargs: dict
+                Arguments for saving the ML model, like the filename.
+            include_noise: bool
+                Whether to include noise in the uncertainty from the model.
+            verbose: bool
                 Whether to print statements in the optimization.
-            npoints : int
+            npoints: int
                 Number of points that are used from the database in the models.
-            initial_indicies : list
-                The indicies of the data points that must be included in
+            initial_indices: list
+                The indices of the data points that must be included in
                 the used data base for every model.
+            dtype: type
+                The data type of the arrays.
 
         Returns:
             self: The updated object itself.
         """
-        if model is not None:
-            self.model = model.copy()
-        if database is not None:
-            self.database = database.copy()
-        if baseline is not None:
-            self.baseline = baseline.copy()
-        if optimize is not None:
-            self.optimize = optimize
-        if hp is not None:
-            self.hp = hp.copy()
-        if pdis is not None:
-            self.pdis = pdis.copy()
-        if verbose is not None:
-            self.verbose = verbose
+        # Set the parameters in the parent class
+        super().update_arguments(
+            model=model,
+            database=database,
+            baseline=baseline,
+            optimize=optimize,
+            hp=hp,
+            pdis=pdis,
+            include_noise=include_noise,
+            to_save_mlmodel=to_save_mlmodel,
+            save_mlmodel_kwargs=save_mlmodel_kwargs,
+            verbose=verbose,
+            dtype=dtype,
+        )
+        # Set the number of points
         if npoints is not None:
             self.npoints = int(npoints)
-        if initial_indicies is not None:
-            self.initial_indicies = initial_indicies.copy()
-        # Check if the baseline is used
-        if self.baseline is None:
-            self.use_baseline = False
-        else:
-            self.use_baseline = True
-        # Make a list of the baseline targets
-        if baseline is not None or database is not None:
-            self.baseline_targets = []
-        # Check that the model and database have the same attributes
-        self.check_attributes()
+        # Set the initial indices
+        if initial_indices is not None:
+            self.initial_indices = initial_indices.copy()
         return self
 
     def get_arguments(self):
@@ -186,12 +211,16 @@ class HierarchicalMLModel(MLModel):
             optimize=self.optimize,
             hp=self.hp,
             pdis=self.pdis,
+            include_noise=self.include_noise,
+            to_save_mlmodel=self.to_save_mlmodel,
+            save_mlmodel_kwargs=self.save_mlmodel_kwargs,
             verbose=self.verbose,
             npoints=self.npoints,
-            initial_indicies=self.initial_indicies,
+            initial_indices=self.initial_indices,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()
         # Get the objects made within the class
-        object_kwargs = dict(baseline_targets=self.baseline_targets.copy())
+        object_kwargs = dict()
         return arg_kwargs, constant_kwargs, object_kwargs

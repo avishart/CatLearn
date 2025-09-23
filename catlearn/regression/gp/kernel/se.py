@@ -1,48 +1,35 @@
-import numpy as np
+from numpy import (
+    append,
+    asarray,
+    einsum,
+    exp,
+    diag,
+    diagonal,
+    fill_diagonal,
+    ones,
+    tile,
+    transpose,
+    zeros,
+)
 from scipy.spatial.distance import squareform
 from .kernel import Kernel
 
 
 class SE(Kernel):
-    def __init__(
-        self,
-        use_derivatives=False,
-        use_fingerprint=False,
-        hp={},
-        **kwargs,
-    ):
-        """
-        The Kernel class with hyperparameters.
-        Squared exponential or radial basis kernel class.
-
-        Parameters:
-            use_derivatives: bool
-                Whether to use the derivatives of the targets.
-            use_fingerprint: bool
-                Whether fingerprint objects is given or arrays.
-            hp: dict
-                A dictionary of the hyperparameters in the log-space.
-                The hyperparameters should be given as flatten arrays,
-                like hp=dict(length=np.array([-0.7])).
-        """
-        super().__init__(
-            use_derivatives=use_derivatives,
-            use_fingerprint=use_fingerprint,
-            hp=hp,
-            **kwargs,
-        )
+    """
+    The Squared exponential or radial basis function kernel class
+    with hyperparameters.
+    """
 
     def get_KXX(self, features, **kwargs):
         # Scale features or fingerprints with their length-scales
-        if self.use_fingerprint:
-            X = self.get_arrays(features) * np.exp(-self.hp["length"][0])
-        else:
-            X = features * np.exp(-self.hp["length"][0])
+        X = self.get_arrays(features)
+        X *= exp(-self.hp["length"][0])
         # Calculate the symmetric scaled distance matrix
         D = self.get_symmetric_absolute_distances(X, metric="sqeuclidean")
         # Calculate the normal covariance matrix
-        K = squareform(np.exp((-0.5) * D))
-        np.fill_diagonal(K, 1.0)
+        K = squareform(exp((-0.5) * D))
+        fill_diagonal(K, 1.0)
         # Whether to the extended covariance matrix for derivative of targets
         if self.use_derivatives:
             if self.use_fingerprint:
@@ -52,16 +39,12 @@ class SE(Kernel):
 
     def get_KQX(self, features, features2, get_derivatives=True, **kwargs):
         # Scale features or fingerprints with their length-scales
-        length_scale = np.exp(-self.hp["length"][0])
-        if self.use_fingerprint:
-            Q, X = self.get_arrays(features, features2)
-            Q = Q * length_scale
-            X = X * length_scale
-        else:
-            Q = features * length_scale
-            X = features2 * length_scale
+        length_scale = exp(-self.hp["length"][0])
+        Q, X = self.get_arrays(features, features2)
+        Q *= length_scale
+        X *= length_scale
         D = self.get_absolute_distances(Q, X, metric="sqeuclidean")
-        K = np.exp((-0.5) * D)
+        K = exp((-0.5) * D)
         if get_derivatives or self.use_derivatives:
             if self.use_fingerprint:
                 return self.get_KQX_ext_fp(
@@ -99,15 +82,15 @@ class SE(Kernel):
                 The covariance matrix without derivatives of the features.
 
         Returns:
-            (N*D+N,N*D+N) array : The extended symmetric kernel matrix.
+            (N*D+N,N*D+N) array: The extended symmetric kernel matrix.
         """
         # Get dimensions
-        nd1, xdim = np.shape(X)
+        nd1, xdim = X.shape
         nd1x = nd1 * xdim
         nd1x1 = nd1x + nd1
         # Get the derivative and hessian of the scaled distance matrix
         dDpre, dD = self.get_distance_derivative(X, X, nd1, nd1, xdim, axis=0)
-        ddDpre = -2.0 * np.exp(-2 * self.hp["length"][0])
+        ddDpre = -2.0 * exp(-2 * self.hp["length"][0])
         # The first derivative of the kernel
         dKpre, dK = self.get_derivative_K(K)
         dKdD = (-dDpre * dKpre) * dK
@@ -116,27 +99,27 @@ class SE(Kernel):
         ddKdD = ((-dDpre * dDpre * ddKpre) * ddK) * dD
         dKddD = (ddDpre * dKpre) * dK
         # Calculate the full symmetric kernel matrix
-        Kext = np.zeros((nd1x1, nd1x1))
+        Kext = zeros((nd1x1, nd1x1), dtype=self.dtype)
         Kext[:nd1, :nd1] = K.copy()
         # Derivative part
-        Kext[:nd1, nd1:] = np.transpose(
+        Kext[:nd1, nd1:] = transpose(
             dKdD * dD,
             (1, 0, 2),
         ).reshape(nd1, nd1x)
         Kext[nd1:, :nd1] = Kext[:nd1, nd1:].T
         # Hessian part
+        xdimm = xdim - 1
         for d1 in range(1, xdim):
             nd1d1 = nd1 * d1
             nd1d11 = nd1d1 + nd1
-            Kext[nd1d1:nd1d11, nd1d11:] = np.transpose(
-                ddKdD[d1:] * dD[d1 - 1],
+            d1m = d1 - 1
+            Kext[nd1d1:nd1d11, nd1d11:] = transpose(
+                ddKdD[d1:] * dD[d1m],
                 (1, 0, 2),
             ).reshape(nd1, nd1 * (xdim - d1))
             Kext[nd1d11:, nd1d1:nd1d11] = Kext[nd1d1:nd1d11, nd1d11:].T
-            Kext[nd1d1:nd1d11, nd1d1:nd1d11] = (
-                ddKdD[d1 - 1] * dD[d1 - 1] + dKddD
-            )
-        Kext[nd1x:nd1x1, nd1x:nd1x1] = (ddKdD[xdim - 1] * dD[xdim - 1]) + dKddD
+            Kext[nd1d1:nd1d11, nd1d1:nd1d11] = ddKdD[d1m] * dD[d1m] + dKddD
+        Kext[nd1x:nd1x1, nd1x:nd1x1] = (ddKdD[xdimm] * dD[xdimm]) + dKddD
         return Kext
 
     def get_KXX_ext_fp(self, features, X, D, K, **kwargs):
@@ -154,7 +137,7 @@ class SE(Kernel):
                 The covariance matrix without derivatives of the features.
 
         Returns:
-            (N*Dx+N,N*Dx+N) array : The extended symmetric kernel matrix.
+            (N*Dx+N,N*Dx+N) array: The extended symmetric kernel matrix.
         """
         # Get dimensions
         nd1 = len(X)
@@ -176,29 +159,30 @@ class SE(Kernel):
         dKdD = (-dDpre * dKpre) * dK
         # The hessian of the kernel
         ddKpre, ddK = self.get_hessian_K(K)
-        ddKdD = ((dDpre * dDpre * ddKpre) * ddK) * np.transpose(dD, (0, 2, 1))
+        ddKdD = ((dDpre * dDpre * ddKpre) * ddK) * transpose(dD, (0, 2, 1))
         dKddD = (ddDpre * dKpre) * dK
         # Calculate the full symmetric kernel matrix
-        Kext = np.zeros((nd1x1, nd1x1))
+        Kext = zeros((nd1x1, nd1x1), dtype=self.dtype)
         Kext[:nd1, :nd1] = K.copy()
         # Derivative part
-        Kext[:nd1, nd1:] = np.transpose(
+        Kext[:nd1, nd1:] = transpose(
             dKdD * dD,
             (1, 0, 2),
         ).reshape(nd1, nd1x)
         Kext[nd1:, :nd1] = Kext[:nd1, nd1:].T
         # Hessian part
+        xdimm = xdim - 1
         for d1 in range(1, xdim):
             nd1d1 = nd1 * d1
             nd1d11 = nd1d1 + nd1
-            Kext[nd1d1:nd1d11, nd1d1:] = np.transpose(
-                (ddKdD[d1 - 1] * dD[d1 - 1 :])
-                + (dKddD * ddD[d1 - 1, d1 - 1 :]),
+            d1m = d1 - 1
+            Kext[nd1d1:nd1d11, nd1d1:] = transpose(
+                (ddKdD[d1m] * dD[d1m:]) + (dKddD * ddD[d1m, d1m:]),
                 (1, 0, 2),
             ).reshape(nd1, nd1 * (xdim - d1 + 1))
             Kext[nd1d11:, nd1d1:nd1d11] = Kext[nd1d1:nd1d11, nd1d11:].T
-        Kext[nd1x:nd1x1, nd1x:nd1x1] = (ddKdD[xdim - 1] * dD[xdim - 1]) + (
-            dKddD * ddD[xdim - 1, xdim - 1 :]
+        Kext[nd1x:nd1x1, nd1x:nd1x1] = (ddKdD[xdimm] * dD[xdimm]) + (
+            dKddD * ddD[xdimm, xdimm:]
         )
         return Kext
 
@@ -233,15 +217,15 @@ class SE(Kernel):
                 Whether to predict derivatives of target.
 
         Returns:
-            (M*D+N,N*D+N) array : The extended kernel matrix.
+            (M*D+N,N*D+N) array: The extended kernel matrix.
         """
         # Get dimensions
         nd1 = len(Q)
-        nd2, xdim = np.shape(X)
+        nd2, xdim = X.shape
         nrows = nd1 * (xdim + 1) if get_derivatives else nd1
         ncol = nd2 * (xdim + 1) if self.use_derivatives else nd2
         # The full kernel matrix
-        Kext = np.zeros((nrows, ncol))
+        Kext = zeros((nrows, ncol), dtype=self.dtype)
         Kext[:nd1, :nd2] = K.copy()
         # Get the derivative of the scaled distance matrix
         dDpre, dD = self.get_distance_derivative(Q, X, nd1, nd2, xdim, axis=0)
@@ -251,7 +235,7 @@ class SE(Kernel):
         btensor = dKdD * dD
         if self.use_derivatives:
             # Derivative part of X
-            Kext[:nd1, nd2:] = np.transpose(
+            Kext[:nd1, nd2:] = transpose(
                 btensor,
                 (1, 0, 2),
             ).reshape(nd1, nd2 * xdim)
@@ -262,11 +246,11 @@ class SE(Kernel):
             if self.use_derivatives:
                 ddKpre, ddK = self.get_hessian_K(K)
                 ddKdD = ((-dDpre * dDpre * ddKpre) * ddK) * dD
-                ddDpre = -2.0 * np.exp(-2 * self.hp["length"][0])
+                ddDpre = -2.0 * exp(-2 * self.hp["length"][0])
                 dKddD = (ddDpre * dKpre) * dK
                 btensor = ddKdD[:, None, :, :] * dD
                 btensor[range(xdim), range(xdim), :, :] += dKddD
-                Kext[nd1:, nd2:] = np.transpose(
+                Kext[nd1:, nd2:] = transpose(
                     btensor,
                     (0, 2, 1, 3),
                 ).reshape(nd1 * xdim, nd2 * xdim)
@@ -303,7 +287,7 @@ class SE(Kernel):
                 Whether to predict derivatives of target.
 
         Returns:
-            (M*Dx+N,N*Dx+N) array : The extended kernel matrix.
+            (M*Dx+N,N*Dx+N) array: The extended kernel matrix.
         """
         # Get dimensions
         nd1, nd2 = len(Q), len(X)
@@ -311,7 +295,7 @@ class SE(Kernel):
         nrows = nd1 * (xdim + 1) if get_derivatives else nd1
         ncol = nd2 * (xdim + 1) if self.use_derivatives else nd2
         # The full kernel matrix
-        Kext = np.zeros((nrows, ncol))
+        Kext = zeros((nrows, ncol), dtype=self.dtype)
         Kext[:nd1, :nd2] = K.copy()
         # The first derivative of the kernel
         dKpre, dK = self.get_derivative_K(K)
@@ -326,7 +310,7 @@ class SE(Kernel):
                 **kwargs,
             )
             dKdD = (dDpre2 * dKpre) * dK
-            Kext[:nd1, nd2:] = np.transpose(
+            Kext[:nd1, nd2:] = transpose(
                 dKdD * dD2,
                 (1, 0, 2),
             ).reshape(nd1, nd2 * xdim)
@@ -352,8 +336,8 @@ class SE(Kernel):
                 ddKpre, ddK = self.get_hessian_K(K)
                 ddKdD = ((dDpre1 * dDpre2 * ddKpre) * ddK) * dD1
                 dKddD = (ddDpre * dKpre) * dK
-                Kext[nd1:, nd2:] = np.transpose(
-                    np.einsum("ijk,ljk->iljk", ddKdD, dD2, optimize=True)
+                Kext[nd1:, nd2:] = transpose(
+                    einsum("ijk,ljk->iljk", ddKdD, dD2, optimize=True)
                     + (ddD * dKddD),
                     (0, 2, 1, 3),
                 ).reshape(nd1 * xdim, nd2 * xdim)
@@ -372,7 +356,7 @@ class SE(Kernel):
         The distance matrix contains one of the length scales.
 
         Parameters:
-            K : (N,M) array
+            K: (N,M) array
                 The kernel matrix without derivatives.
 
         Returns:
@@ -390,7 +374,7 @@ class SE(Kernel):
         The distance matrices contain one of the length scales.
 
         Parameters:
-            K : (N,M) array
+            K: (N,M) array
                 The kernel matrix without derivatives.
 
         Returns:
@@ -402,24 +386,24 @@ class SE(Kernel):
 
     def diag(self, features, get_derivatives=True, **kwargs):
         nd1 = len(features)
-        K_diag = np.ones(nd1)
+        K_diag = ones(nd1, dtype=self.dtype)
         if get_derivatives:
             if self.use_fingerprint:
                 fp_deriv = self.get_fp_deriv(features)
-                Kdd_diag = np.einsum(
+                Kdd_diag = einsum(
                     "dij,dij->di",
                     fp_deriv,
                     fp_deriv,
                     optimize=True,
                 ).reshape(-1)
-                return np.append(
+                return append(
                     K_diag,
-                    np.exp(-2.0 * self.hp["length"][0]) * Kdd_diag,
+                    exp(-2.0 * self.hp["length"][0]) * Kdd_diag,
                 )
-            return np.append(
+            return append(
                 K_diag,
-                np.exp(-2.0 * self.hp["length"][0])
-                * np.ones(nd1 * len(features[0])),
+                exp(-2.0 * self.hp["length"][0])
+                * ones(nd1 * len(features[0]), dtype=self.dtype),
             )
         return K_diag
 
@@ -429,10 +413,8 @@ class SE(Kernel):
     def get_gradients(self, features, hp, KXX, correction=True, **kwargs):
         hp_deriv = {}
         if "length" in hp:
-            if self.use_fingerprint:
-                X = self.get_arrays(features) * np.exp(-self.hp["length"][0])
-            else:
-                X = features * np.exp(-self.hp["length"][0])
+            X = self.get_arrays(features)
+            X *= exp(-self.hp["length"][0])
             D = squareform(
                 self.get_symmetric_absolute_distances(X, metric="sqeuclidean")
             )
@@ -447,11 +429,11 @@ class SE(Kernel):
                 nd1x1 = nd1x + nd1
                 # Get the gradient of the kernel
                 K = KXX[:nd1, :nd1].copy()
-                K_diag = np.diag(KXX)
+                K_diag = diag(KXX)
                 Kd = KXX.copy()
                 Kd[:nd1, :nd1] = Kd[:nd1, :nd1] * D
                 D2 = D - 2
-                Kd[:nd1, nd1:] = Kd[:nd1, nd1:] * np.tile(D2, (1, xdim))
+                Kd[:nd1, nd1:] *= tile(D2, (1, xdim))
                 Kd[nd1:, :nd1] = Kd[:nd1, nd1:].T
                 ddKpre, ddK = self.get_hessian_K(K)
                 if self.use_fingerprint:
@@ -463,7 +445,7 @@ class SE(Kernel):
                         axis=0,
                         **kwargs,
                     )
-                    ddKdD = ((dDpre * dDpre * ddKpre) * ddK) * np.transpose(
+                    ddKdD = ((dDpre * dDpre * ddKpre) * ddK) * transpose(
                         dD,
                         (0, 2, 1),
                     )
@@ -477,30 +459,29 @@ class SE(Kernel):
                         axis=0,
                     )
                     ddKdD = ((-dDpre * dDpre * ddKpre) * ddK) * dD
+                xdimm = xdim - 1
                 for d1 in range(1, xdim):
                     nd1d1 = nd1 * d1
                     nd1d11 = nd1d1 + nd1
-                    ddKdDdD = 2 * np.transpose(
-                        ddKdD[d1 - 1] * dD[d1 - 1 :],
+                    d1m = d1 - 1
+                    ddKdDdD = 2.0 * transpose(
+                        ddKdD[d1m] * dD[d1m:],
                         (1, 0, 2),
                     ).reshape(nd1, nd1 * (xdim - d1 + 1))
-                    Kd[nd1d1:nd1d11, nd1d1:] = (
-                        Kd[nd1d1:nd1d11, nd1d1:]
-                        * np.tile(D2, (1, xdim - d1 + 1))
-                    ) - ddKdDdD
+                    Kd[nd1d1:nd1d11, nd1d1:] *= tile(D2, (1, xdim - d1 + 1))
+                    Kd[nd1d1:nd1d11, nd1d1:] -= ddKdDdD
                     Kd[nd1d11:, nd1d1:nd1d11] = Kd[nd1d1:nd1d11, nd1d11:].T
-                Kd[nd1x:nd1x1, nd1x:nd1x1] = Kd[
-                    nd1x:nd1x1, nd1x:nd1x1
-                ] * D2 - (2 * ddKdD[xdim - 1] * dD[xdim - 1])
+                Kd[nd1x:nd1x1, nd1x:nd1x1] *= D2
+                Kd[nd1x:nd1x1, nd1x:nd1x1] -= 2.0 * ddKdD[xdimm] * dD[xdimm]
                 if correction:
                     Kd[range(nd1x), range(nd1x)] += (
-                        (1 / (1 / (2.3e-16) - (len(K_diag) ** 2)))
-                        * (2 * np.sum(K_diag))
-                        * (-2 * np.sum(K_diag[nd1:]))
+                        (1.0 / (1.0 / self.eps - (len(K_diag) ** 2)))
+                        * (2.0 * K_diag.sum())
+                        * (-2.0 * K_diag[nd1:].sum())
                     )
             else:
                 Kd = D * KXX
-            hp_deriv["length"] = np.array([Kd])
+            hp_deriv["length"] = asarray([Kd])
         return hp_deriv
 
     def get_distance_derivative(self, Q, X, nd1, nd2, dim, axis=0, **kwargs):
@@ -508,7 +489,7 @@ class SE(Kernel):
         Get the derivative of the scaled distance matrix wrt.
         the features/fingerprint.
         """
-        dDpre = 2.0 * np.exp(-self.hp["length"][0])
+        dDpre = 2.0 * exp(-self.hp["length"][0])
         if axis != 0:
             dDpre = -dDpre
         return dDpre, Q.T.reshape(dim, nd1, 1) - X.T.reshape(dim, 1, nd2)
@@ -525,20 +506,20 @@ class SE(Kernel):
         Get the derivative of the distance matrix wrt.
         the features/fingerprint.
         """
-        dDpre = 2.0 * np.exp(-self.hp["length"][0])
+        dDpre = 2.0 * exp(-self.hp["length"][0])
         if axis != 0:
             dDpre = -dDpre
         if X is None:
-            Q_chain = np.einsum("lj,ikj->ilk", Q, fp_deriv)
-            dQ = Q_chain - np.diagonal(Q_chain, axis1=1, axis2=2)[:, None, :]
+            Q_chain = einsum("lj,ikj->ilk", Q, fp_deriv)
+            dQ = Q_chain - diagonal(Q_chain, axis1=1, axis2=2)[:, None, :]
             return dDpre, dQ
         if axis == 0:
-            Q_chain = np.einsum("kj,ikj->ik", Q, fp_deriv)
-            X_chain = np.einsum("lj,ikj->ikl", X, fp_deriv)
+            Q_chain = einsum("kj,ikj->ik", Q, fp_deriv)
+            X_chain = einsum("lj,ikj->ikl", X, fp_deriv)
             dQ = Q_chain[:, :, None] - X_chain
             return dDpre, dQ
-        Q_chain = np.einsum("lj,ikj->ilk", Q, fp_deriv)
-        X_chain = np.einsum("kj,ikj->ik", X, fp_deriv)
+        Q_chain = einsum("lj,ikj->ilk", Q, fp_deriv)
+        X_chain = einsum("kj,ikj->ik", X, fp_deriv)
         dQ = Q_chain - X_chain[:, None, :]
         return dDpre, dQ
 
@@ -547,7 +528,7 @@ class SE(Kernel):
         Get the derivative of the scaled distance matrix wrt.
         the features/fingerprint.
         """
-        dDpre = -2.0 * np.exp(-2 * self.hp["length"][0])
+        dDpre = -2.0 * exp(-2 * self.hp["length"][0])
         return dDpre, 1.0
 
     def get_distance_hessian_fp(self, fp_deriv1, fp_deriv2, **kwargs):
@@ -555,8 +536,8 @@ class SE(Kernel):
         Get the derivative of the scaled distance matrix wrt.
         the features/fingerprint.
         """
-        dDpre = -2.0 * np.exp(-2 * self.hp["length"][0])
-        hes_fp = np.einsum(
+        dDpre = -2.0 * exp(-2 * self.hp["length"][0])
+        hes_fp = einsum(
             "dji,eki->dejk",
             fp_deriv1,
             fp_deriv2,

@@ -1,7 +1,15 @@
-import numpy as np
+from numpy import asarray, ndarray, sqrt, zeros
+from ase.parallel import parprint
+import pickle
+from .default_model import get_default_model, get_default_database
 
 
 class MLModel:
+    """
+    Machine Learning model used for the ASE Atoms instances and
+    in the machine learning calculators.
+    """
+
     def __init__(
         self,
         model=None,
@@ -10,46 +18,50 @@ class MLModel:
         optimize=True,
         hp=None,
         pdis=None,
+        include_noise=False,
+        to_save_mlmodel=False,
+        save_mlmodel_kwargs={},
         verbose=False,
+        dtype=float,
         **kwargs,
     ):
         """
-        Machine Learning model used for ASE Atoms and calculator.
+        Initialize the ML model for Atoms.
 
         Parameters:
-            model : Model
+            model: Model
                 The Machine Learning Model with kernel and
                 prior that are optimized.
-            database : Database object
+            database: Database object
                 The Database object with ASE atoms.
-            baseline : Baseline object
+            baseline: Baseline object
                 The Baseline object calculator
                 that calculates energy and forces.
-            optimize : bool
+            optimize: bool
                 Whether to optimize the hyperparameters
                 when the model is trained.
-            hp : dict
+            hp: dict
                 Use a set of hyperparameters to optimize from
                 else the current set is used.
-            pdis : dict
+            pdis: dict
                 A dict of prior distributions for each hyperparameter type.
-            verbose : bool
+            include_noise: bool
+                Whether to include noise in the uncertainty from the model.
+            to_save_mlmodel: bool
+                Whether to save the ML model to a file after training.
+            save_mlmodel_kwargs: dict
+                Arguments for saving the ML model, like the filename.
+            verbose: bool
                 Whether to print statements in the optimization.
+            dtype: type
+                The data type of the arrays.
         """
         # Make default model if it is not given
         if model is None:
-            model = get_default_model()
+            model = get_default_model(dtype=dtype)
         # Make default database if it is not given
         if database is None:
-            database = get_default_database()
-        # Use default baseline if it is not given
-        if baseline is None:
-            self.baseline = None
-        # Use default pdis if it is not given
-        if pdis is None:
-            self.pdis = None
-        # Make default hyperparameters if it is not given
-        self.hp = None
+            database = get_default_database(dtype=dtype)
         # Set the arguments
         self.update_arguments(
             model=model,
@@ -58,7 +70,11 @@ class MLModel:
             optimize=optimize,
             hp=hp,
             pdis=pdis,
+            include_noise=include_noise,
+            to_save_mlmodel=to_save_mlmodel,
+            save_mlmodel_kwargs=save_mlmodel_kwargs,
             verbose=verbose,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -67,17 +83,16 @@ class MLModel:
         Add training data in form of the ASE Atoms to the database.
 
         Parameters:
-            atoms_list : list or ASE Atoms
+            atoms_list: list or ASE Atoms
                 A list of or a single ASE Atoms with
                 calculated energies and forces.
 
         Returns:
             self: The updated object itself.
         """
-        if not isinstance(atoms_list, (list, np.ndarray)):
+        if not isinstance(atoms_list, (list, ndarray)):
             atoms_list = [atoms_list]
         self.database.add_set(atoms_list)
-        self.store_baseline_targets(atoms_list)
         return self
 
     def train_model(self, **kwargs):
@@ -88,9 +103,9 @@ class MLModel:
             self: The updated object itself.
         """
         # Get data from the data base
-        features, targets = self.get_data()
+        features, targets, atoms_list = self.get_data()
         # Correct targets with the baseline
-        targets = self.get_baseline_corrected_targets(targets)
+        targets = self.get_baseline_corrected_targets(atoms_list, targets)
         # Train model
         if self.optimize:
             # Optimize the hyperparameters and train the ML model
@@ -98,6 +113,9 @@ class MLModel:
         else:
             # Train the ML model
             self.model_training(features, targets, **kwargs)
+        # Save the ML model to a file if requested
+        if self.to_save_mlmodel:
+            self.save_mlmodel(**self.save_mlmodel_kwargs)
         return self
 
     def calculate(
@@ -114,29 +132,29 @@ class MLModel:
         If get_variance=False, variance is returned as None.
 
         Parameters:
-            atoms : ASE Atoms
+            atoms: ASE Atoms
                 The ASE Atoms object that the properties (incl. energy)
                 are calculated for.
-            get_uncertainty : bool
+            get_uncertainty: bool
                 Whether to calculate the uncertainty.
                 The uncertainty is None if get_uncertainty=False.
-            get_forces : bool
+            get_forces: bool
                 Whether to calculate the forces.
-            get_force_uncertainties : bool
+            get_force_uncertainties: bool
                 Whether to calculate the uncertainties of the predicted forces.
-            get_unc_derivatives : bool
+            get_unc_derivatives: bool
                 Whether to calculate the derivatives of
                 the uncertainty of the predicted energy.
 
         Returns:
-            energy : float
+            energy: float
                 The predicted energy of the ASE Atoms.
-            forces : (Nat,3) array or None
+            forces: (Nat,3) array or None
                 The predicted forces if get_forces=True.
-            uncertainty : float or None
+            uncertainty: float or None
                 The predicted uncertainty of the energy
                 if get_uncertainty=True.
-            uncertainty_forces : (Nat,3) array or None
+            uncertainty_forces: (Nat,3) array or None
                 The predicted uncertainties of the forces
                 if get_uncertainty=True and get_forces=True.
         """
@@ -159,19 +177,37 @@ class MLModel:
         )
         return results
 
-    def save_data(self, trajectory="data.traj", **kwarg):
+    def save_data(
+        self,
+        trajectory="data.traj",
+        mode="w",
+        write_last=False,
+        **kwargs,
+    ):
         """
         Save the ASE Atoms data to a trajectory.
 
         Parameters:
-            trajectory : str
+            trajectory: str or TrajectoryWriter instance
                 The name of the trajectory file where the data is saved.
+                Or a TrajectoryWriter instance where the data is saved to.
+            mode: str
+                The mode of the trajectory file.
+            write_last: bool
+                Whether to only write the last atoms instance to the
+                trajectory.
+                If False, all atoms instances in the database are written
+                to the trajectory.
 
         Returns:
             self: The updated object itself.
         """
-        " Save the ASE atoms data to a trajectory. "
-        self.database.save_data(trajectory=trajectory, **kwarg)
+        self.database.save_data(
+            trajectory=trajectory,
+            mode=mode,
+            write_last=write_last,
+            **kwargs,
+        )
         return self
 
     def get_training_set_size(self, **kwargs):
@@ -188,7 +224,7 @@ class MLModel:
         Check if the ASE Atoms is in the database.
 
         Parameters:
-            atoms : ASE Atoms
+            atoms: ASE Atoms
                 The ASE Atoms object with a calculator.
 
         Returns:
@@ -201,7 +237,7 @@ class MLModel:
         Copy the atoms object together with the calculated properties.
 
         Parameters:
-            atoms : ASE Atoms
+            atoms: ASE Atoms
                 The ASE Atoms object with a calculator that is copied.
 
         Returns:
@@ -215,7 +251,7 @@ class MLModel:
         Update the arguments in the database.
 
         Parameters:
-            point_interest : list
+            point_interest: list
                 A list of the points of interest as ASE Atoms instances.
 
         Returns:
@@ -223,6 +259,36 @@ class MLModel:
         """
         self.database.update_arguments(point_interest=point_interest, **kwargs)
         return self
+
+    def save_mlmodel(self, filename="mlmodel.pkl", **kwargs):
+        """
+        Save the ML model instance to a file.
+
+        Parameters:
+            filename: str
+                The name of the file where the instance is saved.
+
+        Returns:
+            self: The instance itself.
+        """
+        with open(filename, "wb") as file:
+            pickle.dump(self, file)
+        return self
+
+    def load_mlmodel(self, filename="mlmodel.pkl", **kwargs):
+        """
+        Load the ML model instance from a file.
+
+        Parameters:
+            filename: str
+                The name of the file where the instance is saved.
+
+        Returns:
+            mlcalc: The loaded ML model instance.
+        """
+        with open(filename, "rb") as file:
+            mlmodel = pickle.load(file)
+        return mlmodel
 
     def update_arguments(
         self,
@@ -232,7 +298,11 @@ class MLModel:
         optimize=None,
         hp=None,
         pdis=None,
+        include_noise=None,
+        to_save_mlmodel=None,
+        save_mlmodel_kwargs=None,
         verbose=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -240,24 +310,32 @@ class MLModel:
         The existing arguments are used if they are not given.
 
         Parameters:
-            model : Model
+            model: Model
                 The Machine Learning Model with kernel and
                 prior that are optimized.
-            database : Database object
+            database: Database object
                 The Database object with ASE atoms.
-            baseline : Baseline object
+            baseline: Baseline object
                 The Baseline object calculator
                 that calculates energy and forces.
-            optimize : bool
+            optimize: bool
                 Whether to optimize the hyperparameters
                 when the model is trained.
-            hp : dict
+            hp: dict
                 Use a set of hyperparameters to optimize from
                 else the current set is used.
-            pdis : dict
+            pdis: dict
                 A dict of prior distributions for each hyperparameter type.
-            verbose : bool
+            include_noise: bool
+                Whether to include noise in the uncertainty from the model.
+            to_save_mlmodel: bool
+                Whether to save the ML model to a file after training.
+            save_mlmodel_kwargs: dict
+                Arguments for saving the ML model, like the filename.
+            verbose: bool
                 Whether to print statements in the optimization.
+            dtype: type
+                The data type of the arrays.
 
         Returns:
             self: The updated object itself.
@@ -268,28 +346,40 @@ class MLModel:
             self.database = database.copy()
         if baseline is not None:
             self.baseline = baseline.copy()
+        elif not hasattr(self, "baseline"):
+            self.baseline = None
         if optimize is not None:
             self.optimize = optimize
         if hp is not None:
             self.hp = hp.copy()
+        elif not hasattr(self, "hp"):
+            self.hp = None
         if pdis is not None:
             self.pdis = pdis.copy()
+        elif not hasattr(self, "pdis"):
+            self.pdis = None
+        if include_noise is not None:
+            self.include_noise = include_noise
+        if to_save_mlmodel is not None:
+            self.to_save_mlmodel = to_save_mlmodel
+        if save_mlmodel_kwargs is not None:
+            self.save_mlmodel_kwargs = save_mlmodel_kwargs
         if verbose is not None:
             self.verbose = verbose
+        if dtype is not None or not hasattr(self, "dtype"):
+            self.set_dtype(dtype=dtype)
         # Check if the baseline is used
         if self.baseline is None:
             self.use_baseline = False
         else:
             self.use_baseline = True
-        # Make a list of the baseline targets
-        if baseline is not None or database is not None:
-            self.baseline_targets = []
         # Check that the model and database have the same attributes
         self.check_attributes()
         return self
 
     def model_optimization(self, features, targets, **kwargs):
         "Optimize the ML model with the arguments set in optimize_kwargs."
+        # Optimize the hyperparameters and train the ML model
         sol = self.model.optimize(
             features,
             targets,
@@ -299,9 +389,18 @@ class MLModel:
             verbose=False,
             **kwargs,
         )
+        # Print the solution if verbose is True
         if self.verbose:
-            from ase.parallel import parprint
-
+            # Get the prefactor if it is available
+            if hasattr(self.model, "get_prefactor"):
+                sol["prefactor"] = float(
+                    "{:.3e}".format(self.model.get_prefactor())
+                )
+            # Get the noise correction if it is available
+            if hasattr(self.model, "get_correction"):
+                sol["correction"] = float(
+                    "{:.3e}".format(self.model.get_correction())
+                )
             parprint(sol)
         return self.model
 
@@ -321,22 +420,24 @@ class MLModel:
     ):
         "Predict the targets and uncertainties."
         # Calculate fingerprint
-        fp = self.database.make_atoms_feature(atoms)
+        fp = self.make_atoms_feature(atoms)
         # Calculate energy, forces, and uncertainty
         y, var, var_deriv = self.model.predict(
-            np.array([fp]),
+            fp,
             get_derivatives=get_forces,
             get_variance=get_uncertainty,
-            include_noise=False,
+            include_noise=self.include_noise,
             get_derivtives_var=get_force_uncertainties,
             get_var_derivatives=get_unc_derivatives,
         )
         # Correct the predicted targets with the baseline if it is used
         y = self.add_baseline_correction(
-            y, atoms=atoms, use_derivatives=get_forces
+            y,
+            atoms=atoms,
+            use_derivatives=get_forces,
         )
         # Extract the energy
-        energy = y[0][0]
+        energy = y.item(0)
         # Extract the forces if they are requested
         if get_forces:
             forces = -y[0][1:]
@@ -344,10 +445,10 @@ class MLModel:
             forces = None
         # Get the uncertainties if they are requested
         if get_uncertainty:
-            unc = np.sqrt(var[0][0])
+            unc = sqrt(var.item(0))
             # Get the uncertainty of the forces if they are requested
             if get_force_uncertainties and get_forces:
-                unc_forces = np.sqrt(unc[0][1:])
+                unc_forces = sqrt(var[0][1:])
             else:
                 unc_forces = None
             # Get the derivatives of the predicted uncertainty
@@ -389,53 +490,60 @@ class MLModel:
         # Make the full matrix of forces and save it
         if forces is not None:
             results["forces"] = self.not_masked_reshape(
-                forces, not_masked, natoms
+                forces,
+                not_masked=not_masked,
+                natoms=natoms,
             )
         # Make the full matrix of force uncertainties and save it
         if unc_forces is not None:
             results["force uncertainties"] = self.not_masked_reshape(
-                unc_forces, not_masked, natoms
+                unc_forces,
+                not_masked=not_masked,
+                natoms=natoms,
             )
         # Make the full matrix of derivatives of uncertainty and save it
         if unc_deriv is not None:
             results["uncertainty derivatives"] = self.not_masked_reshape(
-                unc_deriv, not_masked, natoms
+                unc_deriv,
+                not_masked=not_masked,
+                natoms=natoms,
             )
         return results
 
     def add_baseline_correction(
-        self, targets, atoms, use_derivatives=True, **kwargs
+        self,
+        targets,
+        atoms,
+        use_derivatives=True,
+        **kwargs,
     ):
         "Add the baseline correction to the targets if a baseline is used."
         if self.use_baseline:
-            # Calculate the baseline for the ASE atoms object
+            # Calculate the baseline for the ASE atoms instance
             y_base = self.calculate_baseline(
-                [atoms], use_derivatives=use_derivatives, **kwargs
+                [atoms],
+                use_derivatives=use_derivatives,
+                **kwargs,
             )
             # Add baseline correction to the targets
-            return targets + np.array(y_base)[0]
+            targets += asarray(y_base, dtype=self.dtype)[0]
         return targets
 
-    def get_baseline_corrected_targets(self, targets, **kwargs):
+    def get_baseline_corrected_targets(self, atoms_list, targets, **kwargs):
         """
         Get the baseline corrected targets if a baseline is used.
         The baseline correction is subtracted from training targets.
         """
         if self.use_baseline:
-            return targets - np.array(self.baseline_targets)
-        return targets
-
-    def store_baseline_targets(self, atoms_list, **kwargs):
-        "Store the baseline correction on the targets."
-        # Calculate the baseline for each ASE atoms objects
-        if self.use_baseline:
+            # Calculate the baseline for each ASE atoms instance
             y_base = self.calculate_baseline(
                 atoms_list,
                 use_derivatives=self.database.use_derivatives,
                 **kwargs,
             )
-            self.baseline_targets.extend(y_base)
-        return self.baseline_targets
+            # Subtract baseline correction to the targets
+            targets -= asarray(y_base, dtype=self.dtype)
+        return targets
 
     def calculate_baseline(self, atoms_list, use_derivatives=True, **kwargs):
         "Calculate the baseline for each ASE atoms object."
@@ -444,28 +552,38 @@ class MLModel:
             atoms_base = atoms.copy()
             atoms_base.calc = self.baseline
             y_base.append(
-                self.make_targets(atoms_base, use_derivatives=use_derivatives)
+                self.make_targets(
+                    atoms_base,
+                    use_derivatives=use_derivatives,
+                    **kwargs,
+                )
             )
         return y_base
 
-    def not_masked_reshape(self, array, not_masked, natoms, **kwargs):
+    def not_masked_reshape(self, nm_array, not_masked, natoms, **kwargs):
         """
         Reshape an array so that it works for all atom coordinates and
-        set constrained indicies to 0.
+        set constrained indices to 0.
         """
-        full_array = np.zeros((natoms, 3))
-        full_array[not_masked] = array.reshape(-1, 3)
+        full_array = zeros((natoms, 3), dtype=self.dtype)
+        full_array[not_masked] = nm_array.reshape(-1, 3)
         return full_array
 
     def get_data(self, **kwargs):
         "Get data from the data base."
         features = self.database.get_features()
         targets = self.database.get_targets()
-        return features, targets
+        atoms_list = self.get_data_atoms()
+        return features, targets, atoms_list
 
     def get_data_atoms(self, **kwargs):
-        "Get the atoms stored in the data base."
-        return self.database.get_atoms()
+        """
+        Get the list of atoms in the database.
+
+        Returns:
+            list: A list of the saved ASE Atoms objects.
+        """
+        return self.database.get_data_atoms()
 
     def reset_database(self, **kwargs):
         """
@@ -475,23 +593,120 @@ class MLModel:
             self: The updated object itself.
         """
         self.database.reset_database()
-        self.baseline_targets = []
         return self
 
     def make_targets(self, atoms, use_derivatives=True, **kwargs):
         "Make the target in the data base."
         return self.database.make_target(
-            atoms, use_derivatives=use_derivatives, use_negative_forces=True
+            atoms,
+            use_derivatives=use_derivatives,
+            use_negative_forces=True,
         )
 
     def get_constraints(self, atoms, **kwargs):
         """
-        Get the number of atoms and the indicies of
+        Get the number of atoms and the indices of
         the atoms without constraints.
         """
         natoms = len(atoms)
         not_masked = self.database.get_constraints(atoms, **kwargs)
         return natoms, not_masked
+
+    def set_seed(self, seed=None, **kwargs):
+        """
+        Set the random seed.
+
+        Parameters:
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+
+        Returns:
+            self: The instance itself.
+        """
+        # Set the random seed for the database
+        self.database.set_seed(seed)
+        # Set the random seed for the model
+        self.model.set_seed(seed)
+        return self
+
+    def set_dtype(self, dtype, **kwargs):
+        """
+        Set the data type of the arrays.
+
+        Parameters:
+            dtype: type
+                The data type of the arrays.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Set the data type
+        self.dtype = dtype
+        # Set the data type of the model and database
+        self.model.set_dtype(dtype=dtype, **kwargs)
+        self.database.set_dtype(dtype=dtype, **kwargs)
+        # Set the data type of the baseline if it is used
+        if self.baseline is not None:
+            self.baseline.set_dtype(dtype=dtype, **kwargs)
+        # Set the data type of the prior distributions if they are used
+        if self.pdis is not None:
+            for pdis in self.pdis.values():
+                pdis.set_dtype(dtype=dtype, **kwargs)
+        return self
+
+    def set_use_fingerprint(self, use_fingerprint, **kwargs):
+        """
+        Set whether to use fingerprints in the model and database.
+
+        Parameters:
+            use_fingerprint: bool
+                Whether to use fingerprints in the model and database.
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.model.set_use_fingerprint(use_fingerprint=use_fingerprint)
+        self.database.set_use_fingerprint(use_fingerprint=use_fingerprint)
+        return self
+
+    def set_use_derivatives(self, use_derivatives, **kwargs):
+        """
+        Set whether to use derivatives in the model and database.
+
+        Parameters:
+            use_derivatives: bool
+                Whether to use derivatives in the model and database.
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.model.set_use_derivatives(use_derivatives=use_derivatives)
+        self.database.set_use_derivatives(use_derivatives=use_derivatives)
+        # Set the data type of the baseline if it is used
+        if self.baseline is not None:
+            self.baseline.set_use_forces(use_derivatives)
+        return self
+
+    def make_atoms_feature(self, atoms, **kwargs):
+        """
+        Make the feature or fingerprint of a single Atoms object.
+        It can e.g. be used for predicting.
+
+        Parameters:
+            atoms: ASE Atoms
+                The ASE Atoms object with a calculator.
+
+        Returns:
+            array of fingerprint object: The fingerprint object of the
+            Atoms object.
+            or
+            array: The feature or fingerprint array of the Atoms object.
+        """
+        # Calculate fingerprint
+        fp = self.database.make_atoms_feature(atoms, **kwargs)
+        return asarray([fp])
 
     def check_attributes(self):
         "Check if all attributes agree between the class and subclasses."
@@ -499,7 +714,7 @@ class MLModel:
             self.model.get_use_fingerprint()
             != self.database.get_use_fingerprint()
         ):
-            raise Exception(
+            raise ValueError(
                 "Model and Database do not agree "
                 "whether to use fingerprints!"
             )
@@ -507,7 +722,7 @@ class MLModel:
             self.model.get_use_derivatives()
             != self.database.get_use_derivatives()
         ):
-            raise Exception(
+            raise ValueError(
                 "Model and Database do not agree "
                 "whether to use derivatives/forces!"
             )
@@ -523,12 +738,16 @@ class MLModel:
             optimize=self.optimize,
             hp=self.hp,
             pdis=self.pdis,
+            include_noise=self.include_noise,
+            to_save_mlmodel=self.to_save_mlmodel,
+            save_mlmodel_kwargs=self.save_mlmodel_kwargs,
             verbose=self.verbose,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()
         # Get the objects made within the class
-        object_kwargs = dict(baseline_targets=self.baseline_targets.copy())
+        object_kwargs = dict()
         return arg_kwargs, constant_kwargs, object_kwargs
 
     def copy(self):
@@ -553,368 +772,3 @@ class MLModel:
             [f"{key}={value}" for key, value in arg_kwargs.items()]
         )
         return "{}({})".format(self.__class__.__name__, str_kwargs)
-
-
-def get_default_model(
-    model="tp",
-    prior="median",
-    use_derivatives=True,
-    use_fingerprint=False,
-    global_optimization=True,
-    parallel=False,
-    n_reduced=None,
-    **kwargs,
-):
-    """
-    Get the default ML model from the simple given arguments.
-
-    Parameters:
-        model : str
-            Either the tp that gives the Studen T process or
-            gp that gives the Gaussian process.
-        prior : str
-            Specify what prior mean should be used.
-        use_derivatives : bool
-            Whether to use derivatives of the targets.
-        use_fingerprint : bool
-            Whether to use fingerprints for the features.
-            This has to be the same as for the database!
-        global_optimization : bool
-            Whether to perform a global optimization of the hyperparameters.
-            A local optimization is used if global_optimization=False,
-            which can not be parallelized.
-        parallel : bool
-            Whether to optimize the hyperparameters in parallel.
-        n_reduced : int or None
-            If n_reduced is an integer, the hyperparameters are only optimized
-                when the data set size is equal to or below the integer.
-            If n_reduced is None, the hyperparameter is always optimized.
-
-    Returns:
-        model : Model
-            The Machine Learning Model with kernel and
-            prior that are optimized.
-    """
-    # Check that the model is given as a string
-    if not isinstance(model, str):
-        return model
-    # Make the prior mean from given string
-    if isinstance(prior, str):
-        if prior.lower() == "median":
-            from ..means.median import Prior_median
-
-            prior = Prior_median()
-        elif prior.lower() == "mean":
-            from ..means.mean import Prior_mean
-
-            prior = Prior_mean()
-        elif prior.lower() == "min":
-            from ..means.min import Prior_min
-
-            prior = Prior_min()
-        elif prior.lower() == "max":
-            from ..means.max import Prior_max
-
-            prior = Prior_max()
-    # Construct the kernel class object
-    from ..kernel.se import SE
-
-    kernel = SE(
-        use_fingerprint=use_fingerprint, use_derivatives=use_derivatives
-    )
-    # Set the hyperparameter optimization method
-    if global_optimization:
-        # Set global optimization with or without parallelization
-        from ..optimizers.globaloptimizer import FactorizedOptimizer
-
-        if parallel:
-            from ..optimizers.linesearcher import FineGridSearch
-
-            line_optimizer = FineGridSearch(
-                optimize=True,
-                multiple_min=False,
-                ngrid=80,
-                loops=3,
-                parallel=True,
-            )
-        else:
-            from ..optimizers.linesearcher import GoldenSearch
-
-            line_optimizer = GoldenSearch(
-                optimize=True, multiple_min=False, parallel=False
-            )
-        optimizer = FactorizedOptimizer(
-            line_optimizer=line_optimizer,
-            ngrid=80,
-            calculate_init=False,
-            parallel=parallel,
-        )
-    else:
-        from ..optimizers.localoptimizer import ScipyOptimizer
-
-        # Make the local optimizer
-        optimizer = ScipyOptimizer(
-            maxiter=500,
-            jac=True,
-            method="l-bfgs-b",
-            use_bounds=False,
-            tol=1e-12,
-        )
-        if parallel:
-            import warnings
-
-            warnings.warn(
-                "Parallel optimization is not implemented"
-                "with local optimization!"
-            )
-    # Use either the Student t process or the Gaussian process
-    if model.lower() == "tp":
-        # Set model
-        from ..models.tp import TProcess
-
-        model = TProcess(
-            prior=prior,
-            kernel=kernel,
-            use_derivatives=use_derivatives,
-            a=1e-3,
-            b=1e-4,
-        )
-        # Set objective function
-        if global_optimization:
-            from ..objectivefunctions.tp.factorized_likelihood import (
-                FactorizedLogLikelihood,
-            )
-
-            func = FactorizedLogLikelihood()
-        else:
-            from ..objectivefunctions.tp.likelihood import LogLikelihood
-
-            func = LogLikelihood()
-    else:
-        # Set model
-        from ..models.gp import GaussianProcess
-
-        model = GaussianProcess(
-            prior=prior, kernel=kernel, use_derivatives=use_derivatives
-        )
-        # Set objective function
-        if global_optimization:
-            from ..objectivefunctions.gp.factorized_likelihood import (
-                FactorizedLogLikelihood,
-            )
-
-            func = FactorizedLogLikelihood()
-        else:
-            from ..objectivefunctions.gp.likelihood import LogLikelihood
-
-            func = LogLikelihood()
-    # Set hpfitter and whether a maximum data set size is applied
-    if n_reduced is None:
-        from ..hpfitter import HyperparameterFitter
-
-        hpfitter = HyperparameterFitter(func=func, optimizer=optimizer)
-    else:
-        from ..hpfitter.redhpfitter import ReducedHyperparameterFitter
-
-        hpfitter = ReducedHyperparameterFitter(
-            func=func, optimizer=optimizer, opt_tr_size=n_reduced
-        )
-    model.update_arguments(hpfitter=hpfitter)
-    return model
-
-
-def get_default_database(
-    fp=None,
-    use_derivatives=True,
-    database_reduction=False,
-    database_reduction_kwargs={},
-    **kwargs,
-):
-    """
-    Get the default Database from the simple given arguments.
-
-    Parameters:
-        fp : Fingerprint class object or None
-            The fingerprint object used to generate the fingerprints.
-            Cartesian coordinates are used if it is None.
-        use_derivatives : bool
-            Whether to use derivatives of the targets.
-        database_reduction : bool
-            Whether to used a reduced database after a number
-            of training points.
-        database_reduction_kwargs : dict
-            A dictionary with the arguments for the reduced database
-            if it is used.
-
-    Returns:
-        database : Database object
-            The Database object with ASE atoms.
-    """
-    # Set a fingerprint
-    if fp is None:
-        from ..fingerprint.cartesian import Cartesian
-
-        # Use cartesian coordinates as the fingerprint
-        fp = Cartesian(reduce_dimensions=True, use_derivatives=use_derivatives)
-        use_fingerprint = False
-    else:
-        use_fingerprint = True
-    # Make the data base ready
-    if isinstance(database_reduction, str):
-        data_kwargs = dict(
-            reduce_dimensions=True,
-            use_derivatives=use_derivatives,
-            use_fingerprint=use_fingerprint,
-            npoints=50,
-            initial_indicies=[0, 1],
-            include_last=1,
-        )
-        data_kwargs.update(database_reduction_kwargs)
-        if database_reduction.lower() == "distance":
-            from .database_reduction import DatabaseDistance
-
-            database = DatabaseDistance(fingerprint=fp, **data_kwargs)
-        elif database_reduction.lower() == "random":
-            from .database_reduction import DatabaseRandom
-
-            database = DatabaseRandom(fingerprint=fp, **data_kwargs)
-        elif database_reduction.lower() == "hybrid":
-            from .database_reduction import DatabaseHybrid
-
-            database = DatabaseHybrid(fingerprint=fp, **data_kwargs)
-        elif database_reduction.lower() == "min":
-            from .database_reduction import DatabaseMin
-
-            database = DatabaseMin(fingerprint=fp, **data_kwargs)
-        elif database_reduction.lower() == "last":
-            from .database_reduction import DatabaseLast
-
-            database = DatabaseLast(fingerprint=fp, **data_kwargs)
-        elif database_reduction.lower() == "restart":
-            from .database_reduction import DatabaseRestart
-
-            database = DatabaseRestart(fingerprint=fp, **data_kwargs)
-        elif database_reduction.lower() == "interest":
-            from .database_reduction import DatabasePointsInterest
-
-            database = DatabasePointsInterest(fingerprint=fp, **data_kwargs)
-        elif database_reduction.lower() == "each_interest":
-            from .database_reduction import DatabasePointsInterestEach
-
-            database = DatabasePointsInterestEach(
-                fingerprint=fp, **data_kwargs
-            )
-    else:
-        from .database import Database
-
-        database = Database(
-            fingerprint=fp,
-            reduce_dimensions=True,
-            use_derivatives=use_derivatives,
-            use_fingerprint=use_fingerprint,
-        )
-    return database
-
-
-def get_default_mlmodel(
-    model="tp",
-    fp=None,
-    baseline=None,
-    prior="median",
-    use_derivatives=True,
-    optimize_hp=True,
-    global_optimization=True,
-    parallel=False,
-    use_pdis=True,
-    n_reduced=None,
-    database_reduction=False,
-    database_reduction_kwargs={},
-    verbose=False,
-    **kwargs,
-):
-    """
-    Get the default ML model with a database for the ASE Atoms
-    from the simple given arguments.
-
-    Parameters:
-        model : str
-            Either the tp that gives the Studen T process or
-            gp that gives the Gaussian process.
-        fp : Fingerprint class object or None
-            The fingerprint object used to generate the fingerprints.
-            Cartesian coordinates are used if it is None.
-        baseline : Baseline object
-            The Baseline object calculator that calculates energy and forces.
-        prior : str
-            Specify what prior mean should be used.
-        use_derivatives : bool
-            Whether to use derivatives of the targets.
-        optimize_hp : bool
-            Whether to optimize the hyperparameters when the model is trained.
-        global_optimization : bool
-            Whether to perform a global optimization of the hyperparameters.
-            A local optimization is used if global_optimization=False,
-            which can not be parallelized.
-        parallel : bool
-            Whether to optimize the hyperparameters in parallel.
-        use_pdis : bool
-            Whether to make prior distributions for the hyperparameters.
-        n_reduced : int or None
-            If n_reduced is an integer, the hyperparameters are only optimized
-                when the data set size is equal to or below the integer.
-            If n_reduced is None, the hyperparameter is always optimized.
-        database_reduction : bool
-            Whether to used a reduced database after a number
-            of training points.
-        database_reduction_kwargs : dict
-            A dictionary with the arguments for the reduced database
-            if it is used.
-        verbose : bool
-            Whether to print statements in the optimization.
-
-    Returns:
-        mlmodel : MLModel class object
-            Machine Learning model used for ASE Atoms and calculator.
-    """
-    # Check if fingerprints are used
-    if fp is None:
-        use_fingerprint = False
-    else:
-        use_fingerprint = True
-    # Make the model
-    if isinstance(model, str):
-        model = get_default_model(
-            model=model,
-            prior=prior,
-            use_derivatives=use_derivatives,
-            use_fingerprint=use_fingerprint,
-            global_optimization=global_optimization,
-            parallel=parallel,
-            n_reduced=n_reduced,
-        )
-    # Make the database
-    database = get_default_database(
-        fp=fp,
-        use_derivatives=use_derivatives,
-        database_reduction=database_reduction,
-        database_reduction_kwargs=database_reduction_kwargs,
-    )
-    # Make prior distributions for the hyperparameters if specified
-    if use_pdis:
-        from ..pdistributions.normal import Normal_prior
-
-        pdis = dict(
-            length=Normal_prior(mu=[-0.5], std=[1.0]),
-            noise=Normal_prior(mu=[-9.0], std=[1.0]),
-        )
-    else:
-        pdis = None
-    # Make the ML model with database
-    return MLModel(
-        model=model,
-        database=database,
-        baseline=baseline,
-        optimize=optimize_hp,
-        pdis=pdis,
-        verbose=verbose,
-    )

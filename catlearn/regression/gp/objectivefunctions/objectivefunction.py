@@ -1,23 +1,49 @@
-import numpy as np
-from scipy.linalg import cho_factor, cho_solve
-from numpy.linalg import eigh
+from numpy import (
+    array,
+    asarray,
+    append,
+    diag,
+    einsum,
+    empty,
+    finfo,
+    identity,
+    inf,
+    log,
+    matmul,
+    where,
+    zeros,
+)
+from numpy.linalg import eigh, LinAlgError
+from scipy.linalg import cho_factor, cho_solve, eigh as scipy_eigh
+import warnings
 
 
 class ObjectiveFuction:
-    def __init__(self, get_prior_mean=False, **kwargs):
+    """
+    The objective function that is used to optimize the hyperparameters.
+    """
+
+    def __init__(self, get_prior_mean=False, dtype=float, **kwargs):
         """
-        The objective function that is used to optimize the hyperparameters.
+        Initialize the objective function.
 
         Parameters:
-            get_prior_mean : bool
+            get_prior_mean: bool
                 Whether to get the parameters of the prior mean
                 in the solution.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
         # Set descriptor of the objective function
         self.use_analytic_prefactor = False
         self.use_optimized_noise = False
         # Set the arguments
-        self.update_arguments(get_prior_mean=get_prior_mean, **kwargs)
+        self.update_arguments(
+            get_prior_mean=get_prior_mean,
+            dtype=dtype,
+            **kwargs,
+        )
 
     def function(
         self,
@@ -67,19 +93,56 @@ class ObjectiveFuction:
         """
         raise NotImplementedError()
 
-    def update_arguments(self, get_prior_mean=None, **kwargs):
+    def set_dtype(self, dtype, **kwargs):
+        """
+        Set the data type of the arrays.
+
+        Parameters:
+            dtype: type
+                The data type of the arrays.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Set the data type
+        self.dtype = dtype
+        return self
+
+    def set_seed(self, seed, **kwargs):
+        """
+        Set the random seed.
+
+        Parameters:
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+
+        Returns:
+            self: The instance itself.
+        """
+        return self
+
+    def update_arguments(self, get_prior_mean=None, dtype=None, **kwargs):
         """
         Update the objective function with its arguments.
         The existing arguments are used if they are not given.
 
         Parameters:
-            get_prior_mean : bool
+            get_prior_mean: bool
                 Whether to get the parameters of the prior mean
                 in the solution.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
         """
+        # Set the data type
+        if dtype is not None or not hasattr(self, "dtype"):
+            self.set_dtype(dtype=dtype)
+        # Set the get_prior_mean
         if get_prior_mean is not None:
             self.get_prior_mean = get_prior_mean
         # Always reset the solution when the objective function is changed
@@ -91,7 +154,7 @@ class ObjectiveFuction:
         Reset the solution of the optimization in terms of
         the hyperparameters and model.
         """
-        self.sol = {"fun": np.inf, "x": np.array([]), "hp": {}}
+        self.sol = {"fun": inf, "x": empty(0, dtype=self.dtype), "hp": {}}
         return self
 
     def update_solution(
@@ -149,8 +212,9 @@ class ObjectiveFuction:
 
     def make_hp(self, theta, parameters, **kwargs):
         "Make hyperparameter dictionary from lists"
-        theta, parameters = np.array(theta), np.array(parameters)
+        theta = asarray(theta)
         parameters_set = sorted(set(parameters))
+        parameters = asarray(parameters)
         hp = {
             para_s: self.numeric_limits(theta[parameters == para_s])
             for para_s in parameters_set
@@ -161,12 +225,14 @@ class ObjectiveFuction:
         "Get the hyperparameters for the model and the kernel."
         return model.get_hyperparams()
 
-    def numeric_limits(self, array, dh=0.1 * np.log(np.finfo(float).max)):
+    def numeric_limits(self, a, dh=None):
         """
         Replace hyperparameters if they are outside of
         the numeric limits in log-space.
         """
-        return np.where(-dh < array, np.where(array < dh, array, dh), -dh)
+        if dh is None:
+            dh = 0.1 * log(finfo(self.dtype).max)
+        return where(-dh < a, where(a < dh, a, dh), -dh)
 
     def update_model(self, model, hp, **kwargs):
         "Update the the machine learning model with the hyperparameters."
@@ -189,24 +255,25 @@ class ObjectiveFuction:
 
     def add_correction(self, model, KXX, n_data, **kwargs):
         "Add noise correction to covariance matrix."
-        corr = model.get_correction(np.diag(KXX))
+        corr = model.get_correction(diag(KXX))
         if corr > 0.0:
             KXX[range(n_data), range(n_data)] += corr
         return KXX
 
     def y_prior(self, X, Y, model, L=None, low=None, **kwargs):
         "Update prior and subtract to target."
-        Y_p = Y.copy()
+        Y_p = array(Y, dtype=self.dtype)
         model.update_priormean(X, Y_p, L=L, low=low, **kwargs)
-        get_derivatives = model.use_derivatives
+        get_derivatives = model.get_use_derivatives()
         pmean = model.get_priormean(
             X,
             Y_p,
             get_derivatives=get_derivatives,
         )
+        Y_p -= pmean
         if get_derivatives:
-            return (Y_p - pmean).T.reshape(-1, 1)
-        return (Y_p - pmean)[:, 0:1]
+            return Y_p.T.reshape(-1, 1)
+        return Y_p[:, 0:1]
 
     def coef_cholesky(self, model, X, Y, **kwargs):
         "Calculate the coefficients by using Cholesky decomposition."
@@ -227,23 +294,39 @@ class ObjectiveFuction:
         # Eigendecomposition
         try:
             D, U = eigh(KXX)
-        except Exception as e:
-            import logging
-            import scipy.linalg
-
-            logging.error("An error occurred: %s", str(e))
+        except LinAlgError:
+            warnings.warn(
+                "Eigendecomposition failed, using scipy.eigh instead."
+            )
             # More robust but slower eigendecomposition
-            D, U = scipy.linalg.eigh(KXX, driver="ev")
+            D, U = scipy_eigh(KXX, driver="ev")
         # Subtract the prior mean to the training target
         Y_p = self.y_prior(X, Y, model, D=D, U=U)
-        UTY = (np.matmul(U.T, Y_p)).reshape(-1) ** 2
+        UTY = matmul(U.T, Y_p).reshape(-1) ** 2
         return D, U, Y_p, UTY, KXX, n_data
 
-    def get_cinv(self, model, X, Y, **kwargs):
-        "Get the inverse covariance matrix."
+    def get_cinv_model(self, model, X, Y, check_finite=False, **kwargs):
+        "Get the inverse covariance matrix from the model."
         coef, L, low, Y_p, KXX, n_data = self.coef_cholesky(model, X, Y)
-        cinv = cho_solve((L, low), np.identity(n_data), check_finite=False)
+        cinv = self.get_cinv(
+            L,
+            low,
+            n_data,
+            check_finite=check_finite,
+            **kwargs,
+        )
         return coef, cinv, Y_p, KXX, n_data
+
+    def get_cinv(self, L, low, n_data, check_finite=False, **kwargs):
+        "Get the inverse covariance matrix."
+        return cho_solve(
+            (L, low),
+            identity(
+                n_data,
+                dtype=self.dtype,
+            ),
+            check_finite=check_finite,
+        )
 
     def logpriors(self, hp, pdis=None, jac=False, **kwargs):
         "Log of the prior distribution value for the hyperparameters."
@@ -260,15 +343,21 @@ class ObjectiveFuction:
                 return lprior
             return lprior.reshape(-1)
         # Derivate of the log probability wrt. the hyperparameters
-        lprior_deriv = np.array([])
+        lprior_deriv = empty(0, dtype=self.dtype)
         for para, value in hp.items():
             if para in pdis.keys():
-                lprior_deriv = np.append(
+                lprior_deriv = append(
                     lprior_deriv,
-                    np.array(pdis[para].ln_deriv(value)).reshape(-1),
+                    asarray(
+                        pdis[para].ln_deriv(value),
+                        dtype=self.dtype,
+                    ).reshape(-1),
                 )
             else:
-                lprior_deriv = np.append(lprior_deriv, np.zeros((len(value))))
+                lprior_deriv = append(
+                    lprior_deriv,
+                    zeros((len(value)), dtype=self.dtype),
+                )
         return lprior_deriv
 
     def get_K_inv_deriv(self, K_deriv, KXX_inv, **kwargs):
@@ -276,7 +365,7 @@ class ObjectiveFuction:
         Get the diagonal elements of the matrix product of
         the inverse and derivative covariance matrix.
         """
-        return np.einsum("ij,dji->d", KXX_inv, K_deriv)
+        return einsum("ij,dji->d", KXX_inv, K_deriv)
 
     def get_K_deriv(self, model, parameter, X, KXX, **kwargs):
         "Get the gradient of the covariance matrix wrt. the hyperparameter."
@@ -294,7 +383,7 @@ class ObjectiveFuction:
     def get_arguments(self):
         "Get the arguments of the class itself."
         # Get the arguments given to the class in the initialization
-        arg_kwargs = dict(get_prior_mean=self.get_prior_mean)
+        arg_kwargs = dict(get_prior_mean=self.get_prior_mean, dtype=self.dtype)
         # Get the constants made within the class
         constant_kwargs = dict()
         # Get the objects made within the class

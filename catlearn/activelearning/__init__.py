@@ -1,5 +1,3 @@
-from .mlneb import MLNEB
-from .mlgo import MLGO
 from .acquisition import (
     Acquisition,
     AcqEnergy,
@@ -13,10 +11,14 @@ from .acquisition import (
     AcqEI,
     AcqPI,
 )
+from .activelearning import ActiveLearning
+from .local import LocalAL
+from .mlneb import MLNEB
+from .adsorption import AdsorptionAL
+from .mlgo import MLGO
+from .randomadsorption import RandomAdsorptionAL
 
 __all__ = [
-    "MLNEB",
-    "MLGO",
     "Acquisition",
     "AcqEnergy",
     "AcqUncertainty",
@@ -28,4 +30,10 @@ __all__ = [
     "AcqULCB",
     "AcqEI",
     "AcqPI",
+    "ActiveLearning",
+    "LocalAL",
+    "MLNEB",
+    "AdsorptionAL",
+    "MLGO",
+    "RandomAdsorptionAL",
 ]

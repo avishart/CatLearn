@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 from .functions import create_func, make_train_test_set, calculate_rmse
 
 
@@ -23,8 +22,10 @@ class TestGPMeans(unittest.TestCase):
             Prior_first,
         )
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -45,22 +46,22 @@ class TestGPMeans(unittest.TestCase):
             Prior_first,
         ]
         # Make a list of the error values that the test compares to
-        error_list = [3.14787, 1.75102, 1.77025, 1.95093, 1.65956, 1.74474]
+        error_list = [2.61859, 0.89152, 0.91990, 1.21032, 0.61772, 0.91545]
         # Test the prior mean objects
         for index, prior in enumerate(priors):
             with self.subTest(prior=prior):
                 # Construct the Gaussian process
                 gp = GaussianProcess(
                     prior=prior(),
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
                     use_derivatives=use_derivatives,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                gp.set_seed(seed)
                 # Train the machine learning model
                 gp.train(x_tr, f_tr)
                 # Predict the energies and uncertainties
-                ypred, var, var_deriv = gp.predict(
+                ypred, _, _ = gp.predict(
                     x_te,
                     get_variance=True,
                     get_derivatives=False,
@@ -85,8 +86,10 @@ class TestGPMeans(unittest.TestCase):
             Prior_first,
         )
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -107,22 +110,22 @@ class TestGPMeans(unittest.TestCase):
             Prior_first,
         ]
         # Make a list of the error values that the test compares to
-        error_list = [0.09202, 0.13723, 0.13594, 0.12673, 0.14712, 0.13768]
+        error_list = [1.14773, 0.40411, 0.41732, 0.54772, 0.26334, 0.41526]
         # Test the prior mean objects
         for index, prior in enumerate(priors):
             with self.subTest(prior=prior):
                 # Construct the Gaussian process
                 gp = GaussianProcess(
                     prior=prior(),
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
                     use_derivatives=use_derivatives,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                gp.set_seed(seed)
                 # Train the machine learning model
                 gp.train(x_tr, f_tr)
                 # Predict the energies and uncertainties
-                ypred, var, var_deriv = gp.predict(
+                ypred, _, _ = gp.predict(
                     x_te,
                     get_variance=True,
                     get_derivatives=False,

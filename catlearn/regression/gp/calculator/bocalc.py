@@ -1,8 +1,16 @@
 from .mlcalc import MLCalculator
+from ..fingerprint.geometry import sine_activation
 from ase.calculators.calculator import Calculator, all_changes
 
 
 class BOCalculator(MLCalculator):
+    """
+    The machine learning calculator object applicable as an ASE calculator for
+    ASE Atoms instance.
+    This uses an acquisition function as the energy and forces.
+    E = E_pred + kappa * sigma
+    Therefore, it is Bayesian optimization calculator object.
+    """
 
     # Define the properties available in this calculator
     implemented_properties = [
@@ -24,15 +32,17 @@ class BOCalculator(MLCalculator):
         calc_force_unc=False,
         calc_unc_deriv=True,
         calc_kwargs={},
+        round_pred=None,
         kappa=2.0,
+        max_unc=None,
+        max_unc_scale=0.95,
         **kwargs,
     ):
         """
-        Bayesian optimization calculator object
-        applicable as an ASE calculator.
+        Initialize the ML calculator.
 
         Parameters:
-            mlmodel : MLModel class object
+            mlmodel: MLModel class object
                 Machine Learning model used for ASE Atoms and calculator.
                 The object must have the functions: calculate, train_model,
                 and add_training.
@@ -47,12 +57,21 @@ class BOCalculator(MLCalculator):
             calc_unc_deriv: bool
                 Whether to calculate
                 the derivatives of the uncertainty of the energy.
-            calc_kwargs : dict
+            calc_kwargs: dict
                 A dictionary with kwargs for
                 the parent calculator class object.
-            kappa : float
+            round_pred: int (optional)
+                The number of decimals to round the preditions to.
+                If None, the predictions are not rounded.
+            kappa: float
                 The weight of the uncertainty relative to the energy.
                 If kappa>0, the uncertainty is added to the predicted energy.
+            max_unc: float (optional)
+                The maximum uncertainty value that can be added to the energy.
+                If the uncertainty is larger than the max_unc_scale times this
+                value, the cutoff is activated to limit the uncertainty.
+            max_unc_scale: float (optional)
+                The scale of the maximum uncertainty value to start the cutoff.
         """
         super().__init__(
             mlmodel=mlmodel,
@@ -61,7 +80,10 @@ class BOCalculator(MLCalculator):
             calc_force_unc=calc_force_unc,
             calc_unc_deriv=calc_unc_deriv,
             calc_kwargs=calc_kwargs,
+            round_pred=round_pred,
             kappa=kappa,
+            max_unc=max_unc,
+            max_unc_scale=max_unc_scale,
             **kwargs,
         )
 
@@ -70,7 +92,7 @@ class BOCalculator(MLCalculator):
         Get the predicted energy without the uncertainty.
 
         Parameters:
-            atoms : ASE Atoms (optional)
+            atoms: ASE Atoms (optional)
                 The ASE Atoms instance which is used
                 if the uncertainty is not stored.
 
@@ -84,7 +106,7 @@ class BOCalculator(MLCalculator):
         Get the predicted forces without the derivatives of the uncertainty.
 
         Parameters:
-            atoms : ASE Atoms (optional)
+            atoms: ASE Atoms (optional)
                 The ASE Atoms instance which is used
                 if the uncertainty is not stored.
 
@@ -114,7 +136,7 @@ class BOCalculator(MLCalculator):
         and predicted forces using *atoms.calc.get_predicted_forces(atoms)*.
 
         Returns:
-            self.results : dict
+            self.results: dict
                 A dictionary with all the calculated properties.
         """
         # Atoms object.
@@ -135,22 +157,44 @@ class BOCalculator(MLCalculator):
             get_unc_derivatives=get_unc_derivatives,
         )
         # Store the properties that are implemented
-        for key, value in results.items():
-            if key in self.implemented_properties:
-                self.results[key] = value
+        self.store_properties(results)
         # Save the predicted properties
-        self.results["predicted energy"] = results["energy"]
+        self.modify_results_bo(
+            get_forces=get_forces,
+        )
+        return self.results
+
+    def modify_results_bo(
+        self,
+        get_forces,
+        **kwargs,
+    ):
+        """
+        Modify the results of the Bayesian optimization calculator.
+        """
+        # Save the predicted properties
+        self.results["predicted energy"] = self.results["energy"]
         if get_forces:
-            self.results["predicted forces"] = results["forces"].copy()
+            self.results["predicted forces"] = self.results["forces"].copy()
         # Calculate the acquisition function and its derivative
         if self.kappa != 0.0:
-            self.results["energy"] = (
-                results["energy"] + self.kappa * results["uncertainty"]
-            )
+            # Get the uncertainty and its derivatives
+            unc = self.results["uncertainty"]
             if get_forces:
-                self.results["forces"] = results["forces"] - (
-                    self.kappa * results["uncertainty derivatives"]
+                unc_deriv = self.results["uncertainty derivatives"]
+            else:
+                unc_deriv = None
+            # Limit the uncertainty to the maximum uncertainty
+            if self.max_unc is not None and unc > self.max_unc_start:
+                unc, unc_deriv = self.max_unc_activation(
+                    unc,
+                    unc_deriv=unc_deriv,
+                    use_derivatives=get_forces,
                 )
+            # Add the uncertainty to the energy and forces
+            self.results["energy"] += self.kappa * unc
+            if get_forces:
+                self.results["forces"] -= self.kappa * unc_deriv
         return self.results
 
     def update_arguments(
@@ -161,7 +205,10 @@ class BOCalculator(MLCalculator):
         calc_force_unc=None,
         calc_unc_deriv=None,
         calc_kwargs=None,
+        round_pred=None,
         kappa=None,
+        max_unc=None,
+        max_unc_scale=None,
         **kwargs,
     ):
         """
@@ -169,7 +216,7 @@ class BOCalculator(MLCalculator):
         The existing arguments are used if they are not given.
 
         Parameters:
-            mlmodel : MLModel class object
+            mlmodel: MLModel class object
                 Machine Learning model used for ASE Atoms and calculator.
                 The object must have the functions: calculate, train_model,
                 and add_training.
@@ -184,30 +231,64 @@ class BOCalculator(MLCalculator):
             calc_unc_deriv: bool
                 Whether to calculate
                 the derivatives of the uncertainty of the energy.
-            calc_kwargs : dict
+            calc_kwargs: dict
                 A dictionary with kwargs for
                 the parent calculator class object.
-            kappa : float
+            round_pred: int (optional)
+                The number of decimals to round the preditions to.
+                If None, the predictions are not rounded.
+            kappa: float
                 The weight of the uncertainty relative to the energy.
+            max_unc: float (optional)
+                The maximum uncertainty value that can be added to the energy.
+                If the uncertainty is larger than the max_unc_scale times this
+                value, the cutoff is activated to limit the uncertainty.
+            max_unc_scale: float (optional)
+                The scale of the maximum uncertainty value to start the cutoff.
 
         Returns:
             self: The updated object itself.
         """
-        if mlmodel is not None:
-            self.mlmodel = mlmodel.copy()
-        if calc_forces is not None:
-            self.calc_forces = calc_forces
-        if calc_unc is not None:
-            self.calc_unc = calc_unc
-        if calc_force_unc is not None:
-            self.calc_force_unc = calc_force_unc
-        if calc_unc_deriv is not None:
-            self.calc_unc_deriv = calc_unc_deriv
-        if calc_kwargs is not None:
-            self.calc_kwargs = calc_kwargs.copy()
+        # Set the parameters in the parent class
+        super().update_arguments(
+            mlmodel=mlmodel,
+            calc_forces=calc_forces,
+            calc_unc=calc_unc,
+            calc_force_unc=calc_force_unc,
+            calc_unc_deriv=calc_unc_deriv,
+            calc_kwargs=calc_kwargs,
+            round_pred=round_pred,
+        )
+        # Set the kappa value
         if kappa is not None:
-            self.kappa = float(kappa)
-        # Empty the results
+            self.set_kappa(kappa)
+        elif not hasattr(self, "kappa"):
+            self.set_kappa(0.0)
+        # Set the maximum uncertainty value
+        if max_unc is not None:
+            self.max_unc = abs(float(max_unc))
+        elif not hasattr(self, "max_unc"):
+            self.max_unc = None
+        if max_unc_scale is not None:
+            self.max_unc_scale = float(max_unc_scale)
+            if self.max_unc_scale > 1.0:
+                raise ValueError(
+                    "max_unc_scale must be less than or equal to 1.0"
+                )
+        if self.max_unc is not None:
+            self.max_unc_start = self.max_unc_scale * self.max_unc
+        return self
+
+    def set_kappa(self, kappa, **kwargs):
+        """
+        Set the kappa value.
+        The kappa value is used to calculate the acquisition function.
+
+        Parameters:
+            kappa: float
+                The weight of the uncertainty relative to the energy.
+        """
+        self.kappa = float(kappa)
         self.reset()
         return self
 
@@ -247,6 +328,22 @@ class BOCalculator(MLCalculator):
             get_unc_derivatives,
         )
 
+    def max_unc_activation(self, unc, unc_deriv=None, use_derivatives=False):
+        # Calculate the activation function
+        fc, gc = sine_activation(
+            unc,
+            use_derivatives=use_derivatives,
+            xs_activation=self.max_unc_start,
+            xe_activation=self.max_unc,
+        )
+        # Calculate the derivative of the uncertainty
+        if use_derivatives:
+            unc_deriv = unc_deriv * (1.0 - fc)
+            unc_deriv += gc * (self.max_unc_start - unc)
+        # Apply the activation function to the uncertainty
+        unc = (unc * (1.0 - fc)) + (self.max_unc * fc)
+        return unc, unc_deriv
+
     def get_arguments(self):
         "Get the arguments of the class itself."
         # Get the arguments given to the class in the initialization
@@ -257,7 +354,10 @@ class BOCalculator(MLCalculator):
             calc_force_unc=self.calc_force_unc,
             calc_unc_deriv=self.calc_unc_deriv,
             calc_kwargs=self.calc_kwargs,
+            round_pred=self.round_pred,
             kappa=self.kappa,
+            max_unc=self.max_unc,
+            max_unc_scale=self.max_unc_scale,
         )
         # Get the constants made within the class
         constant_kwargs = dict()

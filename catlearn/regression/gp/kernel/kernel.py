@@ -1,17 +1,22 @@
-import numpy as np
+from numpy import asarray, array, finfo
 from scipy.spatial.distance import pdist, cdist
 
 
 class Kernel:
+    """
+    The kernel class with hyperparameters.
+    """
+
     def __init__(
         self,
         use_derivatives=False,
         use_fingerprint=False,
         hp={},
+        dtype=float,
         **kwargs,
     ):
         """
-        The Kernel class with hyperparameters.
+        Initialize the kernel class.
 
         Parameters:
             use_derivatives: bool
@@ -22,14 +27,17 @@ class Kernel:
                 A dictionary of the hyperparameters in the log-space.
                 The hyperparameters should be given as flatten arrays,
                 like hp=dict(length=np.array([-0.7])).
+            dtype: type
+                The data type of the arrays.
         """
         # Set the default hyperparameters
-        self.hp = dict(length=np.array([-0.7]))
+        self.hp = dict(length=asarray([-0.7], dtype=dtype))
         # Set all the arguments
         self.update_arguments(
             use_derivatives=use_derivatives,
             use_fingerprint=use_fingerprint,
             hp=hp,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -44,23 +52,23 @@ class Kernel:
         Make the kernel matrix.
 
         Parameters:
-            features : (N,D) array or (N) list of fingerprint objects
+            features: (N,D) array or (N) list of fingerprint objects
                 Features with N data points.
-            features2 : (M,D) array or (M) list of fingerprint objects
+            features2: (M,D) array or (M) list of fingerprint objects
                 Features with M data points and D dimensions.
                 If it is not given a squared kernel from features is generated.
             get_derivatives: bool
                 Whether to predict derivatives of target.
 
         Returns:
-            KXX : array
+            KXX: array
                 The symmetric kernel matrix if features2=None.
                 The number of rows in the array is N, or N*(D+1)
                 if get_derivatives=True.
                 The number of columns in the array is N, or N*(D+1)
                 if use_derivatives=True.
             or
-            KQX : array
+            KQX: array
                 The kernel matrix if features2 is not None.
                 The number of rows in the array is N, or N*(D+1)
                 if get_derivatives=True.
@@ -81,7 +89,7 @@ class Kernel:
         Get the diagonal kernel vector.
 
         Parameters:
-            features : (N,D) array or (N) list of fingerprint objects
+            features: (N,D) array or (N) list of fingerprint objects
                 Features with N data points.
             get_derivatives: bool
                 Whether to predict derivatives of target.
@@ -97,7 +105,7 @@ class Kernel:
         Get the derivative of the diagonal kernel vector wrt. the features.
 
         Parameters:
-            features : (N,D) array or (N) list of fingerprint objects
+            features: (N,D) array or (N) list of fingerprint objects
                 Features with N data points.
 
         Returns:
@@ -110,14 +118,14 @@ class Kernel:
         Get the gradients of the kernel matrix wrt. to the hyperparameters.
 
         Parameters:
-            features : (N,D) array
+            features: (N,D) array
                 Features with N data points and D dimensions.
-            hp : list
+            hp: list
                 A list of the string names of the hyperparameters
                 that are optimized.
-            KXX : (N,N) array
+            KXX: (N,N) array
                 The kernel matrix of training data.
-            correction : bool
+            correction: bool
                 Whether the noise correction is used.
 
         Returns:
@@ -139,9 +147,9 @@ class Kernel:
             self: The updated object itself.
         """
         if "length" in new_params:
-            self.hp["length"] = np.array(
+            self.hp["length"] = array(
                 new_params["length"],
-                dtype=float,
+                dtype=self.dtype,
             ).reshape(-1)
         return self
 
@@ -159,7 +167,7 @@ class Kernel:
         Get the dimension of the length-scale hyperparameter.
 
         Parameters:
-            features : (N,D) array or (N) list of fingerprint objects or None
+            features: (N,D) array or (N) list of fingerprint objects or None
                 Features with N data points.
 
         Returns:
@@ -175,11 +183,59 @@ class Kernel:
         "Get whether a fingerprint is used as the features."
         return self.use_fingerprint
 
+    def set_dtype(self, dtype, **kwargs):
+        """
+        Set the data type of the arrays.
+
+        Parameters:
+            dtype: type
+                The data type of the arrays.
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.dtype = dtype
+        # Set the machine precision
+        self.eps = 1.1 * finfo(self.dtype).eps
+        # Set the data type of the hyperparameters
+        self.set_hyperparams(self.hp)
+        return self
+
+    def set_use_derivatives(self, use_derivatives, **kwargs):
+        """
+        Set whether to use the derivatives of the targets.
+
+        Parameters:
+            use_derivatives: bool
+                Use derivatives/gradients for training and predictions.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Set whether to use derivatives for the target
+        self.use_derivatives = use_derivatives
+        return self
+
+    def set_use_fingerprint(self, use_fingerprint, **kwargs):
+        """
+        Set whether to use the fingerprint instance.
+
+        Parameters:
+            use_fingerprint: bool
+                Use fingerprint instance as features.
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.use_fingerprint = use_fingerprint
+        return self
+
     def update_arguments(
         self,
         use_derivatives=None,
         use_fingerprint=None,
         hp=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -195,14 +251,18 @@ class Kernel:
                 A dictionary of the hyperparameters in the log-space.
                 The hyperparameters should be given as flatten arrays,
                 like hp=dict(length=np.array([-0.7])).
+            dtype: type
+                The data type of the arrays.
 
         Returns:
             self: The updated object itself.
         """
         if use_derivatives is not None:
-            self.use_derivatives = use_derivatives
+            self.set_use_derivatives(use_derivatives)
         if use_fingerprint is not None:
-            self.use_fingerprint = use_fingerprint
+            self.set_use_fingerprint(use_fingerprint)
+        if dtype is not None or not hasattr(self, "dtype"):
+            self.set_dtype(dtype=dtype)
         if hp is not None:
             self.set_hyperparams(hp)
         return self
@@ -212,11 +272,11 @@ class Kernel:
         Make the symmetric kernel matrix.
 
         Parameters:
-            features : (N,D) array or (N) list of fingerprint objects
+            features: (N,D) array or (N) list of fingerprint objects
                 Features with N data points.
 
         Returns:
-            KXX : array
+            KXX: array
                 The symmetric kernel matrix if features2=None.
                 The number of rows in the array is N, or N*(D+1)
                 if get_derivatives=True.
@@ -230,16 +290,16 @@ class Kernel:
         Make the kernel matrix.
 
         Parameters:
-            features : (N,D) array or (N) list of fingerprint objects
+            features: (N,D) array or (N) list of fingerprint objects
                 Features with N data points.
-            features2 : (M,D) array or (M) list of fingerprint objects
+            features2: (M,D) array or (M) list of fingerprint objects
                 Features with M data points and D dimensions.
                 If it is not given a squared kernel from features is generated.
             get_derivatives: bool
                 Whether to predict derivatives of target.
 
         Returns:
-            KQX : array
+            KQX: array
                 The kernel matrix if features2 is not None.
                 The number of rows in the array is N, or N*(D+1)
                 if get_derivatives=True.
@@ -250,10 +310,22 @@ class Kernel:
 
     def get_arrays(self, features, features2=None, **kwargs):
         "Get the feature matrix from the fingerprint."
-        X = np.array([feature.get_vector() for feature in features])
+        if self.use_fingerprint:
+            X = asarray(
+                [feature.get_vector() for feature in features],
+                dtype=self.dtype,
+            )
+        else:
+            X = array(features, dtype=self.dtype)
         if features2 is None:
             return X
-        Q = np.array([feature.get_vector() for feature in features2])
+        if self.use_fingerprint:
+            Q = asarray(
+                [feature.get_vector() for feature in features2],
+                dtype=self.dtype,
+            )
+        else:
+            Q = array(features2, dtype=self.dtype)
         return X, Q
 
     def get_symmetric_absolute_distances(
@@ -266,7 +338,8 @@ class Kernel:
         Calculate the symmetric absolute distance matrix
         in (scaled) feature space.
         """
-        return pdist(features, metric=metric)
+        D = pdist(features, metric=metric)
+        return asarray(D, dtype=self.dtype)
 
     def get_absolute_distances(
         self,
@@ -276,7 +349,8 @@ class Kernel:
         **kwargs,
     ):
         "Calculate the absolute distance matrix in (scaled) feature space."
-        return cdist(features, features2, metric=metric)
+        D = cdist(features, features2, metric=metric)
+        return asarray(D, dtype=self.dtype)
 
     def get_feature_dimension(self, features, **kwargs):
         "Get the dimension of the features."
@@ -287,10 +361,14 @@ class Kernel:
     def get_fp_deriv(self, features, dim=None, **kwargs):
         "Get the derivatives of all the fingerprints."
         if dim is None:
-            return np.array(
-                [fp.get_derivatives() for fp in features]
+            return asarray(
+                [fp.get_derivatives() for fp in features],
+                dtype=self.dtype,
             ).transpose((2, 0, 1))
-        return np.array([fp.get_derivatives(dim) for fp in features])
+        return asarray(
+            [fp.get_derivatives(dim) for fp in features],
+            dtype=self.dtype,
+        )
 
     def get_derivative_dimension(self, features, **kwargs):
         "Get the dimension of the features."
@@ -305,6 +383,7 @@ class Kernel:
             use_derivatives=self.use_derivatives,
             use_fingerprint=self.use_fingerprint,
             hp=self.hp,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()

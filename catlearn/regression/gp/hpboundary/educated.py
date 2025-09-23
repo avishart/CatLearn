@@ -1,55 +1,70 @@
-import numpy as np
+from numpy import array, asarray, full, log, sqrt
 from scipy.spatial.distance import pdist
 from .restricted import RestrictedBoundaries
 
 
 class EducatedBoundaries(RestrictedBoundaries):
+    """
+    Boundary conditions for the hyperparameters with educated guess for
+    the length-scale, relative-noise, and prefactor hyperparameters.
+    Machine precisions are used as boundary conditions for
+    other hyperparameters not given in the dictionary.
+    """
+
     def __init__(
         self,
         bounds_dict={},
         scale=1.0,
-        log=True,
+        use_log=True,
         max_length=True,
         use_derivatives=False,
         use_prior_mean=True,
+        seed=None,
+        dtype=float,
         **kwargs,
     ):
         """
-        Boundary conditions for the hyperparameters with educated guess for
-        the length-scale, relative-noise, and prefactor hyperparameters.
-        Machine precisions are used as boundary conditions for
-        other hyperparameters not given in the dictionary.
+        Initialize the boundary conditions for the hyperparameters.
 
         Parameters:
-            bounds_dict : dict
+            bounds_dict: dict
                 A dictionary with boundary conditions as numpy (H,2) arrays
                 with two columns for each type of hyperparameter.
-            scale : float
+            scale: float
                 Scale the boundary conditions.
-            log : bool
+            use_log: bool
                 Whether to use hyperparameters in log-scale or not.
-            max_length : bool
+            max_length: bool
                 Whether to use the maximum scaling for the length-scale or
                 use a more reasonable scaling.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether the derivatives of the target are used in the model.
                 The boundary conditions of the length-scale hyperparameter(s)
                 will change with the use_derivatives.
                 The use_derivatives will be updated
                 when update_bounds is called.
-            use_prior_mean : bool
+            use_prior_mean: bool
                 Whether to use the prior mean to calculate the boundary of
                 the prefactor hyperparameter.
                 If use_prior_mean=False, the minimum and maximum target
                 differences are used as the boundary conditions.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
         self.update_arguments(
             bounds_dict=bounds_dict,
             scale=scale,
-            log=log,
+            use_log=use_log,
             max_length=max_length,
             use_derivatives=use_derivatives,
             use_prior_mean=use_prior_mean,
+            seed=seed,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -57,10 +72,12 @@ class EducatedBoundaries(RestrictedBoundaries):
         self,
         bounds_dict=None,
         scale=None,
-        log=None,
+        use_log=None,
         max_length=None,
         use_derivatives=None,
         use_prior_mean=None,
+        seed=None,
+        dtype=None,
         **kwargs,
     ):
         """
@@ -68,41 +85,49 @@ class EducatedBoundaries(RestrictedBoundaries):
         The existing arguments are used if they are not given.
 
         Parameters:
-            bounds_dict : dict
+            bounds_dict: dict
                 A dictionary with boundary conditions as numpy (H,2) arrays
                 with two columns for each type of hyperparameter.
-            scale : float
+            scale: float
                 Scale the boundary conditions.
-            log : bool
+            use_log: bool
                 Whether to use hyperparameters in log-scale or not.
-            max_length : bool
+            max_length: bool
                 Whether to use the maximum scaling for the length-scale or
                 use a more reasonable scaling.
-            use_derivatives : bool
+            use_derivatives: bool
                 Whether the derivatives of the target are used in the model.
                 The boundary conditions of the length-scale hyperparameter(s)
                 will change with the use_derivatives.
                 The use_derivatives will be updated
                 when update_bounds is called.
-            use_prior_mean : bool
+            use_prior_mean: bool
                 Whether to use the prior mean to calculate the boundary of
                 the prefactor hyperparameter.
                 If use_prior_mean=False, the minimum and maximum target
                 differences are used as the boundary conditions.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
 
         Returns:
             self: The updated object itself.
         """
-        if bounds_dict is not None:
-            self.initiate_bounds_dict(bounds_dict)
-        if scale is not None:
-            self.scale = scale
-        if log is not None:
-            self.log = log
-        if max_length is not None:
-            self.max_length = max_length
-        if use_derivatives is not None:
-            self.use_derivatives = use_derivatives
+        # Update the parameters of the parent class
+        super().update_arguments(
+            bounds_dict=bounds_dict,
+            scale=scale,
+            use_log=use_log,
+            max_length=max_length,
+            use_derivatives=use_derivatives,
+            seed=seed,
+            dtype=dtype,
+        )
+        # Update the parameters of the class itself
         if use_prior_mean is not None:
             self.use_prior_mean = use_prior_mean
         return self
@@ -117,7 +142,8 @@ class EducatedBoundaries(RestrictedBoundaries):
             elif para == "noise":
                 if "noise_deriv" in parameters_set:
                     bounds[para] = self.noise_bound(
-                        Y[:, 0:1], eps_lower=eps_lower
+                        Y[:, 0:1],
+                        eps_lower=eps_lower,
                     )
                 else:
                     bounds[para] = self.noise_bound(Y, eps_lower=eps_lower)
@@ -126,10 +152,12 @@ class EducatedBoundaries(RestrictedBoundaries):
             elif para == "prefactor":
                 bounds[para] = self.prefactor_bound(X, Y, model)
             elif para in self.bounds_dict:
-                bounds[para] = self.bounds_dict[para].copy()
+                bounds[para] = array(self.bounds_dict[para], dtype=self.dtype)
             else:
-                bounds[para] = np.full(
-                    (parameters.count(para), 2), [eps_lower, eps_upper]
+                bounds[para] = full(
+                    (parameters.count(para), 2),
+                    [eps_lower, eps_upper],
+                    dtype=self.dtype,
                 )
         return bounds
 
@@ -143,7 +171,7 @@ class EducatedBoundaries(RestrictedBoundaries):
             Y_mean = self.get_prior_mean(X, Y, model)
             Y_std = Y[:, 0:1] - Y_mean
             # Calculate the variance relative to the prior mean of the targets
-            a_mean = np.sqrt(np.mean(Y_std**2))
+            a_mean = sqrt((Y_std**2).mean())
             # Check that all the targets are not the same
             if a_mean == 0.0:
                 a_mean = 1.00
@@ -153,16 +181,17 @@ class EducatedBoundaries(RestrictedBoundaries):
         else:
             # Calculate the differences in the target values
             dif = pdist(Y[:, 0:1])
+            dif = asarray(dif, dtype=self.dtype)
             # Remove zero differences
             dif = dif[dif != 0.0]
             # Check that all the targets are not the same
             if len(dif) == 0:
-                dif = [1.0]
-            a_max = np.max(dif) * self.scale
-            a_min = np.min(dif) / self.scale
-        if self.log:
-            return np.array([[np.log(a_min), np.log(a_max)]])
-        return np.array([[a_min, a_max]])
+                dif = asarray([1.0], dtype=self.dtype)
+            a_max = dif.max() * self.scale
+            a_min = dif.min() / self.scale
+        if self.use_log:
+            return asarray([[log(a_min), log(a_max)]], dtype=self.dtype)
+        return asarray([[a_min, a_max]], dtype=self.dtype)
 
     def get_prior_mean(self, X, Y, model, **kwargs):
         "Get the prior mean value for the target only (without derivatives)."
@@ -176,10 +205,12 @@ class EducatedBoundaries(RestrictedBoundaries):
         arg_kwargs = dict(
             bounds_dict=self.bounds_dict,
             scale=self.scale,
-            log=self.log,
+            use_log=self.use_log,
             max_length=self.max_length,
             use_derivatives=self.use_derivatives,
             use_prior_mean=self.use_prior_mean,
+            seed=self.seed,
+            dtype=self.dtype,
         )
         # Get the constants made within the class
         constant_kwargs = dict()

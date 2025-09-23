@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 from .functions import create_func, make_train_test_set, check_minima
 
 
@@ -16,11 +15,13 @@ class TestTPOptimizer(unittest.TestCase):
         from catlearn.regression.gp.objectivefunctions.tp import LogLikelihood
         from catlearn.regression.gp.hpfitter import HyperparameterFitter
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -35,12 +36,12 @@ class TestTPOptimizer(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
         # Set random seed to give the same results every time
-        np.random.seed(1)
+        tp.set_seed(seed=seed)
         # Optimize the hyperparameters
         sol = tp.optimize(
             x_tr,
@@ -51,7 +52,7 @@ class TestTPOptimizer(unittest.TestCase):
             verbose=False,
         )
         # Test the solution is correct
-        self.assertTrue(abs(sol["fun"] - 502.256) < 1e-2)
+        self.assertTrue(abs(sol["fun"] - 489.88476) < 1e-2)
 
     def test_local_jac(self):
         """
@@ -63,11 +64,13 @@ class TestTPOptimizer(unittest.TestCase):
         from catlearn.regression.gp.objectivefunctions.tp import LogLikelihood
         from catlearn.regression.gp.hpfitter import HyperparameterFitter
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -79,9 +82,6 @@ class TestTPOptimizer(unittest.TestCase):
         optimizer = ScipyOptimizer(
             maxiter=500,
             jac=True,
-            method="l-bfgs-b",
-            use_bounds=False,
-            tol=1e-12,
         )
         # Construct the hyperparameter fitter
         hpfitter = HyperparameterFitter(
@@ -90,12 +90,12 @@ class TestTPOptimizer(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
         # Set random seed to give the same results every time
-        np.random.seed(1)
+        tp.set_seed(seed=seed)
         # Optimize the hyperparameters
         sol = tp.optimize(
             x_tr,
@@ -126,11 +126,13 @@ class TestTPOptimizer(unittest.TestCase):
         from catlearn.regression.gp.objectivefunctions.tp import LogLikelihood
         from catlearn.regression.gp.hpfitter import HyperparameterFitter
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -142,9 +144,6 @@ class TestTPOptimizer(unittest.TestCase):
         optimizer = ScipyOptimizer(
             maxiter=500,
             jac=False,
-            method="l-bfgs-b",
-            use_bounds=False,
-            tol=1e-12,
         )
         # Construct the hyperparameter fitter
         hpfitter = HyperparameterFitter(
@@ -153,12 +152,12 @@ class TestTPOptimizer(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
         # Set random seed to give the same results every time
-        np.random.seed(1)
+        tp.set_seed(seed=seed)
         # Optimize the hyperparameters
         sol = tp.optimize(
             x_tr,
@@ -189,11 +188,13 @@ class TestTPOptimizer(unittest.TestCase):
         from catlearn.regression.gp.hpfitter import HyperparameterFitter
         from catlearn.regression.gp.pdistributions import Normal_prior
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -216,7 +217,7 @@ class TestTPOptimizer(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
@@ -226,7 +227,7 @@ class TestTPOptimizer(unittest.TestCase):
             noise=Normal_prior(mu=-4.0, std=2.0),
         )
         # Set random seed to give the same results every time
-        np.random.seed(1)
+        tp.set_seed(seed=seed)
         # Optimize the hyperparameters
         sol = tp.optimize(
             x_tr,
@@ -255,11 +256,13 @@ class TestTPOptimizer(unittest.TestCase):
         from catlearn.regression.gp.hpfitter import HyperparameterFitter
         from catlearn.regression.gp.hpboundary import StrictBoundaries
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -283,12 +286,12 @@ class TestTPOptimizer(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
         # Set random seed to give the same results every time
-        np.random.seed(1)
+        tp.set_seed(seed=seed)
         # Optimize the hyperparameters
         sol = tp.optimize(
             x_tr,
@@ -324,11 +327,13 @@ class TestTPOptimizer(unittest.TestCase):
             VariableTransformation,
         )
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -340,9 +345,6 @@ class TestTPOptimizer(unittest.TestCase):
         local_optimizer = ScipyOptimizer(
             maxiter=500,
             jac=True,
-            method="l-bfgs-b",
-            use_bounds=False,
-            tol=1e-12,
         )
         # Make the global optimizer
         optimizer = RandomSamplingOptimizer(
@@ -359,7 +361,7 @@ class TestTPOptimizer(unittest.TestCase):
         )
         # Define test list of arguments for the random sampling optimizer
         bounds_list = [
-            VariableTransformation(bounds=None),
+            VariableTransformation(),
             EducatedBoundaries(),
             HPBoundaries(bounds_dict=bounds_dict),
         ]
@@ -374,12 +376,12 @@ class TestTPOptimizer(unittest.TestCase):
                 )
                 # Construct the Student t process
                 tp = TProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                tp.set_seed(seed=seed)
                 # Optimize the hyperparameters
                 sol = tp.optimize(
                     x_tr,
@@ -415,11 +417,13 @@ class TestTPOptimizer(unittest.TestCase):
             VariableTransformation,
         )
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -431,20 +435,16 @@ class TestTPOptimizer(unittest.TestCase):
         local_optimizer = ScipyOptimizer(
             maxiter=500,
             jac=True,
-            method="l-bfgs-b",
-            use_bounds=False,
-            tol=1e-12,
         )
         # Make the global optimizer kwargs
         opt_kwargs = dict(maxiter=500, n_each_dim=5, parallel=False)
         # Make the boundary conditions for the tests
-        bounds_trans = VariableTransformation(bounds=None)
+        bounds_trans = VariableTransformation()
         bounds_ed = EducatedBoundaries()
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
             ),
             log=True,
         )
@@ -494,12 +494,12 @@ class TestTPOptimizer(unittest.TestCase):
                 )
                 # Construct the Student t process
                 tp = TProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                tp.set_seed(seed=seed)
                 # Optimize the hyperparameters
                 sol = tp.optimize(
                     x_tr,
@@ -535,11 +535,13 @@ class TestTPOptimizer(unittest.TestCase):
             VariableTransformation,
         )
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -551,20 +553,16 @@ class TestTPOptimizer(unittest.TestCase):
         local_optimizer = ScipyOptimizer(
             maxiter=500,
             jac=True,
-            method="l-bfgs-b",
-            use_bounds=False,
-            tol=1e-12,
         )
         # Make the global optimizer kwargs
         opt_kwargs = dict(maxiter=500, n_each_dim=10, loops=3, parallel=False)
         # Make the boundary conditions for the tests
-        bounds_trans = VariableTransformation(bounds=None)
+        bounds_trans = VariableTransformation()
         bounds_ed = EducatedBoundaries()
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
             ),
             log=True,
         )
@@ -614,12 +612,12 @@ class TestTPOptimizer(unittest.TestCase):
                 )
                 # Construct the Student t process
                 tp = TProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                tp.set_seed(seed=seed)
                 # Optimize the hyperparameters
                 sol = tp.optimize(
                     x_tr,
@@ -647,11 +645,13 @@ class TestTPOptimizer(unittest.TestCase):
         from catlearn.regression.gp.objectivefunctions.tp import LogLikelihood
         from catlearn.regression.gp.hpfitter import HyperparameterFitter
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -682,12 +682,12 @@ class TestTPOptimizer(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
         # Set random seed to give the same results every time
-        np.random.seed(1)
+        tp.set_seed(seed=seed)
         # Optimize the hyperparameters
         sol = tp.optimize(
             x_tr,
@@ -719,11 +719,13 @@ class TestTPOptimizer(unittest.TestCase):
             EducatedBoundaries,
         )
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -738,7 +740,6 @@ class TestTPOptimizer(unittest.TestCase):
             restart_temp_ratio=2e-05,
             visit=2.62,
             accept=-5.0,
-            seed=None,
             no_local_search=False,
         )
         # Make the optimizer
@@ -752,9 +753,8 @@ class TestTPOptimizer(unittest.TestCase):
         bounds_ed = EducatedBoundaries()
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
             ),
             log=True,
         )
@@ -771,12 +771,12 @@ class TestTPOptimizer(unittest.TestCase):
                 )
                 # Construct the Student t process
                 tp = TProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                tp.set_seed(seed=seed)
                 # Optimize the hyperparameters
                 sol = tp.optimize(
                     x_tr,
@@ -811,11 +811,13 @@ class TestTPOptimizer(unittest.TestCase):
             VariableTransformation,
         )
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -830,7 +832,6 @@ class TestTPOptimizer(unittest.TestCase):
             restart_temp_ratio=2e-05,
             visit=2.62,
             accept=-5.0,
-            seed=None,
             no_local_search=False,
         )
         # Make the optimizer
@@ -841,12 +842,11 @@ class TestTPOptimizer(unittest.TestCase):
             local_kwargs=local_kwargs,
         )
         # Make the boundary conditions for the tests
-        bounds_trans = VariableTransformation(bounds=None)
+        bounds_trans = VariableTransformation()
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
             ),
             log=True,
         )
@@ -864,12 +864,12 @@ class TestTPOptimizer(unittest.TestCase):
                 )
                 # Construct the Student t process
                 tp = TProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                tp.set_seed(seed=seed)
                 # Optimize the hyperparameters
                 sol = tp.optimize(
                     x_tr,
@@ -912,11 +912,13 @@ class TestTPOptimizer(unittest.TestCase):
             VariableTransformation,
         )
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -927,13 +929,12 @@ class TestTPOptimizer(unittest.TestCase):
         # Make the dictionary of the optimization
         opt_kwargs = dict(maxiter=500, jac=False, tol=1e-5, parallel=False)
         # Make the boundary conditions for the tests
-        bounds_trans = VariableTransformation(bounds=None)
+        bounds_trans = VariableTransformation()
         bounds_ed = EducatedBoundaries()
         fixed_bounds = HPBoundaries(
             bounds_dict=dict(
-                length=[[-3.0, 3.0]],
-                noise=[[-8.0, 0.0]],
-                prefactor=[[-2.0, 4.0]],
+                length=[[-1.0, 3.0]],
+                noise=[[-4.0, -1.0]],
             ),
             log=True,
         )
@@ -1022,12 +1023,12 @@ class TestTPOptimizer(unittest.TestCase):
                 )
                 # Construct the Student t process
                 tp = TProcess(
-                    hp=dict(length=2.0),
+                    hp=dict(length=[2.0], noise=[-5.0]),
                     hpfitter=hpfitter,
                     use_derivatives=use_derivatives,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                tp.set_seed(seed=seed)
                 # Optimize the hyperparameters
                 sol = tp.optimize(
                     x_tr,

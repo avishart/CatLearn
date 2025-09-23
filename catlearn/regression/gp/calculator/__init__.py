@@ -1,5 +1,5 @@
 from .database import Database
-from .copy_atoms import copy_atoms
+from .copy_atoms import compare_atoms, copy_atoms
 from .database_reduction import (
     DatabaseReduction,
     DatabaseDistance,
@@ -11,10 +11,11 @@ from .database_reduction import (
     DatabasePointsInterest,
     DatabasePointsInterestEach,
 )
-from .mlmodel import (
-    MLModel,
+from .mlmodel import MLModel
+from .default_model import (
     get_default_model,
     get_default_database,
+    get_default_ensemble,
     get_default_mlmodel,
 )
 from .hiermodel import HierarchicalMLModel
@@ -23,6 +24,7 @@ from .bocalc import BOCalculator
 
 __all__ = [
     "Database",
+    "compare_atoms",
     "copy_atoms",
     "DatabaseReduction",
     "DatabaseDistance",
@@ -36,6 +38,7 @@ __all__ = [
     "MLModel",
     "get_default_model",
     "get_default_database",
+    "get_default_ensemble",
     "get_default_mlmodel",
     "HierarchicalMLModel",
     "MLCalculator",

@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 from .functions import create_func, make_train_test_set, check_minima
 
 
@@ -22,11 +21,13 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         from catlearn.regression.gp.objectivefunctions.tp import LogLikelihood
         from catlearn.regression.gp.hpfitter import HyperparameterFitter
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -38,9 +39,6 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         local_optimizer = ScipyOptimizer(
             maxiter=500,
             jac=True,
-            method="l-bfgs-b",
-            use_bounds=False,
-            tol=1e-12,
         )
         # Make the global optimizer
         optimizer = RandomSamplingOptimizer(
@@ -56,12 +54,12 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
         # Set random seed to give the same results every time
-        np.random.seed(1)
+        tp.set_seed(seed=seed)
         # Optimize the hyperparameters
         sol = tp.optimize(
             x_tr,
@@ -95,11 +93,13 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         from catlearn.regression.gp.hpfitter import HyperparameterFitter
         from catlearn.regression.gp.hpboundary import VariableTransformation
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -111,9 +111,6 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         local_optimizer = ScipyOptimizer(
             maxiter=500,
             jac=True,
-            method="l-bfgs-b",
-            use_bounds=False,
-            tol=1e-12,
         )
         # Make the global optimizer
         optimizer = GridOptimizer(
@@ -124,7 +121,7 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
             parallel=True,
         )
         # Make the boundary conditions for the tests
-        bounds_trans = VariableTransformation(bounds=None)
+        bounds_trans = VariableTransformation()
         # Construct the hyperparameter fitter
         hpfitter = HyperparameterFitter(
             func=LogLikelihood(),
@@ -133,12 +130,12 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
         # Set random seed to give the same results every time
-        np.random.seed(1)
+        tp.set_seed(seed=seed)
         # Optimize the hyperparameters
         sol = tp.optimize(
             x_tr,
@@ -170,11 +167,13 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         from catlearn.regression.gp.hpfitter import HyperparameterFitter
         from catlearn.regression.gp.hpboundary import VariableTransformation
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -186,9 +185,6 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         local_optimizer = ScipyOptimizer(
             maxiter=500,
             jac=True,
-            method="l-bfgs-b",
-            use_bounds=False,
-            tol=1e-12,
         )
         # Make the global optimizer
         optimizer = IterativeLineOptimizer(
@@ -200,7 +196,7 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
             parallel=True,
         )
         # Make the boundary conditions for the tests
-        bounds_trans = VariableTransformation(bounds=None)
+        bounds_trans = VariableTransformation()
         # Construct the hyperparameter fitter
         hpfitter = HyperparameterFitter(
             func=LogLikelihood(),
@@ -209,12 +205,12 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
         # Set random seed to give the same results every time
-        np.random.seed(1)
+        tp.set_seed(seed=seed)
         # Optimize the hyperparameters
         sol = tp.optimize(
             x_tr,
@@ -251,11 +247,13 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         from catlearn.regression.gp.hpfitter import HyperparameterFitter
         from catlearn.regression.gp.hpboundary import VariableTransformation
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
-        x_tr, f_tr, x_te, f_te = make_train_test_set(
+        x_tr, f_tr, _, _ = make_train_test_set(
             x,
             f,
             g,
@@ -264,7 +262,7 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
             use_derivatives=use_derivatives,
         )
         # Make the boundary conditions for the tests
-        bounds_trans = VariableTransformation(bounds=None)
+        bounds_trans = VariableTransformation()
         # Make the line optimizer
         line_optimizer = FineGridSearch(
             optimize=True,
@@ -290,12 +288,12 @@ class TestGPOptimizerASEParallel(unittest.TestCase):
         )
         # Construct the Student t process
         tp = TProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0]),
             hpfitter=hpfitter,
             use_derivatives=use_derivatives,
         )
         # Set random seed to give the same results every time
-        np.random.seed(1)
+        tp.set_seed(seed=seed)
         # Optimize the hyperparameters
         sol = tp.optimize(
             x_tr,

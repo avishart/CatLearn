@@ -18,8 +18,10 @@ class TestGPEnsemble(unittest.TestCase):
         from catlearn.regression.gp.ensemble import EnsembleClustering
         from catlearn.regression.gp.ensemble.clustering import K_means
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -32,15 +34,18 @@ class TestGPEnsemble(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Construct the clustering object
-        clustering = K_means(k=4, maxiter=20, tol=1e-3, metric="euclidean")
+        clustering = K_means(
+            n_clusters=4,
+            maxiter=20,
+        )
         # Define the list of whether to use variance as the ensemble method
         var_list = [False, True]
         # Make a list of the error values that the test compares to
-        error_list = [3.90019, 1.73281]
+        error_list = [4.61443, 0.48256]
         for index, use_variance_ensemble in enumerate(var_list):
             with self.subTest(use_variance_ensemble=use_variance_ensemble):
                 # Construct the ensemble model
@@ -50,11 +55,11 @@ class TestGPEnsemble(unittest.TestCase):
                     use_variance_ensemble=use_variance_ensemble,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                enmodel.set_seed(seed=seed)
                 # Train the machine learning model
                 enmodel.train(x_tr, f_tr)
                 # Predict the energies
-                ypred, var, var_deriv = enmodel.predict(
+                ypred, _, _ = enmodel.predict(
                     x_te,
                     get_variance=False,
                     get_derivatives=False,
@@ -75,13 +80,16 @@ class TestGPEnsemble(unittest.TestCase):
             K_means,
             K_means_auto,
             K_means_number,
+            K_means_enumeration,
             FixedClustering,
             RandomClustering,
             RandomClustering_number,
         )
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = False
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -94,34 +102,38 @@ class TestGPEnsemble(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Define the list of clustering objects that are tested
         clustering_list = [
-            K_means(k=4, maxiter=20, tol=1e-3, metric="euclidean"),
+            K_means(n_clusters=4, maxiter=20),
             K_means_auto(
                 min_data=6,
                 max_data=12,
                 maxiter=20,
-                tol=1e-3,
-                metric="euclidean",
             ),
             K_means_number(
                 data_number=12,
                 maxiter=20,
-                tol=1e-3,
-                metric="euclidean",
             ),
+            K_means_enumeration(data_number=12),
             FixedClustering(
                 centroids=np.array([[-30.0], [60.0]]),
-                metric="euclidean",
             ),
             RandomClustering(n_clusters=4, equal_size=True),
             RandomClustering_number(data_number=12),
         ]
         # Make a list of the error values that the test compares to
-        error_list = [1.73289, 1.75136, 1.73401, 1.74409, 1.88037, 0.61394]
+        error_list = [
+            0.48256,
+            0.63066,
+            0.62649,
+            0.91445,
+            0.62650,
+            0.70163,
+            0.67975,
+        ]
         # Test the baseline objects
         for index, clustering in enumerate(clustering_list):
             with self.subTest(clustering=clustering):
@@ -132,11 +144,11 @@ class TestGPEnsemble(unittest.TestCase):
                     use_variance_ensemble=True,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                enmodel.set_seed(seed=seed)
                 # Train the machine learning model
                 enmodel.train(x_tr, f_tr)
                 # Predict the energies and uncertainties
-                ypred, var, var_deriv = enmodel.predict(
+                ypred, _, _ = enmodel.predict(
                     x_te,
                     get_variance=True,
                     get_derivatives=False,
@@ -162,8 +174,10 @@ class TestGPEnsembleDerivatives(unittest.TestCase):
         from catlearn.regression.gp.ensemble import EnsembleClustering
         from catlearn.regression.gp.ensemble.clustering import K_means
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -176,15 +190,15 @@ class TestGPEnsembleDerivatives(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Construct the clustering object
-        clustering = K_means(k=4, maxiter=20, tol=1e-3, metric="euclidean")
+        clustering = K_means(n_clusters=4, maxiter=20)
         # Define the list of whether to use variance as the ensemble method
         var_list = [False, True]
         # Make a list of the error values that the test compares to
-        error_list = [3.66417, 0.17265]
+        error_list = [4.51161, 0.37817]
         for index, use_variance_ensemble in enumerate(var_list):
             with self.subTest(use_variance_ensemble=use_variance_ensemble):
                 # Construct the ensemble model
@@ -194,11 +208,11 @@ class TestGPEnsembleDerivatives(unittest.TestCase):
                     use_variance_ensemble=use_variance_ensemble,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                enmodel.set_seed(seed=seed)
                 # Train the machine learning model
                 enmodel.train(x_tr, f_tr)
                 # Predict the energies
-                ypred, var, var_deriv = enmodel.predict(
+                ypred, _, _ = enmodel.predict(
                     x_te,
                     get_variance=False,
                     get_derivatives=False,
@@ -219,13 +233,16 @@ class TestGPEnsembleDerivatives(unittest.TestCase):
             K_means,
             K_means_auto,
             K_means_number,
+            K_means_enumeration,
             FixedClustering,
             RandomClustering,
             RandomClustering_number,
         )
 
+        # Set random seed to give the same results every time
+        seed = 1
         # Create the data set
-        x, f, g = create_func()
+        x, f, g = create_func(seed=seed)
         # Whether to learn from the derivatives
         use_derivatives = True
         x_tr, f_tr, x_te, f_te = make_train_test_set(
@@ -238,30 +255,33 @@ class TestGPEnsembleDerivatives(unittest.TestCase):
         )
         # Construct the Gaussian process
         gp = GaussianProcess(
-            hp=dict(length=2.0),
+            hp=dict(length=[2.0], noise=[-5.0], prefactor=[0.0]),
             use_derivatives=use_derivatives,
         )
         # Define the list of clustering objects that are tested
         clustering_list = [
-            K_means(k=4, maxiter=20, tol=1e-3, metric="euclidean"),
+            K_means(n_clusters=4, maxiter=20),
             K_means_auto(
                 min_data=6,
                 max_data=12,
                 maxiter=20,
-                tol=1e-3,
-                metric="euclidean",
             ),
-            K_means_number(
-                data_number=12, maxiter=20, tol=1e-3, metric="euclidean"
-            ),
-            FixedClustering(
-                centroids=np.array([[-30.0], [60.0]]), metric="euclidean"
-            ),
+            K_means_number(data_number=12, maxiter=20),
+            K_means_enumeration(data_number=12),
+            FixedClustering(centroids=np.array([[-30.0], [60.0]])),
             RandomClustering(n_clusters=4, equal_size=True),
             RandomClustering_number(data_number=12),
         ]
         # Make a list of the error values that the test compares to
-        error_list = [0.17265, 0.15492, 0.14095, 0.16393, 0.59046, 0.24236]
+        error_list = [
+            0.37817,
+            0.38854,
+            0.38641,
+            0.52753,
+            0.38640,
+            0.47864,
+            0.36700,
+        ]
         # Test the baseline objects
         for index, clustering in enumerate(clustering_list):
             with self.subTest(clustering=clustering):
@@ -272,11 +292,11 @@ class TestGPEnsembleDerivatives(unittest.TestCase):
                     use_variance_ensemble=True,
                 )
                 # Set random seed to give the same results every time
-                np.random.seed(1)
+                enmodel.set_seed(seed=seed)
                 # Train the machine learning model
                 enmodel.train(x_tr, f_tr)
                 # Predict the energies and uncertainties
-                ypred, var, var_deriv = enmodel.predict(
+                ypred, _, _ = enmodel.predict(
                     x_te,
                     get_variance=True,
                     get_derivatives=False,

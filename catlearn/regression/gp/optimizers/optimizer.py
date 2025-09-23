@@ -1,25 +1,54 @@
+from numpy import argmin, array, asarray, empty, finfo, inf
+from numpy.random import default_rng, Generator, RandomState
 from scipy.optimize import OptimizeResult
-import numpy as np
+from ase.parallel import world, broadcast
 
 
 class Optimizer:
-    def __init__(self, maxiter=5000, jac=True, **kwargs):
+    """
+    The optimizer used for optimzing the objective function wrt.
+    the hyperparameters.
+    """
+
+    def __init__(
+        self,
+        maxiter=5000,
+        jac=True,
+        parallel=False,
+        seed=None,
+        dtype=float,
+        **kwargs,
+    ):
         """
-        The optimizer used for optimzing the objective function
-        wrt. the hyperparameters.
+        Initialize the optimizer.
 
         Parameters:
-            maxiter : int
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the optimizer can use.
-            jac : bool
+            jac: bool
                 Whether to use the gradient of the objective function
                 wrt. the hyperparameters.
+            parallel: bool
+                Whether to use parallelization.
+                This is not implemented for this method.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
-        # This optimizer can not be parallelized
-        self.parallel = False
         # Set all the arguments
-        self.update_arguments(maxiter=maxiter, jac=jac, **kwargs)
+        self.update_arguments(
+            maxiter=maxiter,
+            jac=jac,
+            parallel=parallel,
+            seed=seed,
+            dtype=dtype,
+            **kwargs,
+        )
 
     def run(self, func, theta, parameters, model, X, Y, pdis, **kwargs):
         """
@@ -27,51 +56,164 @@ class Optimizer:
         wrt. the hyperparameters.
 
         Parameters:
-            func : ObjectiveFunction class object
+            func: ObjectiveFunction class object
                 The objective function class that is
                 used to calculate the value.
-            theta : (H) array
+            theta: (H) array
                 An array with the hyperparameter values.
-            parameters : (H) list of strings
+            parameters: (H) list of strings
                 A list of names of the hyperparameters.
-            model : Model class object
+            model: Model class object
                 The Machine Learning Model with kernel and prior
                 that are optimized.
-            X : (N,D) array
+            X: (N,D) array
                 Training features with N data points and D dimensions.
-            Y : (N,1) array or (N,D+1) array
+            Y: (N,1) array or (N,D+1) array
                 Training targets with or without derivatives with
                 N data points.
-            pdis : dict
+            pdis: dict
                 A dict of prior distributions for each hyperparameter type.
 
         Returns:
-            dict : A solution dictionary with objective function value,
+            dict: A solution dictionary with objective function value,
                 optimized hyperparameters, success statement,
                 and number of used evaluations.
         """
         raise NotImplementedError()
 
-    def update_arguments(self, maxiter=None, jac=None, **kwargs):
+    def set_dtype(self, dtype, **kwargs):
         """
-        Update the optimizer with its arguments.
-        The existing arguments are used if they are not given.
+        Set the data type of the arrays.
 
         Parameters:
-            maxiter : int
+            dtype: type
+                The data type of the arrays.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Set the data type
+        self.dtype = dtype
+        # Set a small number to avoid division by zero
+        self.eps = 1.1 * finfo(self.dtype).eps
+        return self
+
+    def set_seed(self, seed=None, **kwargs):
+        """
+        Set the random seed.
+
+        Parameters:
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+
+        Returns:
+            self: The instance itself.
+        """
+        if seed is not None:
+            self.seed = seed
+            if isinstance(seed, int):
+                self.rng = default_rng(self.seed)
+            elif isinstance(seed, Generator) or isinstance(seed, RandomState):
+                self.rng = seed
+        else:
+            self.seed = None
+            self.rng = default_rng()
+        return self
+
+    def set_maxiter(self, maxiter, **kwargs):
+        """
+        Set the maximum number of iterations.
+
+        Parameters:
+            maxiter: int
                 The maximum number of evaluations or iterations
                 the optimizer can use.
-            jac : bool
+
+        Returns:
+            self: The updated object itself.
+        """
+        self.maxiter = int(maxiter)
+        return self
+
+    def set_jac(self, jac=True, **kwargs):
+        """
+        Set whether to use the gradient of the objective function
+        wrt. the hyperparameters.
+
+        Parameters:
+            jac: bool
                 Whether to use the gradient of the objective function
                 wrt. the hyperparameters.
 
         Returns:
             self: The updated object itself.
         """
-        if maxiter is not None:
-            self.maxiter = int(maxiter)
+        self.jac = jac
+        return self
+
+    def set_parallel(self, parallel=False, **kwargs):
+        """
+        Set whether to use parallelization.
+
+        Parameters:
+            parallel: bool
+                Whether to use parallelization.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # This optimizer can not be parallelized
+        self.parallel = False
+        return self
+
+    def update_arguments(
+        self,
+        maxiter=None,
+        jac=None,
+        parallel=None,
+        seed=None,
+        dtype=None,
+        **kwargs,
+    ):
+        """
+        Update the optimizer with its arguments.
+        The existing arguments are used if they are not given.
+
+        Parameters:
+            maxiter: int
+                The maximum number of evaluations or iterations
+                the optimizer can use.
+            jac: bool
+                Whether to use the gradient of the objective function
+                wrt. the hyperparameters.
+            parallel: bool
+                Whether to use parallelization.
+                This is not implemented for this method.
+            seed: int (optional)
+                The random seed.
+                The seed can be an integer, RandomState, or Generator instance.
+                If not given, the default random number generator is used.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
+
+        Returns:
+            self: The updated object itself.
+        """
         if jac is not None:
-            self.jac = jac
+            self.set_jac(jac)
+        if parallel is not None or not hasattr(self, "parallel"):
+            self.set_parallel(parallel)
+        if maxiter is not None:
+            self.set_maxiter(maxiter)
+        # Set the seed
+        if seed is not None or not hasattr(self, "seed"):
+            self.set_seed(seed)
+        # Set the data type
+        if dtype is not None or not hasattr(self, "dtype"):
+            self.set_dtype(dtype)
         return self
 
     def get_final_solution(
@@ -113,20 +255,18 @@ class Optimizer:
         **kwargs,
     ):
         "Get all final solutions from each function at each rank."
-        from ase.parallel import world, broadcast
-
         size = world.size
         fun_sol = func.get_stored_solution()
         sol = func.get_solution(sol, parameters, model, X, Y, pdis)
         fun_sols = [broadcast(fun_sol["fun"], root=r) for r in range(size)]
-        rank_min = np.argmin(fun_sols)
+        rank_min = argmin(fun_sols)
         return broadcast(sol, root=rank_min)
 
     def get_empty_solution(self, **kwargs):
         "Get an empty solution without any function evaluations."
         sol = {
-            "fun": np.inf,
-            "x": np.array([]),
+            "fun": inf,
+            "x": empty(0, dtype=self.dtype),
             "success": False,
             "nfev": 0,
             "nit": 0,
@@ -137,7 +277,7 @@ class Optimizer:
     def get_initial_solution(self, theta, func, func_args=(), **kwargs):
         "Get a solution with the evaluation of the initial hyperparameters."
         sol = {
-            "fun": np.inf,
+            "fun": inf,
             "x": theta,
             "success": False,
             "nfev": 1,
@@ -172,22 +312,25 @@ class Optimizer:
                 func_args=func_args,
                 **kwargs,
             )
-        return np.array([func.function(theta, *func_args) for theta in thetas])
+        return asarray(
+            [func.function(theta, *func_args) for theta in thetas],
+            dtype=self.dtype,
+        )
 
     def calculate_values_parallel(self, thetas, func, func_args=(), **kwargs):
         "Calculate a list of values with a function in parallel."
-        from ase.parallel import world, broadcast
-
         rank, size = world.rank, world.size
-        f_list = np.array(
+        f_list = asarray(
             [
                 func.function(theta, *func_args)
                 for t, theta in enumerate(thetas)
                 if rank == t % size
-            ]
+            ],
+            dtype=self.dtype,
         )
-        return np.array(
-            [broadcast(f_list, root=r) for r in range(size)]
+        return asarray(
+            [broadcast(f_list, root=r) for r in range(size)],
+            dtype=self.dtype,
         ).T.reshape(-1)
 
     def compare_solutions(self, sol1, sol2, **kwargs):
@@ -210,7 +353,8 @@ class Optimizer:
 
     def make_hp(self, theta, parameters, **kwargs):
         "Make hyperparameter dictionary from lists."
-        theta, parameters = np.array(theta), np.array(parameters)
+        theta = array(theta, dtype=self.dtype)
+        parameters = asarray(parameters)
         parameters_set = sorted(set(parameters))
         hp = {para_s: theta[parameters == para_s] for para_s in parameters_set}
         return hp
@@ -218,7 +362,13 @@ class Optimizer:
     def get_arguments(self):
         "Get the arguments of the class itself."
         # Get the arguments given to the class in the initialization
-        arg_kwargs = dict(maxiter=self.maxiter, jac=self.jac)
+        arg_kwargs = dict(
+            maxiter=self.maxiter,
+            jac=self.jac,
+            parallel=self.parallel,
+            seed=self.seed,
+            dtype=self.dtype,
+        )
         # Get the constants made within the class
         constant_kwargs = dict()
         # Get the objects made within the class
@@ -250,46 +400,59 @@ class Optimizer:
 
 
 class FunctionEvaluation(Optimizer):
-    def __init__(self, jac=True, **kwargs):
+    """
+    A method used for evaluating the objective function for
+    the given hyperparameters.
+    """
+
+    def __init__(self, jac=True, parallel=False, dtype=float, **kwargs):
         """
-        A method used for evaluating the objective function for
-        the given hyperparameters.
+        Initialize the function evaluation method.
 
         Parameters:
-            jac : bool
+            jac: bool
                 Whether to use the gradient of the objective function
                 wrt. the hyperparameters.
+            parallel: bool
+                Whether to use parallelization.
+                This is not implemented for this method.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
-        # This optimizer can not be parallelized
-        self.parallel = False
         # Set all the arguments
-        self.update_arguments(jac=jac, **kwargs)
+        self.update_arguments(
+            jac=jac,
+            parallel=parallel,
+            dtype=dtype,
+            **kwargs,
+        )
 
     def run(self, func, theta, parameters, model, X, Y, pdis, **kwargs):
         """
         Run the evaluation of the objective function wrt. the hyperparameters.
 
         Parameters:
-            func : ObjectiveFunction class object
+            func: ObjectiveFunction class object
                 The objective function class that is
                 used to calculate the value.
-            theta : (H) array
+            theta: (H) array
                 An array with the hyperparameter values.
-            parameters : (H) list of strings
+            parameters: (H) list of strings
                 A list of names of the hyperparameters.
-            model : Model class object
+            model: Model class object
                 The Machine Learning Model with kernel and prior
                 that are optimized.
-            X : (N,D) array
+            X: (N,D) array
                 Training features with N data points and D dimensions.
-            Y : (N,1) array or (N,D+1) array
+            Y: (N,1) array or (N,D+1) array
                 Training targets with or without derivatives with
                 N data points.
-            pdis : dict
+            pdis: dict
                 A dict of prior distributions for each hyperparameter type.
 
         Returns:
-            dict : A solution dictionary with objective function value,
+            dict: A solution dictionary with objective function value,
                 hyperparameters, success statement,
                 and number of used evaluations.
         """
@@ -313,27 +476,14 @@ class FunctionEvaluation(Optimizer):
             pdis,
         )
 
-    def update_arguments(self, maxiter=None, jac=None, **kwargs):
-        """
-        Update the class with its arguments.
-        The existing arguments are used if they are not given.
-
-        Parameters:
-            jac : bool
-                Whether to use the gradient of the objective function
-                wrt. the hyperparameters.
-
-        Returns:
-            self: The updated object itself.
-        """
-        if jac is not None:
-            self.jac = jac
-        return self
-
     def get_arguments(self):
         "Get the arguments of the class itself."
         # Get the arguments given to the class in the initialization
-        arg_kwargs = dict(jac=self.jac)
+        arg_kwargs = dict(
+            jac=self.jac,
+            parallel=self.parallel,
+            dtype=self.dtype,
+        )
         # Get the constants made within the class
         constant_kwargs = dict()
         # Get the objects made within the class

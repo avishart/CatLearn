@@ -1,4 +1,16 @@
-def update_pdis(model, parameters, X, Y, bounds=None, pdis=None, **kwargs):
+from ..hpboundary.strict import StrictBoundaries
+
+
+def update_pdis(
+    model,
+    parameters,
+    X,
+    Y,
+    bounds=None,
+    pdis=None,
+    dtype=float,
+    **kwargs,
+):
     """
     Update given prior distribution of hyperparameters from
     educated guesses in log space.
@@ -9,9 +21,7 @@ def update_pdis(model, parameters, X, Y, bounds=None, pdis=None, **kwargs):
     # Make boundary conditions for updating the prior distributions
     if bounds is None:
         # Use strict educated guesses for the boundary conditions if not given
-        from ..hpboundary.strict import StrictBoundaries
-
-        bounds = StrictBoundaries(log=True, use_prior_mean=True)
+        bounds = StrictBoundaries(log=True, use_prior_mean=True, dtype=dtype)
         # Update boundary conditions to the data
         bounds.update_bounds(model, X, Y, parameters)
     # Make prior distributions for hyperparameters from boundary conditions

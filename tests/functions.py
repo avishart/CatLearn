@@ -1,63 +1,70 @@
-import numpy as np
+from numpy import argmax, array, concatenate, cos, linspace, sin, sqrt
+from numpy.linalg import norm
+from numpy.random import default_rng, Generator, RandomState
+from ase import Atoms
+from ase.calculators.emt import EMT
+
+
+def get_rng(seed):
+    "Get the random number generator."
+    if isinstance(seed, int) or seed is None:
+        rng = default_rng(seed)
+    elif isinstance(seed, Generator):
+        rng = seed
+    elif isinstance(seed, RandomState):
+        rng = seed
+    return rng
 
 
 def create_func(gridsize=200, seed=1):
     "Generate the data set from a trial function"
-    np.random.seed(seed)
-    x = np.linspace(-40, 100, gridsize).reshape(-1, 1)
-    f = 3 * (np.sin((x / 20) ** 2) - 3 * np.sin(0.6 * x / 20) + 17)
+    rng = get_rng(seed)
+    x = linspace(-40, 100, gridsize).reshape(-1, 1)
+    f = 3 * (sin((x / 20) ** 2) - 3 * sin(0.6 * x / 20) + 17)
     g = 3 * (
-        (2 * x / (20**2)) * np.cos((x / 20) ** 2)
-        - 3 * (0.6 / 20) * np.cos(0.6 * x / 20)
+        (2 * x / (20**2)) * cos((x / 20) ** 2)
+        - 3 * (0.6 / 20) * cos(0.6 * x / 20)
     )
-    i_perm = np.random.permutation(list(range(len(x))))
+    i_perm = rng.permutation(list(range(len(x))))
     return x[i_perm], f[i_perm], g[i_perm]
 
 
 def create_h2_atoms(gridsize=200, seed=1):
     "Generate the trial data set of H2 ASE atoms with EMT"
-    from ase import Atoms
-    from ase.calculators.emt import EMT
-
-    z_list = np.linspace(0.2, 4.0, gridsize)
+    rng = get_rng(seed)
+    z_list = linspace(0.2, 4.0, gridsize)
     atoms_list = []
     energies, forces = [], []
     for z in z_list:
-        h2 = Atoms("H2", positions=np.array([[0.0, 0.0, 0.0], [z, 0.0, 0.0]]))
+        h2 = Atoms("H2", positions=array([[0.0, 0.0, 0.0], [z, 0.0, 0.0]]))
         h2.center(vacuum=10.0)
         h2.calc = EMT()
         energies.append(h2.get_potential_energy())
         forces.append(h2.get_forces().reshape(-1))
         atoms_list.append(h2)
-    np.random.seed(seed)
-    i_perm = np.random.permutation(list(range(len(atoms_list))))
+    i_perm = rng.permutation(list(range(len(atoms_list))))
     atoms_list = [atoms_list[i] for i in i_perm]
     return (
         atoms_list,
-        np.array(energies).reshape(-1, 1)[i_perm],
-        np.array(forces)[i_perm],
+        array(energies).reshape(-1, 1)[i_perm],
+        array(forces)[i_perm],
     )
 
 
 def make_train_test_set(x, f, g, tr=20, te=20, use_derivatives=True):
     "Genterate the training and test sets"
     x_tr, f_tr, g_tr = x[:tr], f[:tr], g[:tr]
-    x_te, f_te, g_te = x[tr : tr + te], f[tr : tr + te], g[tr : tr + te]
+    t_all = tr + te
+    x_te, f_te, g_te = x[tr:t_all], f[tr:t_all], g[tr:t_all]
     if use_derivatives:
-        f_tr = np.concatenate(
-            [f_tr.reshape(tr, 1), g_tr.reshape(tr, -1)],
-            axis=1,
-        )
-        f_te = np.concatenate(
-            [f_te.reshape(te, 1), g_te.reshape(te, -1)],
-            axis=1,
-        )
+        f_tr = concatenate([f_tr.reshape(tr, 1), g_tr.reshape(tr, -1)], axis=1)
+        f_te = concatenate([f_te.reshape(te, 1), g_te.reshape(te, -1)], axis=1)
     return x_tr, f_tr, x_te, f_te
 
 
 def calculate_rmse(ytest, ypred):
     "Calculate the Root-mean squarred error"
-    return np.sqrt(np.mean((ypred - ytest) ** 2))
+    return sqrt(((ypred - ytest) ** 2).mean())
 
 
 def check_minima(
@@ -175,11 +182,11 @@ def check_fmax(atoms, calc, fmax=0.05):
     atoms_c = atoms.copy()
     atoms_c.calc = calc
     forces = atoms_c.get_forces()
-    return np.linalg.norm(forces, axis=1).max() < fmax
+    return norm(forces, axis=1).max() < fmax
 
 
 def check_image_fmax(images, calc, fmax=0.05):
     "Check images from NEB has a saddle point."
     energies = [image.get_potential_energy() for image in images]
-    i_max = np.argmax(energies)
+    i_max = argmax(energies)
     return check_fmax(images[i_max], calc, fmax=fmax)

@@ -1,17 +1,25 @@
-import numpy as np
+from numpy import exp
 
 
 class Prior_distribution:
-    def __init__(self, **kwargs):
+    """
+    Prior probability distribution used for each type
+    of hyperparameters in log-space.
+    If the type of the hyperparameter is multi dimensional (H),
+    it is given in the axis=-1.
+    If multiple values (M) of the hyperparameter(/s)
+    are calculated simultaneously, it has to be in a (M,H) array.
+    """
+
+    def __init__(self, dtype=float, **kwargs):
         """
-        Prior probability distribution used for each type
-        of hyperparameters in log-space.
-        If the type of the hyperparameter is multi dimensional (H),
-        it is given in the axis=-1.
-        If multiple values (M) of the hyperparameter(/s)
-        are calculated simultaneously, it has to be in a (M,H) array.
+        Initialization of the prior distribution.
+
+        Parameters:
+            dtype: type
+                The data type of the arrays.
         """
-        self.update_arguments(**kwargs)
+        self.update_arguments(dtype=dtype, **kwargs)
 
     def pdf(self, x):
         """
@@ -33,7 +41,7 @@ class Prior_distribution:
             (M) array: M values of the probability density function
                 if M different values is given.
         """
-        return np.exp(self.ln_pdf(x))
+        return exp(self.ln_pdf(x))
 
     def deriv(self, x):
         "The derivative of the probability density function as respect to x."
@@ -68,14 +76,36 @@ class Prior_distribution:
         """
         raise NotImplementedError()
 
-    def update_arguments(self, **kwargs):
+    def set_dtype(self, dtype, **kwargs):
         """
-        Update the object with its arguments.
-        The existing arguments are used if they are not given.
+        Set the data type of the arrays.
+
+        Parameters:
+            dtype: type
+                The data type of the arrays.
 
         Returns:
             self: The updated object itself.
         """
+        # Set the data type
+        self.dtype = dtype
+        return self
+
+    def update_arguments(self, dtype=None, **kwargs):
+        """
+        Update the object with its arguments.
+        The existing arguments are used if they are not given.
+
+        Parameters:
+            dtype: type
+                The data type of the arrays.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Set the data type
+        if dtype is not None or not hasattr(self, "dtype"):
+            self.set_dtype(dtype=dtype)
         return self
 
     def mean_var(self, mean, var):
@@ -95,7 +125,7 @@ class Prior_distribution:
     def get_arguments(self):
         "Get the arguments of the class itself."
         # Get the arguments given to the class in the initialization
-        arg_kwargs = dict()
+        arg_kwargs = dict(dtype=self.dtype)
         # Get the constants made within the class
         constant_kwargs = dict()
         # Get the objects made within the class

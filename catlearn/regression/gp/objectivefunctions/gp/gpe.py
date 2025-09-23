@@ -1,17 +1,24 @@
-import numpy as np
+from numpy import append, empty
 from .loo import LOO
 
 
 class GPE(LOO):
-    def __init__(self, get_prior_mean=False, **kwargs):
+    """
+    The Geissers predictive mean square error objective function as
+    a function of the hyperparameters.
+    """
+
+    def __init__(self, get_prior_mean=False, dtype=float, **kwargs):
         """
-        The Geissers predictive mean square error objective function as
-        a function of the hyperparameters.
+        Initialize the objective function.
 
         Parameters:
             get_prior_mean: bool
                 Whether to save the parameters of the prior mean
                 in the solution.
+             dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
         """
         # Set descriptor of the objective function
         self.use_analytic_prefactor = False
@@ -19,6 +26,7 @@ class GPE(LOO):
         # Set the arguments
         self.update_arguments(
             get_prior_mean=get_prior_mean,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -35,7 +43,7 @@ class GPE(LOO):
     ):
         hp, parameters_set = self.make_hp(theta, parameters)
         model = self.update_model(model, hp)
-        coef, L, low, Y_p, KXX, n_data = self.coef_cholesky(model, X, Y)
+        coef, L, low, _, KXX, n_data = self.coef_cholesky(model, X, Y)
         KXX_inv, K_inv_diag, coef_re, co_Kinv = self.get_co_Kinv(
             L,
             low,
@@ -44,7 +52,7 @@ class GPE(LOO):
         )
         K_inv_diag_rev = 1.0 / K_inv_diag
         prefactor2 = self.get_prefactor2(model)
-        gpe_v = np.mean(co_Kinv**2) + prefactor2 * np.mean(K_inv_diag_rev)
+        gpe_v = (co_Kinv**2).mean() + prefactor2 * K_inv_diag_rev.mean()
         gpe_v = gpe_v - self.logpriors(hp, pdis, jac=False) / n_data
         if jac:
             return gpe_v, self.derivative(
@@ -80,21 +88,46 @@ class GPE(LOO):
         pdis,
         **kwargs,
     ):
-        gpe_deriv = np.array([])
+        gpe_deriv = empty(0, dtype=self.dtype)
         for para in parameters_set:
             if para == "prefactor":
-                gpe_d = 2.0 * prefactor2 * np.mean(K_inv_diag_rev)
+                gpe_d = 2.0 * prefactor2 * K_inv_diag_rev.mean()
             else:
                 K_deriv = self.get_K_deriv(model, para, X=X, KXX=KXX)
                 r_j, s_j = self.get_r_s_derivatives(K_deriv, KXX_inv, coef_re)
-                gpe_d = 2 * np.mean(
-                    (co_Kinv * K_inv_diag_rev) * (r_j + s_j * co_Kinv), axis=-1
-                ) + prefactor2 * np.mean(
-                    s_j * (K_inv_diag_rev * K_inv_diag_rev), axis=-1
+                gpe_d = 2.0 * (
+                    (co_Kinv * K_inv_diag_rev) * (r_j + s_j * co_Kinv)
+                ).mean(axis=-1) + prefactor2 * (
+                    s_j * (K_inv_diag_rev * K_inv_diag_rev)
+                ).mean(
+                    axis=-1
                 )
-            gpe_deriv = np.append(gpe_deriv, gpe_d)
+            gpe_deriv = append(gpe_deriv, gpe_d)
         gpe_deriv = gpe_deriv - self.logpriors(hp, pdis, jac=True) / n_data
         return gpe_deriv
+
+    def update_arguments(self, get_prior_mean=None, dtype=None, **kwargs):
+        """
+        Update the objective function with its arguments.
+        The existing arguments are used if they are not given.
+
+        Parameters:
+            get_prior_mean: bool
+                Whether to get the parameters of the prior mean
+                in the solution.
+            dtype: type (optional)
+                The data type of the arrays.
+                If None, the default data type is used.
+
+        Returns:
+            self: The updated object itself.
+        """
+        # Set the arguments of the parent class
+        super().update_arguments(
+            get_prior_mean=get_prior_mean,
+            dtype=dtype,
+        )
+        return self
 
     def update_solution(
         self,
