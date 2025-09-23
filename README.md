@@ -14,13 +14,13 @@ CalLearn uses ASE to handle atomic systems and the calculator interface to calcu
 
 You can install CatLearn by downloading it from GitHub as:
 ```shell
-$ git clone --single-branch --branch activelearning https://github.com/avishart/CatLearn
+$ git clone https://github.com/avishart/CatLearn
 $ pip install -e CatLearn/.
 ```
 
 You can also install CatLearn directly from GitHub:
 ```shell
-$ pip install git@github.com:avishart/CatLearn.git@activelearning
+$ pip install git@github.com:avishart/CatLearn.git
 ```
 
 However, it is recommended to install a specific tag to ensure it is a stable version:
