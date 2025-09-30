@@ -14,18 +14,18 @@ CalLearn uses ASE to handle atomic systems and the calculator interface to calcu
 
 You can install CatLearn by downloading it from GitHub as:
 ```shell
-$ git clone --single-branch --branch activelearning https://github.com/avishart/CatLearn
-$ pip install -e CatLearn/.
+git clone --single-branch --branch activelearning https://github.com/avishart/CatLearn
+pip install -e CatLearn/.
 ```
 
 You can also install CatLearn directly from GitHub:
 ```shell
-$ pip install git@github.com:avishart/CatLearn.git@activelearning
+pip install git+https://github.com/avishart/CatLearn.git@activelearning
 ```
 
 However, it is recommended to install a specific tag to ensure it is a stable version:
 ```shell
-$ pip install git+https://github.com/avishart/CatLearn.git@v.x.x.x
+pip install git+https://github.com/avishart/CatLearn.git@v.x.x.x
 ```
 
 The dependency of ASE has only been thoroughly tested up to version 3.26.0.
@@ -74,7 +74,7 @@ dyn.run(
     fmax=0.05,
     max_unc=0.30,
     steps=100,
-    ml_steps=1000,
+    ml_steps=500,
 )
 
 ```
@@ -117,7 +117,7 @@ mlneb = MLNEB(
     start_without_ci=True,
     reuse_ci_path=True,
     save_memory=False,
-    parallel_run=False,
+    parallel_run=True,
     local_opt=FIRE,    
     local_opt_kwargs={},
     use_restart=True,
@@ -129,7 +129,7 @@ mlneb.run(
     fmax=0.05,
     max_unc=0.30,
     steps=100,
-    ml_steps=1000,
+    ml_steps=500,
 )
 
 ```
