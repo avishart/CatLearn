@@ -48,6 +48,7 @@ class LocalAL(ActiveLearning):
         pred_evaluated="predicted_evaluated.traj",
         converged_trajectory="converged.traj",
         initial_traj="initial_struc.traj",
+        last_traj=None,
         tabletxt="ml_summary.txt",
         timetxt="ml_time.txt",
         prev_calculations=None,
@@ -177,13 +178,17 @@ class LocalAL(ActiveLearning):
                 training data with predicted properties.
                 If pred_evaluated is None, then the predicted data is
                 not saved.
-            converged_trajectory: str or TrajectoryWriter instance
+            converged_trajectory: str or TrajectoryWriter instance (optional)
                 Trajectory filename to store the converged structure(s).
                 Or the TrajectoryWriter instance to store the converged
                 structure(s).
-            initial_traj: str or TrajectoryWriter instance
+            initial_traj: str or TrajectoryWriter instance (optional)
                 Trajectory filename to store the initial structure(s).
                 Or the TrajectoryWriter instance to store the initial
+                structure(s).
+            last_traj: str or TrajectoryWriter instance (optional)
+                Trajectory filename to store the last structure(s).
+                Or the TrajectoryWriter instance to store the last
                 structure(s).
             tabletxt: str
                 Name of the .txt file where the summary table is printed.
@@ -252,6 +257,7 @@ class LocalAL(ActiveLearning):
             pred_evaluated=pred_evaluated,
             converged_trajectory=converged_trajectory,
             initial_traj=initial_traj,
+            last_traj=last_traj,
             tabletxt=tabletxt,
             timetxt=timetxt,
             prev_calculations=prev_calculations,
@@ -361,6 +367,7 @@ class LocalAL(ActiveLearning):
             pred_evaluated=self.pred_evaluated,
             converged_trajectory=self.converged_trajectory,
             initial_traj=self.initial_traj,
+            last_traj=self.last_traj,
             tabletxt=self.tabletxt,
             timetxt=self.timetxt,
             seed=self.seed,

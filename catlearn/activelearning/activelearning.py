@@ -62,6 +62,7 @@ class ActiveLearning:
         pred_evaluated="predicted_evaluated.traj",
         converged_trajectory="converged.traj",
         initial_traj="initial_struc.traj",
+        last_traj=None,
         tabletxt="ml_summary.txt",
         timetxt="ml_time.txt",
         prev_calculations=None,
@@ -187,13 +188,17 @@ class ActiveLearning:
                 training data with predicted properties.
                 If pred_evaluated is None, then the predicted data is
                 not saved.
-            converged_trajectory: str or TrajectoryWriter instance
+            converged_trajectory: str or TrajectoryWriter instance (optional)
                 Trajectory filename to store the converged structure(s).
                 Or the TrajectoryWriter instance to store the converged
                 structure(s).
-            initial_traj: str or TrajectoryWriter instance
+            initial_traj: str or TrajectoryWriter instance (optional)
                 Trajectory filename to store the initial structure(s).
                 Or the TrajectoryWriter instance to store the initial
+                structure(s).
+            last_traj: str or TrajectoryWriter instance (optional)
+                Trajectory filename to store the last structure(s).
+                Or the TrajectoryWriter instance to store the last
                 structure(s).
             tabletxt: str (optional)
                 Name of the .txt file where the summary table is printed.
@@ -267,6 +272,7 @@ class ActiveLearning:
             pred_evaluated=pred_evaluated,
             converged_trajectory=converged_trajectory,
             initial_traj=initial_traj,
+            last_traj=last_traj,
             tabletxt=tabletxt,
             timetxt=timetxt,
             seed=seed,
@@ -856,6 +862,7 @@ class ActiveLearning:
         pred_evaluated=None,
         converged_trajectory=None,
         initial_traj=None,
+        last_traj=None,
         tabletxt=None,
         timetxt=None,
         seed=None,
@@ -978,13 +985,17 @@ class ActiveLearning:
                 training data with predicted properties.
                 If pred_evaluated is None, then the predicted data is
                 not saved.
-            converged_trajectory: str or TrajectoryWriter instance
+            converged_trajectory: str or TrajectoryWriter instance (optional)
                 Trajectory filename to store the converged structure(s).
                 Or the TrajectoryWriter instance to store the converged
                 structure(s).
-            initial_traj: str or TrajectoryWriter instance
+            initial_traj: str or TrajectoryWriter instance (optional)
                 Trajectory filename to store the initial structure(s).
                 Or the TrajectoryWriter instance to store the initial
+                structure(s).
+            last_traj: str or TrajectoryWriter instance (optional)
+                Trajectory filename to store the last structure(s).
+                Or the TrajectoryWriter instance to store the last
                 structure(s).
             tabletxt: str (optional)
                 Name of the .txt file where the summary table is printed.
@@ -1101,6 +1112,8 @@ class ActiveLearning:
             self.converged_trajectory = converged_trajectory
         if initial_traj is not None or not hasattr(self, "initial_traj"):
             self.initial_traj = initial_traj
+        if last_traj is not None or not hasattr(self, "last_traj"):
+            self.last_traj = last_traj
         if tabletxt is not None:
             self.tabletxt = str(tabletxt)
         elif not hasattr(self, "tabletxt"):
@@ -1198,6 +1211,8 @@ class ActiveLearning:
         self.structures = self.get_structures()
         # Write atoms to trajectory
         self.save_trajectory(self.trajectory, self.structures, mode=self.mode)
+        # Write atoms to last_traj trajectory
+        self.save_trajectory(self.last_traj, self.structures, mode="w")
         return method_converged
 
     def initiate_structure(self, step=1, **kwargs):
@@ -2118,6 +2133,7 @@ class ActiveLearning:
             pred_evaluated=self.pred_evaluated,
             converged_trajectory=self.converged_trajectory,
             initial_traj=self.initial_traj,
+            last_traj=self.last_traj,
             tabletxt=self.tabletxt,
             timetxt=self.timetxt,
             seed=self.seed,
